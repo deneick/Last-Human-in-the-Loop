@@ -1,0 +1,25 @@
+{
+  "name": "last-human-in-the-loop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.42",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "latest",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "vitest": "latest"
+  }
+}
