@@ -1,6 +1,8 @@
 import type { WorldState } from "./types";
 import type { CommandHandler, CommandResult, CommandRequest } from "./commands";
 import { isHospitalOverloaded, isHospitalUnsafeForP2Trauma } from "./selectors";
+import type { RoutingPlan } from "./routingPlan";
+import { createRoutingPlan, validateRoutingPlan } from "./routingPlan";
 import { CommandRegistry } from "./commands";
 
 const REGION_ALIASES: Record<string, string> = {
@@ -19,23 +21,33 @@ function resolveRegionId(value: string): string | null {
   return null;
 }
 
-function buildErrorResult(request: CommandRequest, message: string): CommandResult {
+function buildErrorResult(
+  request: CommandRequest,
+  message: string,
+  effect: CommandResult["effect"] = "read_only",
+  readOnly = effect === "read_only"
+): CommandResult {
   return {
     success: false,
     command: request,
-    effect: "read_only",
-    readOnly: true,
+    effect,
+    readOnly,
     output: null,
     error: message,
   };
 }
 
-function buildSuccessResult(request: CommandRequest, output: unknown): CommandResult {
+function buildSuccessResult(
+  request: CommandRequest,
+  output: unknown,
+  effect: CommandResult["effect"] = "read_only",
+  readOnly = effect === "read_only"
+): CommandResult {
   return {
     success: true,
     command: request,
-    effect: "read_only",
-    readOnly: true,
+    effect,
+    readOnly,
     output,
   };
 }
@@ -137,10 +149,62 @@ const incidentStatusHandler: CommandHandler = {
   },
 };
 
+const routingPlanCreateHandler: CommandHandler = {
+  commandName: "medical.routing.plan.create",
+  effect: "world_prepare",
+  handle(request: CommandRequest, state: WorldState) {
+    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
+    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
+
+    if (!incidentId) {
+      return buildErrorResult(request, "Missing required flag --incident <id>", "world_prepare", false);
+    }
+
+    if (!targetHospitalId) {
+      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_prepare", false);
+    }
+
+    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
+    return buildSuccessResult(request, plan, "world_prepare", false);
+  },
+};
+
+const routingPlanValidateHandler: CommandHandler = {
+  commandName: "medical.routing.plan.validate",
+  effect: "world_prepare",
+  handle(request: CommandRequest, state: WorldState) {
+    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
+    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
+
+    if (!incidentId) {
+      return buildErrorResult(request, "Missing required flag --incident <id>", "world_prepare", false);
+    }
+
+    if (!targetHospitalId) {
+      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_prepare", false);
+    }
+
+    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
+    const validation = validateRoutingPlan(state, plan);
+
+    return buildSuccessResult(
+      request,
+      {
+        plan,
+        validation,
+      },
+      "world_prepare",
+      false
+    );
+  },
+};
+
 export const medicalCommandHandlers: CommandHandler[] = [
   capacityListHandler,
   nodeInspectHandler,
   incidentStatusHandler,
+  routingPlanCreateHandler,
+  routingPlanValidateHandler,
 ];
 
 export function registerMedicalCommands(registry: CommandRegistry) {

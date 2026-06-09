@@ -127,4 +127,82 @@ describe("runtime permission engine", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("Permission denied");
   });
+
+  it("requires approval for routing plan create commands", () => {
+    const permissionState = createInitialPermissionState();
+    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
+    const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Requires approval");
+  });
+
+  it("allow_once permits a specific routing plan create command once", () => {
+    let permissionState = createInitialPermissionState();
+    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
+    permissionState = applyPermissionDecision(request, allow_once(request.name, "world_prepare"), permissionState);
+
+    const snapshot = JSON.stringify(initialWorldState);
+    const executionA = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+    expect(executionA.result.success).toBe(true);
+    expect(executionA.result.error).toBeUndefined();
+    expect(JSON.stringify(initialWorldState)).toBe(snapshot);
+    permissionState = executionA.permissionState;
+
+    const executionB = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+    expect(executionB.result.success).toBe(false);
+    expect(executionB.result.error).toContain("Requires approval");
+  });
+
+  it("routing plan create identifies hospital-east-09 as a valid plan", () => {
+    let permissionState = createInitialPermissionState();
+    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
+    permissionState = applyPermissionDecision(request, allow_once(request.name, "world_prepare"), permissionState);
+
+    const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+    expect(result.success).toBe(true);
+    expect(result.output).toMatchObject({
+      id: "ME-7741-hospital-east-09",
+      incidentId: "ME-7741",
+      targetHospitalId: "hospital-east-09",
+      status: "valid",
+    });
+    expect((result.output as any).risks).toEqual([]);
+  });
+
+  it("routing plan create detects hospital-east-07 as risky due to P2/TRAUMA mismatch", () => {
+    let permissionState = createInitialPermissionState();
+    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-07");
+    permissionState = applyPermissionDecision(request, allow_once(request.name, "world_prepare"), permissionState);
+
+    const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+    expect(result.success).toBe(true);
+    expect(result.output).toMatchObject({
+      targetHospitalId: "hospital-east-07",
+      status: "risky",
+    });
+    expect((result.output as any).risks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "capability_mismatch" }),
+      ])
+    );
+  });
+
+  it("routing plan create detects hospital-east-04 as risky due to overload", () => {
+    let permissionState = createInitialPermissionState();
+    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-04");
+    permissionState = applyPermissionDecision(request, allow_once(request.name, "world_prepare"), permissionState);
+
+    const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
+    expect(result.success).toBe(true);
+    expect(result.output).toMatchObject({
+      targetHospitalId: "hospital-east-04",
+      status: "risky",
+    });
+    expect((result.output as any).risks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "overload" }),
+      ])
+    );
+  });
 });
