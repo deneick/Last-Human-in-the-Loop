@@ -1,12 +1,13 @@
 import type { WorldState } from "./types";
 
-export type CommandEffectClass = "read_only";
+export type CommandEffectClass = "read_only" | "world_prepare" | "world_mutation";
 
 export type CommandRequest = {
   raw: string;
   name: string;
   args: string[];
   flags: Record<string, string | boolean>;
+  permissionClass?: CommandEffectClass;
 };
 
 export type CommandResult = {
@@ -58,7 +59,7 @@ export class CommandRegistry {
       ...result,
       command: request,
       effect: handler.effect,
-      readOnly: true,
+      readOnly: handler.effect === "read_only",
     };
   }
 
