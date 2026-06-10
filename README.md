@@ -17,6 +17,10 @@ Die Doku ist so strukturiert, dass sie später als Grundlage für die Implementi
 9. `08-worldstate-model.md` — objektiver medizinischer WorldState für Runde 1
 10. `09-command-state-transitions.md` — Command-Klassen und State-Deltas
 11. `10-engine-rules.md` — InitialState, Derived Rules, Tick-Logik, Todesfälle und Endbedingungen
+12. `11-implementation-plan.md` — technischer Bauplan für den ersten Vertical Slice
+13. `12-sector-agnostic-runtime-refactor.md` — sektoragnostische Runtime und Routing Overrides (aktueller Stand)
+
+Hinweis: `12-sector-agnostic-runtime-refactor.md` ersetzt den älteren `medical.routing.plan.*`-Flow aus den Dateien 09–11. Wo sich die Dokumente widersprechen, gilt Datei 12: Der WorldState liegt unter `domains.medical`, Incidents sind sektoragnostisch, und gespielt wird über manuelle Routing Overrides statt validierter Pläne.
 
 ## Zentrale Formel
 
@@ -40,7 +44,7 @@ Die Spieloberfläche und Texte sind auf Deutsch. Technische Commands bleiben bew
 
 ```text
 mcp add medical-east-mcp
-medical.routing.plan apply --plan ME-7741-R3 --ttl 45m
+medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA
 ```
 
 Permission-Optionen sind deutsch:
