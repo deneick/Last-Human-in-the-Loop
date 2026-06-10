@@ -1,7 +1,19 @@
-import type { WorldState } from "./types";
+import type { SectorId, WorldState } from "./types";
 import type { WorldStatePatch } from "./patch";
 
-export type CommandEffectClass = "read_only" | "world_prepare" | "world_mutation";
+export type CommandEffectClass = "read_only" | "capability_only" | "world_prepare" | "world_mutation";
+
+export type CommandActor = "player" | "aurora";
+
+/**
+ * Ausführungskontext eines Commands. Die Runtime weiß, wer den Command
+ * angestoßen hat — die Fachdomäne braucht dafür keine Sonderlogik.
+ */
+export type CommandExecutionContext = {
+  actor: CommandActor;
+};
+
+export const DEFAULT_EXECUTION_CONTEXT: CommandExecutionContext = { actor: "player" };
 
 export type CommandRequest = {
   raw: string;
@@ -23,8 +35,10 @@ export type CommandResult = {
 
 export type CommandHandler = {
   commandName: string;
+  /** Sektor, zu dem der Command fachlich gehört. Fehlt bei sektorneutralen Commands (z. B. mcp.add). */
+  sectorId?: SectorId;
   effect: CommandEffectClass;
-  handle: (request: CommandRequest, state: WorldState) => CommandResult;
+  handle: (request: CommandRequest, state: WorldState, context: CommandExecutionContext) => CommandResult;
 };
 
 export class CommandRegistry {
@@ -43,7 +57,11 @@ export class CommandRegistry {
     return this.handlers.get(commandName) ?? null;
   }
 
-  execute(request: CommandRequest, state: WorldState): CommandResult {
+  execute(
+    request: CommandRequest,
+    state: WorldState,
+    context: CommandExecutionContext = DEFAULT_EXECUTION_CONTEXT
+  ): CommandResult {
     const handler = this.getHandler(request.name);
     if (!handler) {
       return {
@@ -56,7 +74,7 @@ export class CommandRegistry {
       };
     }
 
-    const result = handler.handle(request, state);
+    const result = handler.handle(request, state, context);
     return {
       ...result,
       command: request,

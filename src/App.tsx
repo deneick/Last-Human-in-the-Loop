@@ -27,8 +27,9 @@ const COMMAND_EXAMPLES = [
   "medical.node.inspect hospital-east-07",
   "medical.node.inspect hospital-east-09",
   "medical.incident.status ME-7741",
-  "medical.routing.plan.create --incident ME-7741 --target hospital-east-09",
-  "medical.routing.plan.apply --incident ME-7741 --target hospital-east-09",
+  "medical.routing.override.list",
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA",
+  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
 ];
 
 function cloneInitialWorld() {
@@ -63,16 +64,20 @@ function App() {
     createInitialGameRuntimeState(cloneInitialWorld())
   );
   const [playerCommand, setPlayerCommand] = useState(COMMAND_EXAMPLES[0]);
-  const [auroraCommand, setAuroraCommand] = useState(COMMAND_EXAMPLES[5]);
+  const [auroraCommand, setAuroraCommand] = useState(COMMAND_EXAMPLES[6]);
   const [lastResult, setLastResult] = useState<CommandResult | null>(null);
 
   const incident = runtimeState.world.incidents["ME-7741"];
   const hospitals = ["hospital-east-04", "hospital-east-07", "hospital-east-09"]
-    .map((id) => runtimeState.world.hospitals[id])
+    .map((id) => runtimeState.world.domains.medical.hospitals[id])
     .filter(Boolean);
 
   const awaitingAuroraItem = runtimeState.auroraQueue.items.find(
     (item) => item.status === "awaiting_approval"
+  );
+
+  const activeOverrides = Object.entries(
+    runtimeState.world.domains.medical.routing.manual_overrides
   );
 
   function processAuroraFromState(state: GameRuntimeState): GameRuntimeState {
@@ -193,22 +198,49 @@ function App() {
       <section className="layout-grid">
         <aside className="panel">
           <h2>Incident</h2>
+          <p className="muted">{incident.title}</p>
           <dl className="facts">
             <dt>ID</dt>
             <dd>{incident.id}</dd>
             <dt>Status</dt>
             <dd className={`status status-${incident.status}`}>{incident.status}</dd>
-            <dt>Quelle</dt>
-            <dd>{incident.source_hospital_id}</dd>
-            <dt>Ziel</dt>
-            <dd>{incident.planned_target_hospital_id ?? "—"}</dd>
+            <dt>Sektor</dt>
+            <dd>{incident.sector_id}</dd>
+            <dt>Betroffen</dt>
+            <dd>{incident.affected_entities.map((ref) => ref.entity_id).join(", ") || "—"}</dd>
             <dt>Tick</dt>
             <dd>{runtimeState.world.clock.tick}</dd>
-            <dt>Safe Apply Ticks</dt>
-            <dd>{incident.ticks_since_safe_apply ?? "—"}</dd>
             <dt>Todesfälle</dt>
-            <dd>{runtimeState.world.patient_outcomes.deaths_total}</dd>
+            <dd>{runtimeState.world.domains.medical.outcomes.deaths_total}</dd>
+            <dt>Globales Risiko</dt>
+            <dd>{runtimeState.world.outcomes.global_risk}</dd>
           </dl>
+
+          <h3>Öffentliche Signale</h3>
+          <ul className="signal-list">
+            {incident.public_signals.map((signal) => (
+              <li key={signal.code}>{signal.message}</li>
+            ))}
+          </ul>
+
+          <h3>Aktive Routing Overrides</h3>
+          {activeOverrides.length === 0 ? (
+            <p className="muted">Keine aktiven Overrides.</p>
+          ) : (
+            <ul className="override-list">
+              {activeOverrides.map(([key, override]) => (
+                <li key={key}>
+                  <code>
+                    {override.source_hospital_id} → {override.target_hospital_id}
+                  </code>
+                  <small>
+                    {override.priority}/{override.capability} · seit Tick{" "}
+                    {override.active_since_tick} · {override.created_by}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2>Hospitals</h2>
           <div className="hospital-list">

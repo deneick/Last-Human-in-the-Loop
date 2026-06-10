@@ -1,4 +1,11 @@
-import type { CommandEffectClass, CommandRequest, CommandRegistry, CommandResult } from "./commands";
+import type {
+  CommandEffectClass,
+  CommandExecutionContext,
+  CommandRequest,
+  CommandRegistry,
+  CommandResult,
+} from "./commands";
+import { DEFAULT_EXECUTION_CONTEXT } from "./commands";
 import type { WorldState } from "./types";
 
 export type PermissionStatus = "allowed" | "denied" | "requires_approval";
@@ -61,6 +68,7 @@ export type PermissionRule = {
 
 const DEFAULT_PERMISSION_RULES: Record<CommandEffectClass, PermissionRule> = {
   read_only: { permissionClass: "read_only", defaultStatus: allowed() },
+  capability_only: { permissionClass: "capability_only", defaultStatus: requires_approval() },
   world_prepare: { permissionClass: "world_prepare", defaultStatus: requires_approval() },
   world_mutation: { permissionClass: "world_mutation", defaultStatus: requires_approval() },
 };
@@ -112,7 +120,8 @@ export function executeCommandWithPermissions(
   request: CommandRequest,
   registry: CommandRegistry,
   state: WorldState,
-  permissionState: PermissionState
+  permissionState: PermissionState,
+  context: CommandExecutionContext = DEFAULT_EXECUTION_CONTEXT
 ): { result: CommandResult; permissionState: PermissionState } {
   const handler = registry.getHandler(request.name);
   if (!handler) {
@@ -163,7 +172,7 @@ export function executeCommandWithPermissions(
     };
   }
 
-  const result = registry.execute(requestWithClass, state);
+  const result = registry.execute(requestWithClass, state, context);
   return {
     result,
     permissionState,

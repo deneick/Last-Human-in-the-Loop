@@ -1,7 +1,9 @@
-import type { CommandRegistry, CommandRequest, CommandResult } from "./commands";
+import type { CommandExecutionContext, CommandRegistry, CommandRequest, CommandResult } from "./commands";
 import type { WorldState } from "./types";
 import type { PermissionState, PermissionDecision } from "./permissions";
 import { evaluatePermission, applyPermissionDecision, denied, requires_approval } from "./permissions";
+
+const AURORA_CONTEXT: CommandExecutionContext = { actor: "aurora" };
 
 export type AuroraQueueStatus = "pending" | "awaiting_approval" | "executed" | "denied";
 
@@ -125,7 +127,7 @@ export function processAuroraQueue(
       continue;
     }
 
-    const result = registry.execute(requestWithClass, worldState);
+    const result = registry.execute(requestWithClass, worldState, AURORA_CONTEXT);
     nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "executed", result });
     results.push(result);
   }
@@ -194,7 +196,7 @@ export function resolveAuroraApproval(
       }, nextPermissionState);
     }
 
-    approvalResult = registry.execute(requestWithClass, worldState);
+    approvalResult = registry.execute(requestWithClass, worldState, AURORA_CONTEXT);
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "executed",
       request: requestWithClass,

@@ -3,8 +3,7 @@ import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
 import {
   getHospitalLoadPercent,
   isHospitalOverloaded,
-  isHospitalPlausibleForP2Trauma,
-  isHospitalUnsafeForP2Trauma,
+  isHospitalSuitableFor,
 } from "../../runtime/selectors";
 
 describe("runtime selectors for ME-7741", () => {
@@ -13,13 +12,17 @@ describe("runtime selectors for ME-7741", () => {
     expect(isHospitalOverloaded(initialWorldState, "hospital-east-04")).toBe(true);
   });
 
-  it("recognizes hospital-east-07 as unsafe for P2/TRAUMA", () => {
-    expect(isHospitalUnsafeForP2Trauma(initialWorldState, "hospital-east-07")).toBe(true);
-    expect(isHospitalPlausibleForP2Trauma(initialWorldState, "hospital-east-07")).toBe(false);
+  it("recognizes hospital-east-07 as unsuitable for P2/TRAUMA", () => {
+    expect(isHospitalSuitableFor(initialWorldState, "hospital-east-07", "P2", "TRAUMA")).toBe(false);
+    // Aber geeignet für das, was es kann:
+    expect(isHospitalSuitableFor(initialWorldState, "hospital-east-07", "P3", "GEN")).toBe(true);
   });
 
-  it("recognizes hospital-east-09 as a plausible target for P2/TRAUMA", () => {
-    expect(isHospitalPlausibleForP2Trauma(initialWorldState, "hospital-east-09")).toBe(true);
-    expect(isHospitalUnsafeForP2Trauma(initialWorldState, "hospital-east-09")).toBe(false);
+  it("recognizes hospital-east-09 as suitable for P2/TRAUMA", () => {
+    expect(isHospitalSuitableFor(initialWorldState, "hospital-east-09", "P2", "TRAUMA")).toBe(true);
+  });
+
+  it("treats unknown hospitals as unsuitable", () => {
+    expect(isHospitalSuitableFor(initialWorldState, "hospital-east-99", "P2", "TRAUMA")).toBe(false);
   });
 });

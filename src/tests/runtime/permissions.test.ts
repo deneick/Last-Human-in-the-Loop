@@ -114,19 +114,23 @@ describe("runtime permission engine", () => {
     expect(result.error).toContain("Requires approval");
   });
 
-  it("requires approval for routing plan create commands", () => {
+  it("requires approval for routing override set commands", () => {
     const permissionState = createInitialPermissionState();
-    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
+    const request = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    );
     const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Requires approval");
   });
 
-  it("allow_always permits routing plan create commands", () => {
+  it("allow_always permits routing override set commands", () => {
     let permissionState = createInitialPermissionState();
-    const request = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
-    permissionState = applyPermissionDecision(request, allow_always("world_prepare"), permissionState);
+    const request = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    );
+    permissionState = applyPermissionDecision(request, allow_always("world_mutation"), permissionState);
 
     const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
     expect(result.success).toBe(true);
