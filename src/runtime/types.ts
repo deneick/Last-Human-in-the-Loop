@@ -155,11 +155,22 @@ export type TransportState = {
   active: boolean;
 };
 
+/**
+ * Manuelle Routing-Override-Regel. Der Key im manual_overrides-Record
+ * ergibt sich aus source_hospital_id + priority + capability,
+ * z. B. "hospital-east-04:P2:TRAUMA".
+ */
+export type ManualRoutingOverride = {
+  source_hospital_id: HospitalId;
+  target_hospital_id: HospitalId;
+  priority: PriorityClass;
+  capability: ClinicalCapability;
+  active_since_tick: number;
+  created_by: "player" | "aurora";
+};
+
 export type MedicalRoutingState = {
-  active_profile: string;
-  override: {
-    exclude_active_transports: boolean;
-  };
+  manual_overrides: Record<string, ManualRoutingOverride>;
 };
 
 /**
@@ -170,7 +181,7 @@ export type MedicalDomainState = {
   regions: Record<MedicalRegionId, MedicalRegionState>;
   hospitals: Record<HospitalId, HospitalState>;
   transports: Record<TransportId, TransportState>;
-  routing: Record<MedicalRegionId, MedicalRoutingState>;
+  routing: MedicalRoutingState;
   outcomes: PatientOutcomeState;
 };
 

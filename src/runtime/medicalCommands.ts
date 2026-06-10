@@ -1,10 +1,32 @@
-import type { WorldState } from "./types";
-import type { CommandHandler, CommandResult, CommandRequest } from "./commands";
+import type { ClinicalCapability, PriorityClass, WorldState } from "./types";
+import type { CommandExecutionContext, CommandHandler, CommandResult, CommandRequest } from "./commands";
 import { isHospitalOverloaded, isHospitalUnsafeForP2Trauma } from "./selectors";
-import type { RoutingPlan } from "./routingPlan";
 import { createRoutingPlan, validateRoutingPlan } from "./routingPlan";
 import { applyRoutingPlan } from "./routingApply";
 import { CommandRegistry } from "./commands";
+
+const KNOWN_PRIORITIES: PriorityClass[] = ["P1", "P2", "P3", "P4"];
+const KNOWN_CAPABILITIES: ClinicalCapability[] = ["GEN", "TRAUMA", "NEURO", "PED"];
+
+export function routingOverrideKey(
+  sourceHospitalId: string,
+  priority: PriorityClass,
+  capability: ClinicalCapability
+): string {
+  return `${sourceHospitalId}:${priority}:${capability}`;
+}
+
+function parsePriority(value: unknown): PriorityClass | null {
+  return typeof value === "string" && KNOWN_PRIORITIES.includes(value as PriorityClass)
+    ? (value as PriorityClass)
+    : null;
+}
+
+function parseCapability(value: unknown): ClinicalCapability | null {
+  return typeof value === "string" && KNOWN_CAPABILITIES.includes(value as ClinicalCapability)
+    ? (value as ClinicalCapability)
+    : null;
+}
 
 const REGION_ALIASES: Record<string, string> = {
   east: "medical-east",
@@ -55,6 +77,7 @@ function buildSuccessResult(
 
 const capacityListHandler: CommandHandler = {
   commandName: "medical.capacity.list",
+  sectorId: "medical",
   effect: "read_only",
   handle(request: CommandRequest, state: WorldState) {
     const regionValue = request.flags.region;
@@ -95,6 +118,7 @@ const capacityListHandler: CommandHandler = {
 
 const nodeInspectHandler: CommandHandler = {
   commandName: "medical.node.inspect",
+  sectorId: "medical",
   effect: "read_only",
   handle(request: CommandRequest, state: WorldState) {
     const hospitalId = request.args[0];
@@ -127,6 +151,7 @@ const nodeInspectHandler: CommandHandler = {
 
 const incidentStatusHandler: CommandHandler = {
   commandName: "medical.incident.status",
+  sectorId: "medical",
   effect: "read_only",
   handle(request: CommandRequest, state: WorldState) {
     const incidentId = request.args[0];
@@ -156,6 +181,7 @@ const incidentStatusHandler: CommandHandler = {
 
 const routingPlanCreateHandler: CommandHandler = {
   commandName: "medical.routing.plan.create",
+  sectorId: "medical",
   effect: "world_prepare",
   handle(request: CommandRequest, state: WorldState) {
     const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
@@ -176,6 +202,7 @@ const routingPlanCreateHandler: CommandHandler = {
 
 const routingPlanValidateHandler: CommandHandler = {
   commandName: "medical.routing.plan.validate",
+  sectorId: "medical",
   effect: "world_prepare",
   handle(request: CommandRequest, state: WorldState) {
     const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
@@ -206,6 +233,7 @@ const routingPlanValidateHandler: CommandHandler = {
 
 const routingPlanApplyHandler: CommandHandler = {
   commandName: "medical.routing.plan.apply",
+  sectorId: "medical",
   effect: "world_mutation",
   handle(request: CommandRequest, state: WorldState) {
     const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
@@ -237,10 +265,149 @@ const routingPlanApplyHandler: CommandHandler = {
   },
 };
 
+const routingOverrideSetHandler: CommandHandler = {
+  commandName: "medical.routing.override.set",
+  sectorId: "medical",
+  effect: "world_mutation",
+  handle(request: CommandRequest, state: WorldState, context: CommandExecutionContext) {
+    const source = typeof request.flags.source === "string" ? request.flags.source : null;
+    const target = typeof request.flags.target === "string" ? request.flags.target : null;
+    const priority = parsePriority(request.flags.priority);
+    const capability = parseCapability(request.flags.capability);
+
+    if (!source) {
+      return buildErrorResult(request, "Missing required flag --source <hospitalId>", "world_mutation");
+    }
+    if (!target) {
+      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_mutation");
+    }
+    if (!priority) {
+      return buildErrorResult(request, `Unknown or missing --priority (expected ${KNOWN_PRIORITIES.join("|")})`, "world_mutation");
+    }
+    if (!capability) {
+      return buildErrorResult(request, `Unknown or missing --capability (expected ${KNOWN_CAPABILITIES.join("|")})`, "world_mutation");
+    }
+
+    // Nur technische Validierung: Existenz und Syntax.
+    // Ob das Ziel fachlich geeignet ist, entscheidet später die Simulation.
+    if (!state.domains.medical.hospitals[source]) {
+      return buildErrorResult(request, `Source hospital not found: ${source}`, "world_mutation");
+    }
+    if (!state.domains.medical.hospitals[target]) {
+      return buildErrorResult(request, `Target hospital not found: ${target}`, "world_mutation");
+    }
+
+    const key = routingOverrideKey(source, priority, capability);
+    const override = {
+      source_hospital_id: source,
+      target_hospital_id: target,
+      priority,
+      capability,
+      active_since_tick: state.clock.tick,
+      created_by: context.actor,
+    };
+
+    return {
+      success: true,
+      command: request,
+      effect: "world_mutation",
+      readOnly: false,
+      output: {
+        key,
+        override,
+        summary: `Manual routing override ${key} -> ${target} set.`,
+      },
+      patch: [
+        {
+          op: "set",
+          path: ["domains", "medical", "routing", "manual_overrides", key],
+          value: override,
+        },
+      ],
+    };
+  },
+};
+
+const routingOverrideClearHandler: CommandHandler = {
+  commandName: "medical.routing.override.clear",
+  sectorId: "medical",
+  effect: "world_mutation",
+  handle(request: CommandRequest, state: WorldState) {
+    const source = typeof request.flags.source === "string" ? request.flags.source : null;
+    const priority = parsePriority(request.flags.priority);
+    const capability = parseCapability(request.flags.capability);
+
+    if (!source) {
+      return buildErrorResult(request, "Missing required flag --source <hospitalId>", "world_mutation");
+    }
+    if (!priority) {
+      return buildErrorResult(request, `Unknown or missing --priority (expected ${KNOWN_PRIORITIES.join("|")})`, "world_mutation");
+    }
+    if (!capability) {
+      return buildErrorResult(request, `Unknown or missing --capability (expected ${KNOWN_CAPABILITIES.join("|")})`, "world_mutation");
+    }
+
+    const key = routingOverrideKey(source, priority, capability);
+    const existing = state.domains.medical.routing.manual_overrides[key];
+
+    // Idempotent: Clear ohne bestehende Regel ist kein Fehler.
+    if (!existing) {
+      return buildSuccessResult(
+        request,
+        {
+          key,
+          removed: false,
+          message: `No manual routing override existed for key ${key}`,
+        },
+        "world_mutation"
+      );
+    }
+
+    return {
+      success: true,
+      command: request,
+      effect: "world_mutation",
+      readOnly: false,
+      output: {
+        key,
+        removed: true,
+        summary: `Manual routing override ${key} cleared.`,
+      },
+      patch: [
+        {
+          op: "unset",
+          path: ["domains", "medical", "routing", "manual_overrides", key],
+        },
+      ],
+    };
+  },
+};
+
+const routingOverrideListHandler: CommandHandler = {
+  commandName: "medical.routing.override.list",
+  sectorId: "medical",
+  effect: "read_only",
+  handle(request: CommandRequest, state: WorldState) {
+    const sourceFilter = typeof request.flags.source === "string" ? request.flags.source : null;
+
+    const overrides = Object.entries(state.domains.medical.routing.manual_overrides)
+      .filter(([, override]) => !sourceFilter || override.source_hospital_id === sourceFilter)
+      .map(([key, override]) => ({ key, ...override }));
+
+    return buildSuccessResult(request, {
+      count: overrides.length,
+      overrides,
+    });
+  },
+};
+
 export const medicalCommandHandlers: CommandHandler[] = [
   capacityListHandler,
   nodeInspectHandler,
   incidentStatusHandler,
+  routingOverrideSetHandler,
+  routingOverrideClearHandler,
+  routingOverrideListHandler,
   routingPlanCreateHandler,
   routingPlanValidateHandler,
   routingPlanApplyHandler,

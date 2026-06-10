@@ -145,12 +145,7 @@ export const initialWorldState: WorldState = {
       },
       transports: {},
       routing: {
-        "medical-east": {
-          active_profile: "DISTANCE_PRIORITY",
-          override: {
-            exclude_active_transports: false,
-          },
-        },
+        manual_overrides: {},
       },
       outcomes: {
         deaths_total: 0,

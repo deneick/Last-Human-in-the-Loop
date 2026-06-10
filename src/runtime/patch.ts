@@ -15,6 +15,10 @@ export type PatchOperation =
       op: "append";
       path: Array<string | number>;
       value: unknown;
+    }
+  | {
+      op: "unset";
+      path: Array<string | number>;
     };
 
 export type WorldStatePatch = PatchOperation[];
@@ -38,6 +42,39 @@ function cloneValue(value: unknown): unknown {
     return { ...(value as Record<string, unknown>) };
   }
   return value;
+}
+
+function unsetIn(target: unknown, path: Array<string | number>): unknown {
+  if (path.length === 0 || target == null || typeof target !== "object") {
+    return target;
+  }
+
+  const [key, ...rest] = path;
+
+  if (rest.length === 0) {
+    if (Array.isArray(target)) {
+      return target.filter((_, index) => index !== key);
+    }
+    const { [key as string]: _removed, ...remaining } = target as Record<string, unknown>;
+    return remaining;
+  }
+
+  const current = (target as Record<string, unknown>)[key as string];
+  if (current == null) {
+    return target;
+  }
+
+  const nextSub = unsetIn(current, rest);
+  if (Array.isArray(target)) {
+    const nextArray = [...target];
+    nextArray[key as number] = nextSub;
+    return nextArray;
+  }
+
+  return {
+    ...(target as Record<string, unknown>),
+    [key as string]: nextSub,
+  };
 }
 
 function setIn(target: unknown, path: Array<string | number>, value: unknown): unknown {
@@ -87,6 +124,9 @@ export function applyWorldStatePatch(state: WorldState, patch: WorldStatePatch):
         const currentValue = getAtPath(currentState, operation.path);
         const nextArray = Array.isArray(currentValue) ? [...currentValue, operation.value] : [operation.value];
         return setIn(currentState, operation.path, nextArray) as WorldState;
+      }
+      case "unset": {
+        return unsetIn(currentState, operation.path) as WorldState;
       }
       default:
         return currentState;
