@@ -27,8 +27,9 @@ const COMMAND_EXAMPLES = [
   "medical.node.inspect hospital-east-07",
   "medical.node.inspect hospital-east-09",
   "medical.incident.status ME-7741",
-  "medical.routing.plan.create --incident ME-7741 --target hospital-east-09",
-  "medical.routing.plan.apply --incident ME-7741 --target hospital-east-09",
+  "medical.routing.override.list",
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA",
+  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
 ];
 
 function cloneInitialWorld() {
@@ -63,7 +64,7 @@ function App() {
     createInitialGameRuntimeState(cloneInitialWorld())
   );
   const [playerCommand, setPlayerCommand] = useState(COMMAND_EXAMPLES[0]);
-  const [auroraCommand, setAuroraCommand] = useState(COMMAND_EXAMPLES[5]);
+  const [auroraCommand, setAuroraCommand] = useState(COMMAND_EXAMPLES[6]);
   const [lastResult, setLastResult] = useState<CommandResult | null>(null);
 
   const incident = runtimeState.world.incidents["ME-7741"];
@@ -202,12 +203,8 @@ function App() {
             <dd>{incident.sector_id}</dd>
             <dt>Betroffen</dt>
             <dd>{incident.affected_entities.map((ref) => ref.entity_id).join(", ") || "—"}</dd>
-            <dt>Ziel</dt>
-            <dd>{incident.planned_target_hospital_id ?? "—"}</dd>
             <dt>Tick</dt>
             <dd>{runtimeState.world.clock.tick}</dd>
-            <dt>Safe Apply Ticks</dt>
-            <dd>{incident.ticks_since_safe_apply ?? "—"}</dd>
             <dt>Todesfälle</dt>
             <dd>{runtimeState.world.domains.medical.outcomes.deaths_total}</dd>
           </dl>

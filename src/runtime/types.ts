@@ -130,11 +130,6 @@ export type IncidentState = {
 
   unsafe_action_count: number;
   safe_action_count: number;
-
-  /** @deprecated Übergangsfeld des alten Plan-Flows; entfällt mit dem Override-Refactor. */
-  ticks_since_safe_apply?: number | null;
-  /** @deprecated Übergangsfeld des alten Plan-Flows; entfällt mit dem Override-Refactor. */
-  planned_target_hospital_id?: string;
 };
 
 export type PatientOutcomeState = {
@@ -214,8 +209,18 @@ export type RoutingFailure = {
   severity: "moderate" | "critical";
 };
 
+/**
+ * Internes Abrechnungsbuch der OutcomeEngine pro Hospital.
+ * Verhindert doppelte Todesfälle bei mehrfacher Auswertung.
+ */
+export type RecordedDeaths = {
+  overload: number;
+  capability_mismatch: number;
+};
+
 export type MedicalSimulationState = {
   routing_failures: RoutingFailure[];
+  deaths_recorded: Record<HospitalId, RecordedDeaths>;
 };
 
 export type CrossSectorEffectLogEntry = {

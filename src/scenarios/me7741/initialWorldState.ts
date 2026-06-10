@@ -202,7 +202,6 @@ export const initialWorldState: WorldState = {
       ],
       unsafe_action_count: 0,
       safe_action_count: 0,
-      ticks_since_safe_apply: null,
     },
   },
   outcomes: {
@@ -215,7 +214,35 @@ export const initialWorldState: WorldState = {
   },
   simulation: {
     medical: {
-      routing_failures: [],
+      routing_failures: [
+        {
+          id: "rf-me7741-p2-trauma",
+          incident_id: "ME-7741",
+          affected_hospital_id: "hospital-east-04",
+          priority: "P2",
+          capability: "TRAUMA",
+          excess_cases_per_tick: 8,
+          overflow_cases: 18,
+          clearance_per_tick: 2,
+          stable_ticks: 0,
+          mismatch_ticks: 0,
+          severity: "critical",
+        },
+        {
+          id: "rf-me7741-p3-general",
+          incident_id: "ME-7741",
+          affected_hospital_id: "hospital-east-04",
+          priority: "P3",
+          capability: "GEN",
+          excess_cases_per_tick: 4,
+          overflow_cases: 10,
+          clearance_per_tick: 3,
+          stable_ticks: 0,
+          mismatch_ticks: 0,
+          severity: "moderate",
+        },
+      ],
+      deaths_recorded: {},
     },
     cross_sector: {
       effects_applied: [],

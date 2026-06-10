@@ -4,21 +4,34 @@ import { CommandRegistry } from "../../runtime/commands";
 import { registerMedicalCommands } from "../../runtime/medicalCommands";
 import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
 import { executePlayerCommand } from "../../runtime/runtimeExecutor";
-import { advanceTick } from "../../runtime/tickEngine";
+import { advanceTick, applyCrossSectorEffects, tickWorld } from "../../runtime/tickEngine";
 
 const registry = new CommandRegistry();
 registerMedicalCommands(registry);
 
+const SAFE_OVERRIDE =
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
+const WRONG_OVERRIDE =
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
+const SELF_OVERRIDE =
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-04 --priority P2 --capability TRAUMA";
+
+function criticalFailure(state: ReturnType<typeof createInitialGameRuntimeState>) {
+  return state.world.simulation.medical.routing_failures.find((f) => f.id === "rf-me7741-p2-trauma")!;
+}
+
 describe("tick engine deterministic simulation", () => {
-  it("advances world clock tick by 1", () => {
+  it("advances world clock tick and elapsed minutes", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
     expect(runtimeState.world.clock.tick).toBe(0);
 
     const nextState = advanceTick(runtimeState);
     expect(nextState.world.clock.tick).toBe(1);
+    expect(nextState.world.clock.elapsed_minutes).toBe(10);
 
     const nextNextState = advanceTick(nextState);
     expect(nextNextState.world.clock.tick).toBe(2);
+    expect(nextNextState.world.clock.elapsed_minutes).toBe(20);
   });
 
   it("preserves original runtime state when advancing tick", () => {
@@ -40,99 +53,130 @@ describe("tick engine deterministic simulation", () => {
     expect(runtimeState.auditLog[0].command.name).toBe("system.tick");
     expect(runtimeState.auditLog[0].success).toBe(true);
     expect(runtimeState.auditLog[0].message).toContain("Tick 1");
+  });
+
+  it("grows overflow and overload ticks while no override controls the critical failure", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(18);
 
     runtimeState = advanceTick(runtimeState);
-    expect(runtimeState.auditLog).toHaveLength(2);
-    expect(runtimeState.auditLog[1].message).toContain("Tick 2");
+
+    // excess 8 - clearance 2 = +6 overflow per uncontrolled tick
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(24);
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(0);
+
+    const source = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
+    expect(source.risk_counters?.overload_ticks).toBe(1);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(30);
+    expect(
+      runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
+    ).toBe(2);
   });
 
-  it("increases overload_ticks for overloaded hospital-east-04", () => {
-    const runtimeState = createInitialGameRuntimeState(initialWorldState);
-
-    // Hospital-east-04 is overloaded: 118/100 = 118%
-    const hospital04Before = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
-    const overloadTicksBefore = hospital04Before.risk_counters?.overload_ticks ?? 0;
-    expect(overloadTicksBefore).toBe(0);
-
-    const nextState = advanceTick(runtimeState);
-
-    const hospital04After = nextState.world.domains.medical.hospitals["hospital-east-04"];
-    const overloadTicksAfter = hospital04After.risk_counters?.overload_ticks ?? 0;
-    expect(overloadTicksAfter).toBe(overloadTicksBefore + 1);
-  });
-
-  it("resets overload_ticks for non-overloaded hospital-east-09", () => {
-    const runtimeState = createInitialGameRuntimeState(initialWorldState);
-
-    // Hospital-east-09 is NOT overloaded: 40/54 = 74%
-    const hospital09Before = runtimeState.world.domains.medical.hospitals["hospital-east-09"];
-    expect(hospital09Before.risk_counters?.overload_ticks ?? 0).toBe(0);
-
-    const nextState = advanceTick(runtimeState);
-
-    const hospital09After = nextState.world.domains.medical.hospitals["hospital-east-09"];
-    expect(hospital09After.risk_counters?.overload_ticks ?? 0).toBe(0);
-  });
-
-  it("keeps opened_at_tick stable so incident age is derivable from the clock", () => {
-    const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const incidentBefore = runtimeState.world.incidents["ME-7741"];
-    expect(incidentBefore.opened_at_tick).toBe(0);
-
-    let nextState = advanceTick(runtimeState);
-    nextState = advanceTick(nextState);
-
-    const incidentAfter = nextState.world.incidents["ME-7741"];
-    expect(incidentAfter.opened_at_tick).toBe(0);
-    expect(nextState.world.clock.tick - incidentAfter.opened_at_tick).toBe(2);
-  });
-
-  it("does not advance ticks_since_safe_apply when it is null", () => {
-    const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const incidentBefore = runtimeState.world.incidents["ME-7741"];
-    expect(incidentBefore.ticks_since_safe_apply).toBe(null);
-
-    const nextState = advanceTick(runtimeState);
-    expect(nextState.world.incidents["ME-7741"].ticks_since_safe_apply).toBe(null);
-  });
-
-  it("transitions incident to fixed after applying routing plan and sufficient ticks", () => {
+  it("does not let the moderate routing failure drive overload pressure", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
 
-    // Apply routing plan
+    runtimeState = advanceTick(runtimeState);
+
+    // Critical failure is controlled, moderate stays uncontrolled,
+    // but only critical failures generate overload ticks.
+    expect(
+      runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
+    ).toBe(0);
+  });
+
+  it("reduces overflow and accumulates stable ticks with a suitable override", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(16);
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(1);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(14);
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(2);
+  });
+
+  it("transitions incident open -> stabilizing -> fixed with a suitable override", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
+
+    for (let i = 0; i < 8; i++) {
+      runtimeState = advanceTick(runtimeState);
+    }
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(9);
+
+    runtimeState = advanceTick(runtimeState);
+    const incident = runtimeState.world.incidents["ME-7741"];
+    expect(incident.status).toBe("fixed");
+    expect(incident.fixed_at_tick).toBe(10);
+  });
+
+  it("treats an unsuitable override target as capability mismatch", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE);
+
+    runtimeState = advanceTick(runtimeState);
+
+    const failure = criticalFailure(runtimeState);
+    expect(failure.mismatch_ticks).toBe(1);
+    expect(failure.stable_ticks).toBe(0);
+
+    const wrongTarget = runtimeState.world.domains.medical.hospitals["hospital-east-07"];
+    expect(wrongTarget.risk_counters?.capability_mismatch_ticks).toBe(1);
+
+    // Quelle wird teilweise entlastet: kein weiterer Overload-Druck.
+    const source = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
+    expect(source.risk_counters?.overload_ticks).toBe(0);
+
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("open");
+  });
+
+  it("treats a self-override like no improvement", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, SELF_OVERRIDE);
+
+    runtimeState = advanceTick(runtimeState);
+
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(24);
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(0);
+    expect(
+      runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
+    ).toBe(1);
+  });
+
+  it("regresses incident from stabilizing to open when the override is cleared", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = advanceTick(runtimeState);
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
+
     runtimeState = executePlayerCommand(
       runtimeState,
       registry,
-      "medical.routing.plan.apply --incident ME-7741 --target hospital-east-09"
+      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
     );
-
-    const incidentAfterApply = runtimeState.world.incidents["ME-7741"];
-    expect(incidentAfterApply.status).toBe("stabilizing");
-    expect(incidentAfterApply.planned_target_hospital_id).toBe("hospital-east-09");
-    expect(incidentAfterApply.ticks_since_safe_apply).toBe(0);
-    expect(incidentAfterApply.fixed_at_tick).toBeUndefined();
-
-    // Advance ticks until stabilization threshold
-    for (let i = 0; i < 9; i++) {
-      runtimeState = advanceTick(runtimeState);
-    }
-
-    const incidentBefore10Ticks = runtimeState.world.incidents["ME-7741"];
-    expect(incidentBefore10Ticks.status).toBe("stabilizing");
-    expect(incidentBefore10Ticks.ticks_since_safe_apply).toBe(9);
-
-    // One more tick should trigger fixed
     runtimeState = advanceTick(runtimeState);
 
-    const incidentAfter10Ticks = runtimeState.world.incidents["ME-7741"];
-    expect(incidentAfter10Ticks.status).toBe("fixed");
-    expect(incidentAfter10Ticks.ticks_since_safe_apply).toBe(10);
-    expect(incidentAfter10Ticks.fixed_at_tick).toBe(10);
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("open");
+    expect(criticalFailure(runtimeState).stable_ticks).toBe(0);
   });
 
-  it("does not use Math.random, Date.now, new Date, or crypto", () => {
-    // This is a logic test - if advanceTick completes deterministically
-    // for identical input twice, we know it doesn't use randomness/time
+  it("applyCrossSectorEffects is a deterministic no-op for the MVP", () => {
+    const world = tickWorld(initialWorldState);
+    expect(applyCrossSectorEffects(world)).toBe(world);
+    expect(world.simulation.cross_sector.effects_applied).toHaveLength(0);
+  });
+
+  it("runs the full pipeline deterministically (no randomness, no real time)", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
 
     const resultA = advanceTick(runtimeState);
@@ -152,17 +196,14 @@ describe("tick engine deterministic simulation", () => {
   it("allows player to execute commands between ticks", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
 
-    // Tick 1
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.clock.tick).toBe(1);
     expect(runtimeState.auditLog).toHaveLength(1);
 
-    // Player command
     runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09");
     expect(runtimeState.auditLog).toHaveLength(2);
     expect(runtimeState.auditLog[1].source).toBe("player");
 
-    // Tick 2
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.clock.tick).toBe(2);
     expect(runtimeState.auditLog).toHaveLength(3);
@@ -178,13 +219,8 @@ describe("tick engine deterministic simulation", () => {
     runtimeState = advanceTick(runtimeState);
     runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09");
     runtimeState = advanceTick(runtimeState);
-    runtimeState = executePlayerCommand(
-      runtimeState,
-      registry,
-      "medical.routing.plan.apply --incident ME-7741 --target hospital-east-09"
-    );
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
 
-    // Original should not have changed
     expect(JSON.stringify(initialRuntimeState)).toBe(initialSnapshot);
   });
 
@@ -194,7 +230,6 @@ describe("tick engine deterministic simulation", () => {
 
     advanceTick(runtimeState);
 
-    // The original runtimeState.world reference should not change
     expect(runtimeState.world).toBe(worldBefore);
   });
 });

@@ -1,8 +1,6 @@
 import type { ClinicalCapability, PriorityClass, WorldState } from "./types";
 import type { CommandExecutionContext, CommandHandler, CommandResult, CommandRequest } from "./commands";
 import { isHospitalOverloaded, isHospitalUnsafeForP2Trauma } from "./selectors";
-import { createRoutingPlan, validateRoutingPlan } from "./routingPlan";
-import { applyRoutingPlan } from "./routingApply";
 import { CommandRegistry } from "./commands";
 
 const KNOWN_PRIORITIES: PriorityClass[] = ["P1", "P2", "P3", "P4"];
@@ -179,92 +177,6 @@ const incidentStatusHandler: CommandHandler = {
   },
 };
 
-const routingPlanCreateHandler: CommandHandler = {
-  commandName: "medical.routing.plan.create",
-  sectorId: "medical",
-  effect: "world_prepare",
-  handle(request: CommandRequest, state: WorldState) {
-    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
-    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
-
-    if (!incidentId) {
-      return buildErrorResult(request, "Missing required flag --incident <id>", "world_prepare", false);
-    }
-
-    if (!targetHospitalId) {
-      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_prepare", false);
-    }
-
-    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
-    return buildSuccessResult(request, plan, "world_prepare", false);
-  },
-};
-
-const routingPlanValidateHandler: CommandHandler = {
-  commandName: "medical.routing.plan.validate",
-  sectorId: "medical",
-  effect: "world_prepare",
-  handle(request: CommandRequest, state: WorldState) {
-    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
-    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
-
-    if (!incidentId) {
-      return buildErrorResult(request, "Missing required flag --incident <id>", "world_prepare", false);
-    }
-
-    if (!targetHospitalId) {
-      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_prepare", false);
-    }
-
-    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
-    const validation = validateRoutingPlan(state, plan);
-
-    return buildSuccessResult(
-      request,
-      {
-        plan,
-        validation,
-      },
-      "world_prepare",
-      false
-    );
-  },
-};
-
-const routingPlanApplyHandler: CommandHandler = {
-  commandName: "medical.routing.plan.apply",
-  sectorId: "medical",
-  effect: "world_mutation",
-  handle(request: CommandRequest, state: WorldState) {
-    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
-    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
-
-    if (!incidentId) {
-      return buildErrorResult(request, "Missing required flag --incident <id>", "world_mutation", false);
-    }
-
-    if (!targetHospitalId) {
-      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_mutation", false);
-    }
-
-    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
-    const applyResult = applyRoutingPlan(state, plan);
-
-    if (!applyResult.success) {
-      return buildErrorResult(request, applyResult.error ?? "Plan apply failed", "world_mutation", false);
-    }
-
-    return {
-      success: true,
-      command: request,
-      effect: "world_mutation",
-      readOnly: false,
-      output: applyResult.output,
-      patch: applyResult.patch,
-    };
-  },
-};
-
 const routingOverrideSetHandler: CommandHandler = {
   commandName: "medical.routing.override.set",
   sectorId: "medical",
@@ -408,9 +320,6 @@ export const medicalCommandHandlers: CommandHandler[] = [
   routingOverrideSetHandler,
   routingOverrideClearHandler,
   routingOverrideListHandler,
-  routingPlanCreateHandler,
-  routingPlanValidateHandler,
-  routingPlanApplyHandler,
 ];
 
 export function registerMedicalCommands(registry: CommandRegistry) {
