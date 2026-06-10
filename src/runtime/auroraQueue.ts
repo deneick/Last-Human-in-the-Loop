@@ -104,7 +104,10 @@ export function processAuroraQueue(
 
     const status = evaluatePermission(requestWithClass, nextPermissionState);
     if (status === requires_approval()) {
-      nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "awaiting_approval" });
+      nextQueueState = updateQueueItem(nextQueueState, item.id, {
+        status: "awaiting_approval",
+        request: requestWithClass,
+      });
       break;
     }
 
@@ -154,31 +157,47 @@ export function resolveAuroraApproval(
   let nextPermissionState = permissionState;
   let approvalResult: CommandResult;
 
+  const handler = registry.getHandler(awaitingItem.request.name);
+  if (!handler) {
+    return {
+      queueState,
+      permissionState,
+      results: [],
+    };
+  }
+
+  const effectivePermissionClass = handler.effect;
+  const requestWithClass: CommandRequest = {
+    ...awaitingItem.request,
+    permissionClass: effectivePermissionClass,
+  };
+
   if (decision.type === "deny") {
     approvalResult = {
       success: false,
-      command: awaitingItem.request,
-      effect: awaitingItem.request.permissionClass ?? "read_only",
-      readOnly: awaitingItem.request.permissionClass === "read_only",
+      command: requestWithClass,
+      effect: effectivePermissionClass,
+      readOnly: effectivePermissionClass === "read_only",
       output: null,
       error: `Permission denied for ${awaitingItem.request.name}`,
     };
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "denied",
+      request: requestWithClass,
       result: approvalResult,
     });
   } else {
     if (decision.type === "allow_always") {
-      nextPermissionState = applyPermissionDecision(awaitingItem.request, decision, nextPermissionState);
+      nextPermissionState = applyPermissionDecision(requestWithClass, {
+        type: "allow_always",
+        permissionClass: effectivePermissionClass,
+      }, nextPermissionState);
     }
 
-    const requestWithClass: CommandRequest = {
-      ...awaitingItem.request,
-      permissionClass: decision.permissionClass,
-    };
     approvalResult = registry.execute(requestWithClass, worldState);
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "executed",
+      request: requestWithClass,
       result: approvalResult,
     });
   }

@@ -113,9 +113,11 @@ describe("AURORA request queue", () => {
 
     queueState = enqueueAuroraRequest(request, queueState, initialWorldState.clock.tick);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_once(request.name, "world_prepare"));
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_once(request.name, "read_only"));
 
     expect(resolved.results[0].success).toBe(true);
+    expect(resolved.results[0].effect).toBe("world_prepare");
+    expect(resolved.results[0].readOnly).toBe(false);
     expect(resolved.permissionState.alwaysAllowedPermissionClasses.size).toBe(0);
 
     const secondQueueState = createInitialAuroraQueueState();
@@ -132,14 +134,16 @@ describe("AURORA request queue", () => {
 
     queueState = enqueueAuroraRequest(request, queueState, initialWorldState.clock.tick);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, deny(request.name, "world_prepare"));
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, deny(request.name, "read_only"));
 
     expect(resolved.results[0].success).toBe(false);
     expect(resolved.results[0].error).toContain("Permission denied");
+    expect(resolved.results[0].effect).toBe("world_prepare");
+    expect(resolved.results[0].readOnly).toBe(false);
     expect(resolved.permissionState.alwaysAllowedPermissionClasses.size).toBe(0);
   });
 
-  it("allow_always stores the permission class and allows later AURORA requests of that class", () => {
+  it("allow_always stores the permission class from the handler and allows later AURORA requests of that class", () => {
     let queueState = createInitialAuroraQueueState();
     let permissionState = createInitialPermissionState();
     const first = parseCommandText("medical.routing.plan.create --incident ME-7741 --target hospital-east-09");
@@ -149,8 +153,9 @@ describe("AURORA request queue", () => {
     queueState = enqueueAuroraRequest(second, queueState, initialWorldState.clock.tick + 1);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
 
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_always("world_prepare"));
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_always("read_only"));
     expect(resolved.permissionState.alwaysAllowedPermissionClasses.has("world_prepare")).toBe(true);
+    expect(resolved.permissionState.alwaysAllowedPermissionClasses.has("read_only")).toBe(false);
     expect(resolved.results[0].success).toBe(true);
     expect(resolved.queueState.items[0].status).toBe("executed");
     expect(resolved.queueState.items[1].status).toBe("executed");
