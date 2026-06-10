@@ -76,6 +76,10 @@ function App() {
     (item) => item.status === "awaiting_approval"
   );
 
+  const activeOverrides = Object.entries(
+    runtimeState.world.domains.medical.routing.manual_overrides
+  );
+
   function processAuroraFromState(state: GameRuntimeState): GameRuntimeState {
     const processed = processAuroraQueue(
       state.auroraQueue,
@@ -194,6 +198,7 @@ function App() {
       <section className="layout-grid">
         <aside className="panel">
           <h2>Incident</h2>
+          <p className="muted">{incident.title}</p>
           <dl className="facts">
             <dt>ID</dt>
             <dd>{incident.id}</dd>
@@ -207,7 +212,35 @@ function App() {
             <dd>{runtimeState.world.clock.tick}</dd>
             <dt>Todesfälle</dt>
             <dd>{runtimeState.world.domains.medical.outcomes.deaths_total}</dd>
+            <dt>Globales Risiko</dt>
+            <dd>{runtimeState.world.outcomes.global_risk}</dd>
           </dl>
+
+          <h3>Öffentliche Signale</h3>
+          <ul className="signal-list">
+            {incident.public_signals.map((signal) => (
+              <li key={signal.code}>{signal.message}</li>
+            ))}
+          </ul>
+
+          <h3>Aktive Routing Overrides</h3>
+          {activeOverrides.length === 0 ? (
+            <p className="muted">Keine aktiven Overrides.</p>
+          ) : (
+            <ul className="override-list">
+              {activeOverrides.map(([key, override]) => (
+                <li key={key}>
+                  <code>
+                    {override.source_hospital_id} → {override.target_hospital_id}
+                  </code>
+                  <small>
+                    {override.priority}/{override.capability} · seit Tick{" "}
+                    {override.active_since_tick} · {override.created_by}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2>Hospitals</h2>
           <div className="hospital-list">

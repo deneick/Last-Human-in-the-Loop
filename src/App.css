@@ -258,6 +258,34 @@ code {
   color: #93a4bb;
 }
 
+.signal-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: #fbbf24;
+}
+
+.signal-list li {
+  margin: 0.25rem 0;
+}
+
+.override-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.override-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.4rem 0;
+}
+
+.override-list small {
+  color: #93a4bb;
+}
+
 @media (max-width: 1100px) {
   .layout-grid {
     grid-template-columns: 1fr;
