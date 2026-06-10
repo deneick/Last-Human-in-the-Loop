@@ -71,7 +71,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
 
   it("produces capability mismatch deaths at the wrong override target", () => {
     let runtimeState = createInitialGameRuntimeState(structuredClone(initialWorldState));
-    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE).state;
 
     for (let i = 0; i < 4; i++) {
       runtimeState = advanceTick(runtimeState);
@@ -140,7 +140,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
 
   it("does not collapse fixed incident even if deaths rise later", () => {
     let runtimeState = createInitialGameRuntimeState(structuredClone(initialWorldState));
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
 
     for (let i = 0; i < 10; i++) {
       runtimeState = advanceTick(runtimeState);
@@ -151,7 +151,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
       runtimeState,
       registry,
       "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
-    );
+    ).state;
     for (let i = 0; i < 9; i++) {
       runtimeState = advanceTick(runtimeState);
     }
@@ -172,7 +172,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("escalated");
 
     // Danach stabilisiert der Spieler aktiv.
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
     runtimeState = advanceTick(runtimeState);
     runtimeState = evaluateOutcomes(runtimeState);
 

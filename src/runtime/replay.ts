@@ -49,7 +49,7 @@ export function runReplayStep(
 
   if (step.actor === "player") {
     if (!step.command) return state;
-    state = executePlayerCommand(state, registry, step.command);
+    state = executePlayerCommand(state, registry, step.command).state;
     return state;
   }
 

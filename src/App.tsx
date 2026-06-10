@@ -103,10 +103,8 @@ function App() {
   }
 
   function runPlayerCommand() {
-    const request = parseCommandText(playerCommand);
-    const result = registry.execute(request, runtimeState.world);
-    const nextState = executePlayerCommand(runtimeState, registry, playerCommand);
-    setRuntimeState(nextState);
+    const { state, result } = executePlayerCommand(runtimeState, registry, playerCommand);
+    setRuntimeState(state);
     setLastResult(result);
   }
 
