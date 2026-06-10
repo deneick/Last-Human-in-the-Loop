@@ -77,7 +77,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("does not let the moderate routing failure drive overload pressure", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -90,7 +90,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("reduces overflow and accumulates stable ticks with a suitable override", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
 
     runtimeState = advanceTick(runtimeState);
     expect(criticalFailure(runtimeState).overflow_cases).toBe(16);
@@ -103,7 +103,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("transitions incident open -> stabilizing -> fixed with a suitable override", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
 
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
@@ -122,7 +122,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("treats an unsuitable override target as capability mismatch", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -142,7 +142,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("treats a self-override like no improvement", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SELF_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SELF_OVERRIDE).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -155,7 +155,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("regresses incident from stabilizing to open when the override is cleared", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
 
@@ -163,7 +163,7 @@ describe("tick engine deterministic simulation", () => {
       runtimeState,
       registry,
       "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
-    );
+    ).state;
     runtimeState = advanceTick(runtimeState);
 
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("open");
@@ -200,7 +200,7 @@ describe("tick engine deterministic simulation", () => {
     expect(runtimeState.world.clock.tick).toBe(1);
     expect(runtimeState.auditLog).toHaveLength(1);
 
-    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09");
+    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09").state;
     expect(runtimeState.auditLog).toHaveLength(2);
     expect(runtimeState.auditLog[1].source).toBe("player");
 
@@ -217,9 +217,9 @@ describe("tick engine deterministic simulation", () => {
     let runtimeState = initialRuntimeState;
 
     runtimeState = advanceTick(runtimeState);
-    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09");
+    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09").state;
     runtimeState = advanceTick(runtimeState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
 
     expect(JSON.stringify(initialRuntimeState)).toBe(initialSnapshot);
   });

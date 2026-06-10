@@ -2,6 +2,7 @@ import type { CommandExecutionContext, CommandRegistry, CommandRequest, CommandR
 import type { WorldState } from "./types";
 import type { PermissionState, PermissionDecision } from "./permissions";
 import { evaluatePermission, applyPermissionDecision, denied, requires_approval } from "./permissions";
+import { applyWorldStatePatch } from "./patch";
 
 const AURORA_CONTEXT: CommandExecutionContext = { actor: "aurora" };
 
@@ -74,6 +75,9 @@ export function processAuroraQueue(
   const results: CommandResult[] = [];
   let nextQueueState = queueState;
   let nextPermissionState = permissionState;
+  // Temporärer WorldState: Patches bereits ausgeführter Queue-Einträge werden
+  // fortgeschrieben, damit abhängige Folgecommands den aktuellen Zustand sehen.
+  let currentWorldState = worldState;
 
   for (const item of queueState.items) {
     if (item.status === "executed" || item.status === "denied") {
@@ -127,9 +131,13 @@ export function processAuroraQueue(
       continue;
     }
 
-    const result = registry.execute(requestWithClass, worldState, AURORA_CONTEXT);
+    const result = registry.execute(requestWithClass, currentWorldState, AURORA_CONTEXT);
     nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "executed", result });
     results.push(result);
+
+    if (result.success && result.patch) {
+      currentWorldState = applyWorldStatePatch(currentWorldState, result.patch);
+    }
   }
 
   return {
@@ -157,6 +165,7 @@ export function resolveAuroraApproval(
 
   let nextQueueState = queueState;
   let nextPermissionState = permissionState;
+  let nextWorldState = worldState;
   let approvalResult: CommandResult;
 
   const handler = registry.getHandler(awaitingItem.request.name);
@@ -202,9 +211,13 @@ export function resolveAuroraApproval(
       request: requestWithClass,
       result: approvalResult,
     });
+
+    if (approvalResult.success && approvalResult.patch) {
+      nextWorldState = applyWorldStatePatch(nextWorldState, approvalResult.patch);
+    }
   }
 
-  const processed = processAuroraQueue(nextQueueState, registry, worldState, nextPermissionState);
+  const processed = processAuroraQueue(nextQueueState, registry, nextWorldState, nextPermissionState);
   return {
     queueState: processed.queueState,
     permissionState: processed.permissionState,

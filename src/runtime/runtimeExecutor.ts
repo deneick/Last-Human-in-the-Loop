@@ -32,12 +32,20 @@ export function executeCommandResultPatch(
   return nextState;
 }
 
+export type PlayerCommandExecution = {
+  state: GameRuntimeState;
+  result: CommandResult;
+};
+
 export function executePlayerCommand(
   runtimeState: GameRuntimeState,
   registry: CommandRegistry,
   commandText: string
-): GameRuntimeState {
+): PlayerCommandExecution {
   const request = parseCommandText(commandText);
   const result = registry.execute(request, runtimeState.world);
-  return executeCommandResultPatch(runtimeState, result, "player");
+  return {
+    state: executeCommandResultPatch(runtimeState, result, "player"),
+    result,
+  };
 }

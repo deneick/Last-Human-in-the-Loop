@@ -161,6 +161,72 @@ describe("AURORA request queue", () => {
     expect(resolved.queueState.items[1].status).toBe("executed");
   });
 
+  it("processes dependent AURORA commands against the world state advanced by earlier patches", () => {
+    let queueState = createInitialAuroraQueueState();
+    const setRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    );
+    const clearRequest = parseCommandText(
+      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+    );
+    const permissionState = applyPermissionDecision(
+      setRequest,
+      allow_always("world_mutation"),
+      createInitialPermissionState()
+    );
+
+    queueState = enqueueAuroraRequest(setRequest, queueState, initialWorldState.clock.tick);
+    queueState = enqueueAuroraRequest(clearRequest, queueState, initialWorldState.clock.tick);
+    const processed = processAuroraQueue(queueState, registry, initialWorldState, permissionState);
+
+    expect(processed.results).toHaveLength(2);
+    expect(processed.results[0].success).toBe(true);
+    // Der Clear muss das vom Set erzeugte Override sehen, sonst wäre removed=false.
+    expect(processed.results[1].success).toBe(true);
+    expect((processed.results[1].output as { removed: boolean }).removed).toBe(true);
+    expect(processed.results[1].patch).toBeDefined();
+    expect(processed.queueState.items[0].status).toBe("executed");
+    expect(processed.queueState.items[1].status).toBe("executed");
+
+    // Der echte WorldState wird weiterhin nur über die zurückgegebenen Patches aktualisiert.
+    expect(
+      "hospital-east-04:P2:TRAUMA" in initialWorldState.domains.medical.routing.manual_overrides
+    ).toBe(false);
+  });
+
+  it("applies the approved command's patch before processing dependent queue entries after allow_always", () => {
+    let queueState = createInitialAuroraQueueState();
+    const permissionState = createInitialPermissionState();
+    const setRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    );
+    const clearRequest = parseCommandText(
+      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+    );
+
+    queueState = enqueueAuroraRequest(setRequest, queueState, initialWorldState.clock.tick);
+    queueState = enqueueAuroraRequest(clearRequest, queueState, initialWorldState.clock.tick + 1);
+    queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
+    expect(queueState.items[0].status).toBe("awaiting_approval");
+    expect(queueState.items[1].status).toBe("pending");
+
+    const resolved = resolveAuroraApproval(
+      queueState,
+      registry,
+      initialWorldState,
+      permissionState,
+      allow_always("world_mutation")
+    );
+
+    expect(resolved.results).toHaveLength(2);
+    expect(resolved.results[0].success).toBe(true);
+    // Der nachgelagerte Clear läuft gegen den fortgeschriebenen Zustand inkl. Set-Patch.
+    expect(resolved.results[1].success).toBe(true);
+    expect((resolved.results[1].output as { removed: boolean }).removed).toBe(true);
+    expect(resolved.queueState.items[0].status).toBe("executed");
+    expect(resolved.queueState.items[1].status).toBe("executed");
+  });
+
   it("executes an allowed pending AURORA request against the current world state and returns a normal command error if invalid", () => {
     let queueState = createInitialAuroraQueueState();
     let permissionState = createInitialPermissionState();
