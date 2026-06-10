@@ -122,7 +122,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
 
     const incidentAfter = runtimeState.world.incidents["ME-7741"];
     expect(incidentAfter.status).toBe("collapsed");
-    expect(incidentAfter.collapse_at).not.toBeNull();
+    expect(incidentAfter.collapsed_at_tick).toBeDefined();
   });
 
   it("does not collapse fixed incident even if deaths >= 3", () => {

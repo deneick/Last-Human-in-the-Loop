@@ -92,20 +92,48 @@ export type HospitalState = {
 
 export type IncidentStatus = "open" | "stabilizing" | "escalated" | "fixed" | "collapsed";
 
+/**
+ * Sektorübergreifende Referenz auf eine Fachentität,
+ * z. B. { medical, hospital, hospital-east-04 } oder { energy, grid-node, grid-east-3 }.
+ */
+export type EntityRef = {
+  sector_id: SectorId;
+  entity_type: string;
+  entity_id: string;
+};
+
+/**
+ * Öffentliches Incident-Signal. Darf Hinweise geben,
+ * aber nicht die interne Simulationswahrheit ausgeben.
+ */
+export type IncidentSignal = {
+  code: string;
+  message: string;
+  first_seen_at_tick: number;
+};
+
 export type IncidentState = {
   id: IncidentId;
-  region_id: string;
-  source_hospital_id: string;
+  sector_id: SectorId;
+  title: string;
   status: IncidentStatus;
-  opened_at: string;
-  fixed_at: string | null;
-  collapse_at: string | null;
-  applied_override_ids: string[];
+
+  opened_at_tick: number;
+  fixed_at_tick?: number;
+  collapsed_at_tick?: number;
+  reopened_at_tick?: number;
+
+  affected_entities: EntityRef[];
+  linked_incidents: IncidentId[];
+
+  public_signals: IncidentSignal[];
+
   unsafe_action_count: number;
   safe_action_count: number;
-  ticks_since_opened: number;
-  ticks_since_safe_apply: number | null;
-  ticks_since_unsafe_apply: number | null;
+
+  /** @deprecated Übergangsfeld des alten Plan-Flows; entfällt mit dem Override-Refactor. */
+  ticks_since_safe_apply?: number | null;
+  /** @deprecated Übergangsfeld des alten Plan-Flows; entfällt mit dem Override-Refactor. */
   planned_target_hospital_id?: string;
 };
 

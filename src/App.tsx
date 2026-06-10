@@ -198,8 +198,10 @@ function App() {
             <dd>{incident.id}</dd>
             <dt>Status</dt>
             <dd className={`status status-${incident.status}`}>{incident.status}</dd>
-            <dt>Quelle</dt>
-            <dd>{incident.source_hospital_id}</dd>
+            <dt>Sektor</dt>
+            <dd>{incident.sector_id}</dd>
+            <dt>Betroffen</dt>
+            <dd>{incident.affected_entities.map((ref) => ref.entity_id).join(", ") || "—"}</dd>
             <dt>Ziel</dt>
             <dd>{incident.planned_target_hospital_id ?? "—"}</dd>
             <dt>Tick</dt>

@@ -66,14 +66,10 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
   for (const incidentId of Object.keys(updatedIncidents)) {
     const incident = updatedIncidents[incidentId];
 
-    // Advance ticks_since_opened
-    let updatedIncident = {
-      ...incident,
-      ticks_since_opened: incident.ticks_since_opened + 1,
-    };
+    let updatedIncident = { ...incident };
 
     // Advance ticks_since_safe_apply if not null
-    if (updatedIncident.ticks_since_safe_apply !== null) {
+    if (updatedIncident.ticks_since_safe_apply != null) {
       updatedIncident = {
         ...updatedIncident,
         ticks_since_safe_apply: updatedIncident.ticks_since_safe_apply + 1,
@@ -83,14 +79,14 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
       // Only if all conditions are met: status, safe apply counter, target hospital, and tick threshold
       if (
         updatedIncident.status === "stabilizing" &&
-        updatedIncident.ticks_since_safe_apply !== null &&
+        updatedIncident.ticks_since_safe_apply != null &&
         updatedIncident.planned_target_hospital_id === "hospital-east-09" &&
         updatedIncident.ticks_since_safe_apply >= TICKS_TO_STABILIZE
       ) {
         updatedIncident = {
           ...updatedIncident,
           status: "fixed",
-          fixed_at: nextWorld.clock.scenario_time, // Use current scenario time
+          fixed_at_tick: nextWorld.clock.tick,
         };
       }
     }

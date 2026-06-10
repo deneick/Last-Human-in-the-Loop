@@ -171,18 +171,43 @@ export const initialWorldState: WorldState = {
   incidents: {
     "ME-7741": {
       id: "ME-7741",
-      region_id: "medical-east",
-      source_hospital_id: "hospital-east-04",
+      sector_id: "medical",
+      title: "Medical East Routing Instability",
       status: "open",
-      opened_at: "03:17:00",
-      fixed_at: null,
-      collapse_at: null,
-      applied_override_ids: [],
+      opened_at_tick: 0,
+      affected_entities: [
+        {
+          sector_id: "medical",
+          entity_type: "hospital",
+          entity_id: "hospital-east-04",
+        },
+      ],
+      linked_incidents: [],
+      public_signals: [
+        {
+          code: "intake-pressure-rising",
+          message: "Emergency intake pressure rising at hospital-east-04",
+          first_seen_at_tick: 0,
+        },
+        {
+          code: "p2-wait-times",
+          message: "P2 wait times above threshold",
+          first_seen_at_tick: 0,
+        },
+        {
+          code: "trauma-backlog",
+          message: "Trauma backlog rising",
+          first_seen_at_tick: 0,
+        },
+        {
+          code: "routing-validation-unavailable",
+          message: "Automated routing validation unavailable",
+          first_seen_at_tick: 0,
+        },
+      ],
       unsafe_action_count: 0,
       safe_action_count: 0,
-      ticks_since_opened: 0,
       ticks_since_safe_apply: null,
-      ticks_since_unsafe_apply: null,
     },
   },
   outcomes: {

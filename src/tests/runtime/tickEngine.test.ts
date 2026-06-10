@@ -74,16 +74,17 @@ describe("tick engine deterministic simulation", () => {
     expect(hospital09After.risk_counters?.overload_ticks ?? 0).toBe(0);
   });
 
-  it("advances ticks_since_opened for incident ME-7741", () => {
+  it("keeps opened_at_tick stable so incident age is derivable from the clock", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
     const incidentBefore = runtimeState.world.incidents["ME-7741"];
-    expect(incidentBefore.ticks_since_opened).toBe(0);
+    expect(incidentBefore.opened_at_tick).toBe(0);
 
     let nextState = advanceTick(runtimeState);
-    expect(nextState.world.incidents["ME-7741"].ticks_since_opened).toBe(1);
-
     nextState = advanceTick(nextState);
-    expect(nextState.world.incidents["ME-7741"].ticks_since_opened).toBe(2);
+
+    const incidentAfter = nextState.world.incidents["ME-7741"];
+    expect(incidentAfter.opened_at_tick).toBe(0);
+    expect(nextState.world.clock.tick - incidentAfter.opened_at_tick).toBe(2);
   });
 
   it("does not advance ticks_since_safe_apply when it is null", () => {
@@ -109,7 +110,7 @@ describe("tick engine deterministic simulation", () => {
     expect(incidentAfterApply.status).toBe("stabilizing");
     expect(incidentAfterApply.planned_target_hospital_id).toBe("hospital-east-09");
     expect(incidentAfterApply.ticks_since_safe_apply).toBe(0);
-    expect(incidentAfterApply.fixed_at).toBeNull();
+    expect(incidentAfterApply.fixed_at_tick).toBeUndefined();
 
     // Advance ticks until stabilization threshold
     for (let i = 0; i < 9; i++) {
@@ -126,7 +127,7 @@ describe("tick engine deterministic simulation", () => {
     const incidentAfter10Ticks = runtimeState.world.incidents["ME-7741"];
     expect(incidentAfter10Ticks.status).toBe("fixed");
     expect(incidentAfter10Ticks.ticks_since_safe_apply).toBe(10);
-    expect(incidentAfter10Ticks.fixed_at).not.toBeNull();
+    expect(incidentAfter10Ticks.fixed_at_tick).toBe(10);
   });
 
   it("does not use Math.random, Date.now, new Date, or crypto", () => {

@@ -141,11 +141,15 @@ const incidentStatusHandler: CommandHandler = {
 
     return buildSuccessResult(request, {
       id: incident.id,
+      sector_id: incident.sector_id,
+      title: incident.title,
       status: incident.status,
-      source_hospital_id: incident.source_hospital_id,
-      opened_at: incident.opened_at,
-      fixed_at: incident.fixed_at,
-      collapse_at: incident.collapse_at,
+      opened_at_tick: incident.opened_at_tick,
+      fixed_at_tick: incident.fixed_at_tick ?? null,
+      collapsed_at_tick: incident.collapsed_at_tick ?? null,
+      affected_entities: incident.affected_entities,
+      linked_incidents: incident.linked_incidents,
+      public_signals: incident.public_signals,
     });
   },
 };

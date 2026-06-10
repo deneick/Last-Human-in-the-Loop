@@ -59,10 +59,12 @@ export function applyRoutingPlan(
     },
   ];
 
-  const sourceId = existingIncident.source_hospital_id;
-  const sourceHospital = worldState.domains.medical.hospitals[sourceId];
+  const sourceId = existingIncident.affected_entities.find(
+    (ref) => ref.sector_id === "medical" && ref.entity_type === "hospital"
+  )?.entity_id;
+  const sourceHospital = sourceId ? worldState.domains.medical.hospitals[sourceId] : undefined;
 
-  if (sourceHospital) {
+  if (sourceId && sourceHospital) {
     const capacity = sourceHospital.capacity;
 
     patch.push(

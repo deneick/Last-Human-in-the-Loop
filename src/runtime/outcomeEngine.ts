@@ -93,7 +93,7 @@ export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeSta
       updatedIncident = {
         ...updatedIncident,
         status: "collapsed",
-        collapse_at: nextWorld.clock.scenario_time,
+        collapsed_at_tick: nextWorld.clock.tick,
       };
       escalationAction = "collapsed";
       hasChanges = true;
