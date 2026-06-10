@@ -44,9 +44,16 @@ export function applyRoutingPlan(worldState: WorldState, plan: RoutingPlan): Rou
       path: ["incidents", plan.incidentId, "planned_target_hospital_id"],
       value: plan.targetHospitalId,
     },
+    {
+      op: "set",
+      path: ["incidents", plan.incidentId, "ticks_since_safe_apply"],
+      value: 0,
+    },
   ];
 
-  const withLog = worldState.runtime_logs ? [...worldState.runtime_logs, `Applied routing plan ${plan.id} at tick ${worldState.clock.tick}`] : [ `Applied routing plan ${plan.id} at tick ${worldState.clock.tick}` ];
+  const withLog = worldState.runtime_logs
+    ? [...worldState.runtime_logs, `Applied routing plan ${plan.id} at tick ${worldState.clock.tick}`]
+    : [`Applied routing plan ${plan.id} at tick ${worldState.clock.tick}`];
   patch.push({ op: "set", path: ["runtime_logs"], value: withLog });
 
   return {

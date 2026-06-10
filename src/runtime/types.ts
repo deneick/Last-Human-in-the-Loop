@@ -57,6 +57,11 @@ export type HospitalRoutingState = {
   last_routing_update: string;
 };
 
+export type HospitalRiskCounters = {
+  overload_ticks: number;
+  capability_mismatch_ticks: number;
+};
+
 export type HospitalState = {
   id: string;
   name: string;
@@ -67,6 +72,7 @@ export type HospitalState = {
   current_case_mix: HospitalCaseMixState;
   operational: HospitalOperationalState;
   routing: HospitalRoutingState;
+  risk_counters?: HospitalRiskCounters;
 };
 
 export type IncidentStatus = "open" | "stabilizing" | "escalated" | "fixed" | "collapsed";

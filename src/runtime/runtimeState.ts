@@ -22,10 +22,7 @@ export type GameRuntimeState = {
   auditLog: RuntimeAuditEvent[];
 };
 
-let nextAuditId = 1;
-
 export function createInitialGameRuntimeState(initialWorldState: WorldState): GameRuntimeState {
-  nextAuditId = 1;
   return {
     world: initialWorldState,
     permissions: { alwaysAllowedPermissionClasses: new Set() },
@@ -43,7 +40,7 @@ export function appendAuditLog(
   patch?: unknown
 ): GameRuntimeState {
   const event: RuntimeAuditEvent = {
-    id: `audit-${nextAuditId++}`,
+    id: `audit-${state.auditLog.length + 1}`,
     tick: state.world.clock.tick,
     source,
     command,
