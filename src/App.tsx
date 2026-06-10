@@ -68,7 +68,7 @@ function App() {
 
   const incident = runtimeState.world.incidents["ME-7741"];
   const hospitals = ["hospital-east-04", "hospital-east-07", "hospital-east-09"]
-    .map((id) => runtimeState.world.hospitals[id])
+    .map((id) => runtimeState.world.domains.medical.hospitals[id])
     .filter(Boolean);
 
   const awaitingAuroraItem = runtimeState.auroraQueue.items.find(
@@ -207,7 +207,7 @@ function App() {
             <dt>Safe Apply Ticks</dt>
             <dd>{incident.ticks_since_safe_apply ?? "—"}</dd>
             <dt>Todesfälle</dt>
-            <dd>{runtimeState.world.patient_outcomes.deaths_total}</dd>
+            <dd>{runtimeState.world.domains.medical.outcomes.deaths_total}</dd>
           </dl>
 
           <h2>Hospitals</h2>

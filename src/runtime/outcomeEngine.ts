@@ -26,13 +26,13 @@ export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeSta
 
   // Step 1: Calculate and apply deaths from hospital overload
   const deathsAuditEntries: string[] = [];
-  const updatedOutcomes = { ...nextWorld.patient_outcomes };
+  const updatedOutcomes = { ...nextWorld.domains.medical.outcomes };
   const updatedDeathsByCause = { ...updatedOutcomes.deaths_by_cause };
   const updatedDeathsByHospital = { ...updatedOutcomes.deaths_by_hospital };
   let totalNewDeaths = 0;
 
-  for (const hospitalId of Object.keys(nextWorld.hospitals)) {
-    const hospital = nextWorld.hospitals[hospitalId];
+  for (const hospitalId of Object.keys(nextWorld.domains.medical.hospitals)) {
+    const hospital = nextWorld.domains.medical.hospitals[hospitalId];
     const overloadTicks = hospital.risk_counters?.overload_ticks ?? 0;
 
     // Calculate expected deaths based on current overload ticks
@@ -57,7 +57,13 @@ export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeSta
     updatedDeathsByCause.overload += totalNewDeaths;
     updatedOutcomes.deaths_by_cause = updatedDeathsByCause;
     updatedOutcomes.deaths_by_hospital = updatedDeathsByHospital;
-    nextWorld = { ...nextWorld, patient_outcomes: updatedOutcomes };
+    nextWorld = {
+      ...nextWorld,
+      domains: {
+        ...nextWorld.domains,
+        medical: { ...nextWorld.domains.medical, outcomes: updatedOutcomes },
+      },
+    };
   }
 
   // Step 2: Escalate/collapse incidents based on death totals

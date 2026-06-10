@@ -67,13 +67,13 @@ const capacityListHandler: CommandHandler = {
       return buildErrorResult(request, `Unknown region: ${regionValue}`);
     }
 
-    const region = state.medicalRegions[regionId];
+    const region = state.domains.medical.regions[regionId];
     if (!region) {
       return buildErrorResult(request, `Region not found: ${regionId}`);
     }
 
     const hospitals = region.hospital_ids.map((hospitalId) => {
-      const hospital = state.hospitals[hospitalId];
+      const hospital = state.domains.medical.hospitals[hospitalId];
       return {
         id: hospital.id,
         name: hospital.name,
@@ -102,7 +102,7 @@ const nodeInspectHandler: CommandHandler = {
       return buildErrorResult(request, "Missing hospital id argument");
     }
 
-    const hospital = state.hospitals[hospitalId];
+    const hospital = state.domains.medical.hospitals[hospitalId];
     if (!hospital) {
       return buildErrorResult(request, `Hospital not found: ${hospitalId}`);
     }

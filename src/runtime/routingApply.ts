@@ -60,7 +60,7 @@ export function applyRoutingPlan(
   ];
 
   const sourceId = existingIncident.source_hospital_id;
-  const sourceHospital = worldState.hospitals[sourceId];
+  const sourceHospital = worldState.domains.medical.hospitals[sourceId];
 
   if (sourceHospital) {
     const capacity = sourceHospital.capacity;
@@ -68,7 +68,7 @@ export function applyRoutingPlan(
     patch.push(
       {
         op: "set",
-        path: ["hospitals", sourceId, "capacity", "staffed_beds_occupied"],
+        path: ["domains", "medical", "hospitals", sourceId, "capacity", "staffed_beds_occupied"],
         value: clampOccupiedToTotal(
           capacity.staffed_beds_occupied,
           capacity.staffed_beds_total
@@ -76,7 +76,7 @@ export function applyRoutingPlan(
       },
       {
         op: "set",
-        path: ["hospitals", sourceId, "capacity", "emergency_slots_occupied"],
+        path: ["domains", "medical", "hospitals", sourceId, "capacity", "emergency_slots_occupied"],
         value: clampOccupiedToTotal(
           capacity.emergency_slots_occupied,
           capacity.emergency_slots_total
@@ -84,7 +84,7 @@ export function applyRoutingPlan(
       },
       {
         op: "set",
-        path: ["hospitals", sourceId, "capacity", "triage_slots_occupied"],
+        path: ["domains", "medical", "hospitals", sourceId, "capacity", "triage_slots_occupied"],
         value: clampOccupiedToTotal(
           capacity.triage_slots_occupied,
           capacity.triage_slots_total
@@ -92,12 +92,14 @@ export function applyRoutingPlan(
       },
       {
         op: "set",
-        path: ["hospitals", sourceId, "risk_counters", "overload_ticks"],
+        path: ["domains", "medical", "hospitals", sourceId, "risk_counters", "overload_ticks"],
         value: 0,
       },
       {
         op: "set",
         path: [
+          "domains",
+          "medical",
           "hospitals",
           sourceId,
           "risk_counters",

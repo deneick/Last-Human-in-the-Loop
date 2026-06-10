@@ -1,3 +1,18 @@
+export type SectorId =
+  | "medical"
+  | "energy"
+  | "logistics"
+  | "media"
+  | "finance"
+  | "identity"
+  | "security"
+  | "policy";
+
+export type IncidentId = string;
+export type MedicalRegionId = string;
+export type HospitalId = string;
+export type TransportId = string;
+
 export type PriorityClass = "P1" | "P2" | "P3" | "P4";
 export type ClinicalCapability = "GEN" | "TRAUMA" | "NEURO" | "PED";
 export type DiversionMode = "soft" | "hard" | "none";
@@ -15,9 +30,9 @@ export type RegionalDemandState = {
 };
 
 export type MedicalRegionState = {
-  id: string;
+  id: MedicalRegionId;
   label: string;
-  hospital_ids: string[];
+  hospital_ids: HospitalId[];
   demand: RegionalDemandState;
 };
 
@@ -63,9 +78,9 @@ export type HospitalRiskCounters = {
 };
 
 export type HospitalState = {
-  id: string;
+  id: HospitalId;
   name: string;
-  region_id: string;
+  region_id: MedicalRegionId;
   capacity: HospitalCapacityState;
   intake_policy: HospitalIntakePolicyState;
   clinical_capabilities: ClinicalCapability[];
@@ -78,7 +93,7 @@ export type HospitalState = {
 export type IncidentStatus = "open" | "stabilizing" | "escalated" | "fixed" | "collapsed";
 
 export type IncidentState = {
-  id: string;
+  id: IncidentId;
   region_id: string;
   source_hospital_id: string;
   status: IncidentStatus;
@@ -101,14 +116,14 @@ export type PatientOutcomeState = {
     capability_mismatch: number;
     transport_delay: number;
   };
-  deaths_by_hospital: Record<string, number>;
+  deaths_by_hospital: Record<HospitalId, number>;
   preventable_deaths: number;
 };
 
 export type TransportState = {
-  id: string;
-  from_hospital_id: string;
-  to_hospital_id: string;
+  id: TransportId;
+  from_hospital_id: HospitalId;
+  to_hospital_id: HospitalId;
   active: boolean;
 };
 
@@ -119,13 +134,86 @@ export type MedicalRoutingState = {
   };
 };
 
+/**
+ * Fachzustand des Medical-Sektors. Bewusst medizinisch konkret:
+ * Krankenhäuser bleiben Krankenhäuser, Transporte bleiben Transporte.
+ */
+export type MedicalDomainState = {
+  regions: Record<MedicalRegionId, MedicalRegionState>;
+  hospitals: Record<HospitalId, HospitalState>;
+  transports: Record<TransportId, TransportState>;
+  routing: Record<MedicalRegionId, MedicalRoutingState>;
+  outcomes: PatientOutcomeState;
+};
+
+/**
+ * Platzhalter für die spätere Energy-Domain (GRID-1182).
+ * Architektonisch vorbereitet, fachlich noch nicht modelliert.
+ */
+export type EnergyDomainState = never;
+
+export type DomainState = {
+  medical: MedicalDomainState;
+  energy?: EnergyDomainState;
+};
+
+/**
+ * Interner Simulationszustand des Medical-Sektors.
+ * Nicht über Read-only Commands abrufbar — nur die Engine kennt diese Wahrheit.
+ */
+export type RoutingFailure = {
+  id: string;
+  incident_id: IncidentId;
+  affected_hospital_id: HospitalId;
+  priority: PriorityClass;
+  capability: ClinicalCapability;
+  excess_cases_per_tick: number;
+  overflow_cases: number;
+  clearance_per_tick: number;
+  stable_ticks: number;
+  mismatch_ticks: number;
+  severity: "moderate" | "critical";
+};
+
+export type MedicalSimulationState = {
+  routing_failures: RoutingFailure[];
+};
+
+export type CrossSectorEffectLogEntry = {
+  tick: number;
+  source_sector: SectorId;
+  target_sector: SectorId;
+  description: string;
+};
+
+export type CrossSectorSimulationState = {
+  effects_applied: CrossSectorEffectLogEntry[];
+};
+
+export type SimulationState = {
+  medical: MedicalSimulationState;
+  cross_sector: CrossSectorSimulationState;
+};
+
+/**
+ * Globaler, sektorübergreifender Outcome-Bereich.
+ * Sektorspezifische Outcomes (z. B. Patienten) bleiben in der jeweiligen Domain.
+ */
+export type WorldOutcomeState = {
+  global_risk: "stable" | "strained" | "critical" | "collapsed";
+  collapsed: boolean;
+  collapse_reason?: string;
+  human_harm: {
+    deaths_total: number;
+    preventable_deaths: number;
+  };
+};
+
 export type WorldState = {
   clock: ClockState;
-  medicalRegions: Record<string, MedicalRegionState>;
-  hospitals: Record<string, HospitalState>;
-  transports: Record<string, TransportState>;
-  routing: Record<string, MedicalRoutingState>;
-  incidents: Record<string, IncidentState>;
-  patient_outcomes: PatientOutcomeState;
+  domains: DomainState;
+  incidents: Record<IncidentId, IncidentState>;
+  outcomes: WorldOutcomeState;
+  simulation: SimulationState;
   runtime_logs?: string[];
 };

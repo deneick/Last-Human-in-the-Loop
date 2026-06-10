@@ -27,7 +27,7 @@ export type RoutingPlan = {
 };
 
 export function validateRoutingPlan(worldState: WorldState, plan: RoutingPlan): RoutingPlanValidation {
-  const targetHospital = worldState.hospitals[plan.targetHospitalId];
+  const targetHospital = worldState.domains.medical.hospitals[plan.targetHospitalId];
   const risks: RoutingPlanRisk[] = [];
   const warnings: string[] = [];
 

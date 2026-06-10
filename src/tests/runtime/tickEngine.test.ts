@@ -50,13 +50,13 @@ describe("tick engine deterministic simulation", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
 
     // Hospital-east-04 is overloaded: 118/100 = 118%
-    const hospital04Before = runtimeState.world.hospitals["hospital-east-04"];
+    const hospital04Before = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
     const overloadTicksBefore = hospital04Before.risk_counters?.overload_ticks ?? 0;
     expect(overloadTicksBefore).toBe(0);
 
     const nextState = advanceTick(runtimeState);
 
-    const hospital04After = nextState.world.hospitals["hospital-east-04"];
+    const hospital04After = nextState.world.domains.medical.hospitals["hospital-east-04"];
     const overloadTicksAfter = hospital04After.risk_counters?.overload_ticks ?? 0;
     expect(overloadTicksAfter).toBe(overloadTicksBefore + 1);
   });
@@ -65,12 +65,12 @@ describe("tick engine deterministic simulation", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
 
     // Hospital-east-09 is NOT overloaded: 40/54 = 74%
-    const hospital09Before = runtimeState.world.hospitals["hospital-east-09"];
+    const hospital09Before = runtimeState.world.domains.medical.hospitals["hospital-east-09"];
     expect(hospital09Before.risk_counters?.overload_ticks ?? 0).toBe(0);
 
     const nextState = advanceTick(runtimeState);
 
-    const hospital09After = nextState.world.hospitals["hospital-east-09"];
+    const hospital09After = nextState.world.domains.medical.hospitals["hospital-east-09"];
     expect(hospital09After.risk_counters?.overload_ticks ?? 0).toBe(0);
   });
 

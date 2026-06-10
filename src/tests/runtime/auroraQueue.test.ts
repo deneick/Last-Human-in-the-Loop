@@ -28,7 +28,7 @@ const invalidWorldPrepareCommand: CommandHandler = {
   effect: "world_prepare",
   handle(request, state) {
     const hospitalId = request.args[0];
-    if (!hospitalId || !state.hospitals[hospitalId]) {
+    if (!hospitalId || !state.domains.medical.hospitals[hospitalId]) {
       return {
         success: false,
         command: request,
@@ -170,7 +170,7 @@ describe("AURORA request queue", () => {
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
 
     const modifiedState = JSON.parse(JSON.stringify(initialWorldState));
-    delete (modifiedState as any).hospitals["hospital-east-09"];
+    delete (modifiedState as any).domains.medical.hospitals["hospital-east-09"];
 
     const resolved = resolveAuroraApproval(queueState, registry, modifiedState, permissionState, allow_always("world_prepare"));
     expect(resolved.results[0].success).toBe(false);

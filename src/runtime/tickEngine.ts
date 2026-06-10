@@ -27,7 +27,7 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
   };
 
   // Update hospital risk counters based on overload state
-  const updatedHospitals = { ...nextWorld.hospitals };
+  const updatedHospitals = { ...nextWorld.domains.medical.hospitals };
   for (const hospitalId of Object.keys(updatedHospitals)) {
     const hospital = updatedHospitals[hospitalId];
     const isOverloaded = isHospitalOverloaded(nextWorld, hospitalId);
@@ -53,7 +53,13 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
       };
     }
   }
-  nextWorld = { ...nextWorld, hospitals: updatedHospitals };
+  nextWorld = {
+    ...nextWorld,
+    domains: {
+      ...nextWorld.domains,
+      medical: { ...nextWorld.domains.medical, hospitals: updatedHospitals },
+    },
+  };
 
   // Update incident timers and statuses
   const updatedIncidents = { ...nextWorld.incidents };

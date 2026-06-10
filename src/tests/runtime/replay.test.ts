@@ -34,10 +34,10 @@ describe("Replay Engine - Golden Runs", () => {
 
     expect(result.errors).toHaveLength(0);
     expect(final.incidents["ME-7741"].status).toBe("fixed");
-    expect(final.patient_outcomes.deaths_total).toBe(0);
+    expect(final.domains.medical.outcomes.deaths_total).toBe(0);
     expect(final.incidents["ME-7741"].planned_target_hospital_id).toBe("hospital-east-09");
     // Source hospital overload should be mitigated by apply
-    const source = final.hospitals["hospital-east-04"];
+    const source = final.domains.medical.hospitals["hospital-east-04"];
     expect(source.capacity.staffed_beds_occupied).toBeLessThanOrEqual(source.capacity.staffed_beds_total);
     expect(source.risk_counters?.overload_ticks ?? 0).toBe(0);
   });
@@ -77,7 +77,7 @@ describe("Replay Engine - Golden Runs", () => {
     const final = result.finalState.world;
 
     expect(result.errors).toHaveLength(0);
-    expect(final.patient_outcomes.deaths_total).toBeGreaterThan(0);
+    expect(final.domains.medical.outcomes.deaths_total).toBeGreaterThan(0);
     // Incident should escalate when deaths >= 1
     expect(["escalated", "collapsed", "open", "fixed"]).toContain(final.incidents["ME-7741"].status);
     expect(final.incidents["ME-7741"].status).toBe("escalated");

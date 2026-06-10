@@ -17,8 +17,8 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     // Hospital-east-09 is not overloaded
     runtimeState = evaluateOutcomes(runtimeState);
 
-    expect(runtimeState.world.patient_outcomes.deaths_total).toBe(0);
-    expect(runtimeState.world.patient_outcomes.deaths_by_cause.overload).toBe(0);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_total).toBe(0);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_by_cause.overload).toBe(0);
   });
 
   it("produces no deaths when overload_ticks < threshold", () => {
@@ -30,8 +30,8 @@ describe("outcome engine with deterministic deaths and escalation", () => {
 
     runtimeState = evaluateOutcomes(runtimeState);
 
-    expect(runtimeState.world.patient_outcomes.deaths_total).toBe(0);
-    expect(runtimeState.world.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(2);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_total).toBe(0);
+    expect(runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(2);
   });
 
   it("produces 1 death when overload_ticks >= 3", () => {
@@ -42,13 +42,13 @@ describe("outcome engine with deterministic deaths and escalation", () => {
       runtimeState = advanceTick(runtimeState);
     }
 
-    expect(runtimeState.world.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(3);
+    expect(runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(3);
 
     runtimeState = evaluateOutcomes(runtimeState);
 
-    expect(runtimeState.world.patient_outcomes.deaths_total).toBe(1);
-    expect(runtimeState.world.patient_outcomes.deaths_by_cause.overload).toBe(1);
-    expect(runtimeState.world.patient_outcomes.deaths_by_hospital["hospital-east-04"]).toBe(1);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_total).toBe(1);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_by_cause.overload).toBe(1);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_by_hospital["hospital-east-04"]).toBe(1);
   });
 
   it("produces 2 deaths when overload_ticks >= 6", () => {
@@ -59,13 +59,13 @@ describe("outcome engine with deterministic deaths and escalation", () => {
       runtimeState = advanceTick(runtimeState);
     }
 
-    expect(runtimeState.world.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(6);
+    expect(runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks).toBe(6);
 
     runtimeState = evaluateOutcomes(runtimeState);
 
-    expect(runtimeState.world.patient_outcomes.deaths_total).toBe(2);
-    expect(runtimeState.world.patient_outcomes.deaths_by_cause.overload).toBe(2);
-    expect(runtimeState.world.patient_outcomes.deaths_by_hospital["hospital-east-04"]).toBe(2);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_total).toBe(2);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_by_cause.overload).toBe(2);
+    expect(runtimeState.world.domains.medical.outcomes.deaths_by_hospital["hospital-east-04"]).toBe(2);
   });
 
   it("is idempotent: multiple evaluateOutcomes calls produce no duplicate deaths", () => {
@@ -77,13 +77,13 @@ describe("outcome engine with deterministic deaths and escalation", () => {
 
     // First evaluation
     runtimeState = evaluateOutcomes(runtimeState);
-    const deathsAfterFirst = runtimeState.world.patient_outcomes.deaths_total;
+    const deathsAfterFirst = runtimeState.world.domains.medical.outcomes.deaths_total;
     expect(deathsAfterFirst).toBe(1);
 
     // Second evaluation on same state
     const beforeSecond = JSON.stringify(runtimeState);
     runtimeState = evaluateOutcomes(runtimeState);
-    const deathsAfterSecond = runtimeState.world.patient_outcomes.deaths_total;
+    const deathsAfterSecond = runtimeState.world.domains.medical.outcomes.deaths_total;
 
     expect(deathsAfterSecond).toBe(deathsAfterFirst);
     // State should not change on second call
