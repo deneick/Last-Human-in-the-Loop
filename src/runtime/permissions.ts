@@ -66,16 +66,12 @@ const DEFAULT_PERMISSION_RULES: Record<CommandEffectClass, PermissionRule> = {
 };
 
 export type PermissionState = {
-  oneTimeAllows: Set<string>;
-  alwaysAllows: Set<string>;
-  deniedCommands: Set<string>;
+  alwaysAllowedPermissionClasses: Set<CommandEffectClass>;
 };
 
 export function createInitialPermissionState(): PermissionState {
   return {
-    oneTimeAllows: new Set(),
-    alwaysAllows: new Set(),
-    deniedCommands: new Set(),
+    alwaysAllowedPermissionClasses: new Set(),
   };
 }
 
@@ -84,16 +80,11 @@ export function evaluatePermission(
   permissionState: PermissionState
 ): PermissionStatus {
   const permissionClass = commandRequest.permissionClass ?? "read_only";
-
-  if (permissionState.deniedCommands.has(commandRequest.name)) {
-    return denied();
-  }
-
-  if (permissionState.alwaysAllows.has(permissionClass)) {
+  if (permissionClass === "read_only") {
     return allowed();
   }
 
-  if (permissionState.oneTimeAllows.has(commandRequest.name)) {
+  if (permissionState.alwaysAllowedPermissionClasses.has(permissionClass)) {
     return allowed();
   }
 
@@ -105,43 +96,16 @@ export function applyPermissionDecision(
   decision: PermissionDecision,
   permissionState: PermissionState
 ): PermissionState {
-  const nextState: PermissionState = {
-    oneTimeAllows: new Set(permissionState.oneTimeAllows),
-    alwaysAllows: new Set(permissionState.alwaysAllows),
-    deniedCommands: new Set(permissionState.deniedCommands),
-  };
-
-  switch (decision.type) {
-    case "allow_once":
-      nextState.oneTimeAllows.add(decision.commandName);
-      break;
-    case "allow_always":
-      nextState.alwaysAllows.add(decision.permissionClass);
-      break;
-    case "deny":
-      nextState.deniedCommands.add(decision.commandName);
-      break;
+  if (decision.type === "allow_always") {
+    return {
+      alwaysAllowedPermissionClasses: new Set([
+        ...permissionState.alwaysAllowedPermissionClasses,
+        decision.permissionClass,
+      ]),
+    };
   }
 
-  return nextState;
-}
-
-function consumeOneTimeAllow(
-  request: CommandRequest,
-  permissionState: PermissionState
-): PermissionState {
-  if (!permissionState.oneTimeAllows.has(request.name)) {
-    return permissionState;
-  }
-
-  const nextState: PermissionState = {
-    oneTimeAllows: new Set(permissionState.oneTimeAllows),
-    alwaysAllows: new Set(permissionState.alwaysAllows),
-    deniedCommands: new Set(permissionState.deniedCommands),
-  };
-
-  nextState.oneTimeAllows.delete(request.name);
-  return nextState;
+  return permissionState;
 }
 
 export function executeCommandWithPermissions(
@@ -200,12 +164,8 @@ export function executeCommandWithPermissions(
   }
 
   const result = registry.execute(requestWithClass, state);
-  const nextPermissionState = permissionState.oneTimeAllows.has(requestWithClass.name)
-    ? consumeOneTimeAllow(requestWithClass, permissionState)
-    : permissionState;
-
   return {
     result,
-    permissionState: nextPermissionState,
+    permissionState,
   };
 }
