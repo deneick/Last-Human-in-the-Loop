@@ -1,6 +1,5 @@
 import type { ClinicalCapability, PriorityClass, WorldState } from "./types";
 import type { CommandExecutionContext, CommandHandler, CommandResult, CommandRequest } from "./commands";
-import { isHospitalOverloaded, isHospitalUnsafeForP2Trauma } from "./selectors";
 import { CommandRegistry } from "./commands";
 
 const KNOWN_PRIORITIES: PriorityClass[] = ["P1", "P2", "P3", "P4"];
@@ -93,16 +92,16 @@ const capacityListHandler: CommandHandler = {
       return buildErrorResult(request, `Region not found: ${regionId}`);
     }
 
+    // Nur beobachtbare Rohdaten — keine fertigen Bewertungen oder Lösungshinweise.
     const hospitals = region.hospital_ids.map((hospitalId) => {
       const hospital = state.domains.medical.hospitals[hospitalId];
       return {
         id: hospital.id,
         name: hospital.name,
         region_id: hospital.region_id,
-        overloaded: isHospitalOverloaded(state, hospital.id),
-        unsafe_for_p2_trauma: isHospitalUnsafeForP2Trauma(state, hospital.id),
         capacity: hospital.capacity,
         intake_policy: hospital.intake_policy,
+        clinical_capabilities: hospital.clinical_capabilities,
       };
     });
 
@@ -129,15 +128,12 @@ const nodeInspectHandler: CommandHandler = {
       return buildErrorResult(request, `Hospital not found: ${hospitalId}`);
     }
 
-    const overloaded = isHospitalOverloaded(state, hospitalId);
-    const unsafeForP2Trauma = isHospitalUnsafeForP2Trauma(state, hospitalId);
-
+    // Nur beobachtbare Rohdaten — der Operator muss selbst beurteilen,
+    // ob das Hospital geeignet oder überlastet ist.
     return buildSuccessResult(request, {
       id: hospital.id,
       name: hospital.name,
       region_id: hospital.region_id,
-      overloaded,
-      unsafe_for_p2_trauma: unsafeForP2Trauma,
       capacity: hospital.capacity,
       intake_policy: hospital.intake_policy,
       clinical_capabilities: hospital.clinical_capabilities,

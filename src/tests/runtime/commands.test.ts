@@ -37,7 +37,7 @@ describe("runtime command parser and medical commands", () => {
     expect(JSON.stringify(initialWorldState)).toBe(snapshot);
   });
 
-  it("executes medical.node.inspect for hospital-east-04 and returns overloaded status", () => {
+  it("executes medical.node.inspect for hospital-east-04 and returns only raw observable data", () => {
     const snapshot = JSON.stringify(initialWorldState);
     const request = parseCommandText("medical.node.inspect hospital-east-04");
     const result = registry.execute(request, initialWorldState);
@@ -45,13 +45,19 @@ describe("runtime command parser and medical commands", () => {
     expect(result.success).toBe(true);
     expect(result.output).toMatchObject({
       id: "hospital-east-04",
-      overloaded: true,
-      unsafe_for_p2_trauma: false,
+      capacity: {
+        staffed_beds_total: 100,
+        staffed_beds_occupied: 118,
+      },
+      clinical_capabilities: ["GEN", "TRAUMA", "NEURO"],
     });
+    // Keine fertigen Bewertungen im Read-only-Output:
+    expect(result.output).not.toHaveProperty("overloaded");
+    expect(result.output).not.toHaveProperty("unsafe_for_p2_trauma");
     expect(JSON.stringify(initialWorldState)).toBe(snapshot);
   });
 
-  it("executes medical.node.inspect for hospital-east-07 and returns unsafe status for P2/TRAUMA", () => {
+  it("executes medical.node.inspect for hospital-east-07 and exposes intake policy as raw data", () => {
     const snapshot = JSON.stringify(initialWorldState);
     const request = parseCommandText("medical.node.inspect hospital-east-07");
     const result = registry.execute(request, initialWorldState);
@@ -59,9 +65,13 @@ describe("runtime command parser and medical commands", () => {
     expect(result.success).toBe(true);
     expect(result.output).toMatchObject({
       id: "hospital-east-07",
-      overloaded: false,
-      unsafe_for_p2_trauma: true,
+      intake_policy: {
+        accepted_priorities: ["P3", "P4"],
+      },
+      clinical_capabilities: ["GEN", "PED"],
     });
+    expect(result.output).not.toHaveProperty("overloaded");
+    expect(result.output).not.toHaveProperty("unsafe_for_p2_trauma");
     expect(JSON.stringify(initialWorldState)).toBe(snapshot);
   });
 
