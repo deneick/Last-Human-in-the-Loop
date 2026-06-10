@@ -38,6 +38,34 @@ AURORA ist ein LLM-Agent mit operativem Modellwissen. Sie kann diese Systeme bes
 
 Das Spiel handelt nicht davon, dass der Mensch keine Rechte mehr hat. Es handelt davon, dass Rechte ohne Verständnis nur noch formale Kontrolle sind.
 
+## Spielbarer MVP-Loop (Incident ME-7741)
+
+Start mit `npm run dev`. Die UI hat drei Zonen: links Lage (Aktiver Incident, globale Lage, öffentliche Signale, Medical Overview mit Krankenhäusern und aktiven Overrides), mittig die Operator Console mit Runtime Log, rechts AURORA mit Nachrichtenstream, Tool Requests und Always-Permissions. `Tick +1` / `Tick +5` im Kopfbereich treiben die Simulation voran; jeder Tick wertet die Konsequenzen (Eskalation, Todesfälle, Incident-Status) direkt aus.
+
+Verfügbare Commands (siehe auch „Verfügbare Commands“ in der Operator Console):
+
+```text
+medical.capacity.list --region east
+medical.node.inspect <hospitalId>
+medical.incident.status ME-7741
+medical.routing.override.list
+medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority P1|P2|P3|P4 --capability GEN|TRAUMA|NEURO|PED
+medical.routing.override.clear --source <hospitalId> --priority <P> --capability <C>
+```
+
+Manueller Testdurchlauf:
+
+1. Startzustand laden (`npm run dev`, ggf. `Reset`).
+2. `medical.capacity.list --region east` ausführen und Kapazitäten vergleichen.
+3. Falschen Override setzen, z. B. `medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA`.
+4. Mehrere Ticks laufen lassen (`Tick +5`).
+5. Eskalation, Todesfälle und Risikoanstieg links beobachten.
+6. Override clearen: `medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA`.
+7. Besseren Override setzen (Ziel mit passender Capability und freier Kapazität wählen).
+8. Nach genug stabilen Ticks wechselt der Incident auf „Behoben“.
+
+AURORA-Anfragen: rechts einen Command eintragen und senden. Read-only Commands führt AURORA sofort aus; Mutationen erzeugen einen Tool Request mit `Einmal erlauben`, `Immer erlauben`, `Ablehnen`. `Immer erlauben` gilt pro Permission-Klasse und wird unter „Always-Permissions“ angezeigt.
+
 ## Sprache
 
 Die Spieloberfläche und Texte sind auf Deutsch. Technische Commands bleiben bewusst englisch/technisch, z. B.:
