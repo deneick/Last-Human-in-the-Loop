@@ -85,6 +85,7 @@ export type IncidentState = {
   ticks_since_opened: number;
   ticks_since_safe_apply: number | null;
   ticks_since_unsafe_apply: number | null;
+  planned_target_hospital_id?: string;
 };
 
 export type PatientOutcomeState = {
@@ -120,4 +121,5 @@ export type WorldState = {
   routing: Record<string, MedicalRoutingState>;
   incidents: Record<string, IncidentState>;
   patient_outcomes: PatientOutcomeState;
+  runtime_logs?: string[];
 };

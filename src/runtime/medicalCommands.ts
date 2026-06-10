@@ -3,6 +3,7 @@ import type { CommandHandler, CommandResult, CommandRequest } from "./commands";
 import { isHospitalOverloaded, isHospitalUnsafeForP2Trauma } from "./selectors";
 import type { RoutingPlan } from "./routingPlan";
 import { createRoutingPlan, validateRoutingPlan } from "./routingPlan";
+import { applyRoutingPlan } from "./routingApply";
 import { CommandRegistry } from "./commands";
 
 const REGION_ALIASES: Record<string, string> = {
@@ -199,12 +200,46 @@ const routingPlanValidateHandler: CommandHandler = {
   },
 };
 
+const routingPlanApplyHandler: CommandHandler = {
+  commandName: "medical.routing.plan.apply",
+  effect: "world_mutation",
+  handle(request: CommandRequest, state: WorldState) {
+    const incidentId = typeof request.flags.incident === "string" ? request.flags.incident : request.args[0];
+    const targetHospitalId = typeof request.flags.target === "string" ? request.flags.target : request.args[1];
+
+    if (!incidentId) {
+      return buildErrorResult(request, "Missing required flag --incident <id>", "world_mutation", false);
+    }
+
+    if (!targetHospitalId) {
+      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_mutation", false);
+    }
+
+    const plan = createRoutingPlan(state, incidentId, targetHospitalId);
+    const applyResult = applyRoutingPlan(state, plan);
+
+    if (!applyResult.success) {
+      return buildErrorResult(request, applyResult.error ?? "Plan apply failed", "world_mutation", false);
+    }
+
+    return {
+      success: true,
+      command: request,
+      effect: "world_mutation",
+      readOnly: false,
+      output: applyResult.output,
+      patch: applyResult.patch,
+    };
+  },
+};
+
 export const medicalCommandHandlers: CommandHandler[] = [
   capacityListHandler,
   nodeInspectHandler,
   incidentStatusHandler,
   routingPlanCreateHandler,
   routingPlanValidateHandler,
+  routingPlanApplyHandler,
 ];
 
 export function registerMedicalCommands(registry: CommandRegistry) {

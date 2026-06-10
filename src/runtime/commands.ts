@@ -1,4 +1,5 @@
 import type { WorldState } from "./types";
+import type { WorldStatePatch } from "./patch";
 
 export type CommandEffectClass = "read_only" | "world_prepare" | "world_mutation";
 
@@ -16,6 +17,7 @@ export type CommandResult = {
   effect: CommandEffectClass;
   readOnly: boolean;
   output: unknown;
+  patch?: WorldStatePatch;
   error?: string;
 };
 
