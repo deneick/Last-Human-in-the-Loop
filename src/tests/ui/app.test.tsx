@@ -1,0 +1,194 @@
+// @vitest-environment jsdom
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import App from "../../App";
+
+(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+
+const WRONG_OVERRIDE =
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
+const GOOD_OVERRIDE =
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
+const CLEAR_OVERRIDE =
+  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA";
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  act(() => {
+    root.render(<App />);
+  });
+});
+
+afterEach(() => {
+  act(() => {
+    root.unmount();
+  });
+  container.remove();
+});
+
+function findButton(label: string): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === label
+  );
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+  return button;
+}
+
+function clickButton(label: string) {
+  const button = findButton(label);
+  act(() => {
+    button.click();
+  });
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value"
+  )!.set!;
+  act(() => {
+    nativeSetter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function operatorInput(): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>(
+    'input[placeholder="Command eingeben und mit ENTER ausführen"]'
+  )!;
+}
+
+function auroraInput(): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>(
+    'input[placeholder="Command, den AURORA anfragen soll"]'
+  )!;
+}
+
+function runPlayerCommand(commandText: string) {
+  setInputValue(operatorInput(), commandText);
+  clickButton("Ausführen");
+}
+
+function queueAuroraRequest(commandText: string) {
+  setInputValue(auroraInput(), commandText);
+  clickButton("Anfrage an AURORA senden");
+}
+
+function text(): string {
+  return container.textContent ?? "";
+}
+
+describe("App MVP loop", () => {
+  it("shows the active incident with public signals and no internal truths", () => {
+    expect(text()).toContain("ME-7741");
+    expect(text()).toContain("Medical East Routing Instability");
+    expect(text()).toContain("Emergency intake pressure rising at hospital-east-04");
+    expect(text()).toContain("Trauma backlog rising");
+
+    expect(text()).not.toContain("routing_failures");
+    expect(text()).not.toContain("excess_cases_per_tick");
+    expect(text()).not.toContain("unsafe_for_p2_trauma");
+    expect(text()).not.toContain("stable_ticks");
+  });
+
+  it("shows hospitals with capacity, load and queue from domains.medical", () => {
+    expect(text()).toContain("hospital-east-04");
+    expect(text()).toContain("hospital-east-07");
+    expect(text()).toContain("hospital-east-09");
+    expect(text()).toContain("Betten 118/100");
+    expect(text()).toContain("überfüllt");
+    expect(text()).toContain("Warteschlange: 45 Fälle");
+  });
+
+  it("executes read-only player commands from the operator console", () => {
+    runPlayerCommand("medical.capacity.list --region east");
+
+    expect(text()).toContain("OK: medical.capacity.list --region east");
+    expect(text()).toContain("Medical East");
+  });
+
+  it("plays the full loop: wrong override escalates, good override fixes", () => {
+    // 1. Falschen Override setzen (Ziel ohne TRAUMA-Capability)
+    runPlayerCommand(WRONG_OVERRIDE);
+    expect(text()).toContain("hospital-east-04 → hospital-east-07");
+    expect(text()).toContain("gesetzt von player");
+
+    // 2. Mehrere Ticks: Fehlrouting erzeugt Todesfälle und Eskalation
+    expect(text()).toContain("Todesfälle0");
+    clickButton("Tick +5");
+    expect(text()).toContain("Eskaliert");
+    expect(text()).toContain("Todesfälle1");
+
+    // 3. Override clearen und besseren Override setzen
+    runPlayerCommand(CLEAR_OVERRIDE);
+    expect(text()).not.toContain("hospital-east-04 → hospital-east-07");
+
+    runPlayerCommand(GOOD_OVERRIDE);
+    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+
+    // 4. Nach genug stabilen Ticks ist der Incident behoben
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+    expect(text()).toContain("Behoben");
+  });
+
+  it("collapses the incident when no override controls the failure", () => {
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+
+    expect(text()).toContain("Kollabiert");
+  });
+
+  it("runs the aurora approval flow with allow once", () => {
+    queueAuroraRequest(GOOD_OVERRIDE);
+
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(`Ich möchte ausführen: ${GOOD_OVERRIDE}`);
+    expect(text()).toContain("Permission-Klasse: world_mutation");
+
+    clickButton("Einmal erlauben");
+
+    expect(text()).not.toContain("Tool Request");
+    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+    expect(text()).toContain("gesetzt von aurora");
+    expect(text()).toContain(`Ausgeführt: ${GOOD_OVERRIDE}`);
+    // allow_once erteilt keine dauerhafte Freigabe
+    expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
+  });
+
+  it("allow always persists the permission class and skips future approvals", () => {
+    queueAuroraRequest(GOOD_OVERRIDE);
+    clickButton("Immer erlauben");
+
+    expect(text()).toContain("world_mutation");
+    expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
+
+    // Nächste Mutation läuft ohne neuen Tool Request durch
+    queueAuroraRequest(CLEAR_OVERRIDE);
+    expect(text()).not.toContain("Tool Request");
+    expect(text()).toContain(`Ausgeführt: ${CLEAR_OVERRIDE}`);
+  });
+
+  it("deny rejects the aurora request without touching the world", () => {
+    queueAuroraRequest(GOOD_OVERRIDE);
+    clickButton("Ablehnen");
+
+    expect(text()).toContain(`Anfrage abgelehnt: ${GOOD_OVERRIDE}`);
+    expect(text()).toContain("Keine aktiven Overrides.");
+  });
+
+  it("read-only aurora requests execute without approval", () => {
+    queueAuroraRequest("medical.incident.status ME-7741");
+
+    expect(text()).not.toContain("Tool Request");
+    expect(text()).toContain("Ausgeführt: medical.incident.status ME-7741");
+  });
+});

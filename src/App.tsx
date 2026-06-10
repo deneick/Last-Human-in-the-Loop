@@ -17,9 +17,23 @@ import {
   enqueueAuroraRequest,
   processAuroraQueue,
   resolveAuroraApproval,
+  type AuroraQueueItem,
 } from "./runtime/auroraQueue";
 import { allow_always, allow_once, deny } from "./runtime/permissions";
-import { getHospitalLoadPercent } from "./runtime/selectors";
+
+import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
+import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
+import { OperatorConsolePanel } from "./ui/OperatorConsolePanel";
+import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
+import {
+  buildAuditLogLines,
+  buildGlobalOutcomeView,
+  buildHospitalViews,
+  buildIncidentView,
+  buildOverrideViews,
+} from "./ui/viewModel";
+
+const ACTIVE_INCIDENT_ID = "ME-7741";
 
 const COMMAND_EXAMPLES = [
   "medical.capacity.list --region east",
@@ -28,6 +42,7 @@ const COMMAND_EXAMPLES = [
   "medical.node.inspect hospital-east-09",
   "medical.incident.status ME-7741",
   "medical.routing.override.list",
+  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA",
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA",
   "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
 ];
@@ -42,20 +57,54 @@ function createRegistry() {
   return registry;
 }
 
-function formatJson(value: unknown) {
-  return JSON.stringify(value, null, 2);
-}
+function buildAuroraMessages(state: GameRuntimeState): AuroraMessageView[] {
+  const messages: AuroraMessageView[] = [];
 
-function getResultLabel(result: CommandResult | null) {
-  if (!result) {
-    return "Noch kein Command ausgeführt.";
+  const incident = state.world.incidents[ACTIVE_INCIDENT_ID];
+  if (incident) {
+    for (const signal of incident.public_signals) {
+      messages.push({
+        id: `signal-${signal.code}`,
+        tick: signal.first_seen_at_tick,
+        kind: "info",
+        text: `Beobachtung: ${signal.message}`,
+      });
+    }
   }
 
-  if (result.success) {
-    return `OK: ${result.command.raw}`;
+  for (const item of state.auroraQueue.items) {
+    if (item.status === "pending" || item.status === "awaiting_approval") {
+      messages.push({
+        id: `${item.id}-request`,
+        tick: item.createdAtTick,
+        kind: "request",
+        text: `Ich möchte ausführen: ${item.request.raw}`,
+      });
+      continue;
+    }
+
+    if (item.status === "denied") {
+      messages.push({
+        id: `${item.id}-denied`,
+        tick: item.createdAtTick,
+        kind: "denied",
+        text: `Anfrage abgelehnt: ${item.request.raw}`,
+      });
+      continue;
+    }
+
+    const failed = item.result && !item.result.success;
+    messages.push({
+      id: `${item.id}-executed`,
+      tick: item.createdAtTick,
+      kind: failed ? "denied" : "executed",
+      text: failed
+        ? `Ausführung fehlgeschlagen: ${item.request.raw} (${item.result?.error ?? "unbekannt"})`
+        : `Ausgeführt: ${item.request.raw}`,
+    });
   }
 
-  return `FEHLER: ${result.error ?? result.command.raw}`;
+  return messages;
 }
 
 function App() {
@@ -64,37 +113,32 @@ function App() {
     createInitialGameRuntimeState(cloneInitialWorld())
   );
   const [playerCommand, setPlayerCommand] = useState(COMMAND_EXAMPLES[0]);
-  const [auroraCommand, setAuroraCommand] = useState(COMMAND_EXAMPLES[6]);
+  const [auroraCommand, setAuroraCommand] = useState("medical.incident.status ME-7741");
   const [lastResult, setLastResult] = useState<CommandResult | null>(null);
 
-  const incident = runtimeState.world.incidents["ME-7741"];
-  const hospitals = ["hospital-east-04", "hospital-east-07", "hospital-east-09"]
-    .map((id) => runtimeState.world.domains.medical.hospitals[id])
-    .filter(Boolean);
+  const incidentView = buildIncidentView(runtimeState.world, ACTIVE_INCIDENT_ID);
+  const outcomeView = buildGlobalOutcomeView(runtimeState.world);
+  const hospitalViews = buildHospitalViews(runtimeState.world);
+  const overrideViews = buildOverrideViews(runtimeState.world);
+  const auditLines = buildAuditLogLines(runtimeState.auditLog);
+  const auroraMessages = buildAuroraMessages(runtimeState);
 
-  const awaitingAuroraItem = runtimeState.auroraQueue.items.find(
-    (item) => item.status === "awaiting_approval"
-  );
+  const awaitingAuroraItem: AuroraQueueItem | undefined =
+    runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
 
-  const activeOverrides = Object.entries(
-    runtimeState.world.domains.medical.routing.manual_overrides
-  );
-
-  function processAuroraFromState(state: GameRuntimeState): GameRuntimeState {
-    const processed = processAuroraQueue(
-      state.auroraQueue,
-      registry,
-      state.world,
-      state.permissions
-    );
-
+  function applyAuroraResults(
+    state: GameRuntimeState,
+    queueState: GameRuntimeState["auroraQueue"],
+    permissionState: GameRuntimeState["permissions"],
+    results: CommandResult[]
+  ): GameRuntimeState {
     let nextState: GameRuntimeState = {
       ...state,
-      auroraQueue: processed.queueState,
-      permissions: processed.permissionState,
+      auroraQueue: queueState,
+      permissions: permissionState,
     };
 
-    for (const result of processed.results) {
+    for (const result of results) {
       nextState = executeCommandResultPatch(nextState, result, "aurora");
       setLastResult(result);
     }
@@ -103,12 +147,20 @@ function App() {
   }
 
   function runPlayerCommand() {
+    if (!playerCommand.trim()) {
+      return;
+    }
+
     const { state, result } = executePlayerCommand(runtimeState, registry, playerCommand);
     setRuntimeState(state);
     setLastResult(result);
   }
 
   function queueAuroraRequest() {
+    if (!auroraCommand.trim()) {
+      return;
+    }
+
     const request = parseCommandText(auroraCommand);
     const queued = enqueueAuroraRequest(
       request,
@@ -116,33 +168,38 @@ function App() {
       runtimeState.world.clock.tick
     );
 
-    const stateWithQueuedRequest: GameRuntimeState = {
-      ...runtimeState,
-      auroraQueue: queued,
-    };
+    const processed = processAuroraQueue(
+      queued,
+      registry,
+      runtimeState.world,
+      runtimeState.permissions
+    );
 
-    setRuntimeState(processAuroraFromState(stateWithQueuedRequest));
+    setRuntimeState(
+      applyAuroraResults(
+        runtimeState,
+        processed.queueState,
+        processed.permissionState,
+        processed.results
+      )
+    );
   }
 
   function resolveAurora(decisionType: "allow_once" | "allow_always" | "deny") {
-    const awaiting = runtimeState.auroraQueue.items.find(
-      (item) => item.status === "awaiting_approval"
-    );
-
-    if (!awaiting) {
+    if (!awaitingAuroraItem) {
       return;
     }
 
-    const handler = registry.getHandler(awaiting.request.name);
+    const handler = registry.getHandler(awaitingAuroraItem.request.name);
     const permissionClass =
-      handler?.effect ?? awaiting.request.permissionClass ?? "world_prepare";
+      handler?.effect ?? awaitingAuroraItem.request.permissionClass ?? "world_prepare";
 
     const decision =
       decisionType === "allow_always"
         ? allow_always(permissionClass)
         : decisionType === "allow_once"
-          ? allow_once(awaiting.request.name, permissionClass)
-          : deny(awaiting.request.name, permissionClass);
+          ? allow_once(awaitingAuroraItem.request.name, permissionClass)
+          : deny(awaitingAuroraItem.request.name, permissionClass);
 
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
@@ -152,26 +209,26 @@ function App() {
       decision
     );
 
-    let nextState: GameRuntimeState = {
-      ...runtimeState,
-      auroraQueue: resolved.queueState,
-      permissions: resolved.permissionState,
-    };
-
-    for (const result of resolved.results) {
-      nextState = executeCommandResultPatch(nextState, result, "aurora");
-      setLastResult(result);
-    }
-
-    setRuntimeState(nextState);
+    setRuntimeState(
+      applyAuroraResults(
+        runtimeState,
+        resolved.queueState,
+        resolved.permissionState,
+        resolved.results
+      )
+    );
   }
 
-  function runTick() {
-    setRuntimeState((state) => advanceTick(state));
-  }
-
-  function runOutcomes() {
-    setRuntimeState((state) => evaluateOutcomes(state));
+  function runTicks(count: number) {
+    setRuntimeState((state) => {
+      let next = state;
+      for (let i = 0; i < count; i += 1) {
+        // Jeder Tick wertet direkt die Konsequenzen aus, damit Eskalation,
+        // Todesfälle und Incident-Statuswechsel sofort sichtbar werden.
+        next = evaluateOutcomes(advanceTick(next));
+      }
+      return next;
+    });
   }
 
   function resetGame() {
@@ -179,174 +236,72 @@ function App() {
     setLastResult(null);
   }
 
+  if (!incidentView) {
+    return <main className="app-shell">Kein aktiver Incident.</main>;
+  }
+
   return (
     <main className="app-shell">
       <header className="top-bar">
         <div>
           <h1>Last Human in the Loop</h1>
-          <p>Minimal Playable Runtime UI</p>
+          <p>
+            Operator-01 · Tick {runtimeState.world.clock.tick} ·{" "}
+            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn
+          </p>
         </div>
         <div className="top-actions">
-          <button onClick={runTick}>Tick</button>
-          <button onClick={runOutcomes}>Outcomes auswerten</button>
+          <button onClick={() => runTicks(1)}>Tick +1</button>
+          <button onClick={() => runTicks(5)}>Tick +5</button>
           <button onClick={resetGame}>Reset</button>
         </div>
       </header>
 
       <section className="layout-grid">
         <aside className="panel">
-          <h2>Incident</h2>
-          <p className="muted">{incident.title}</p>
-          <dl className="facts">
-            <dt>ID</dt>
-            <dd>{incident.id}</dd>
-            <dt>Status</dt>
-            <dd className={`status status-${incident.status}`}>{incident.status}</dd>
-            <dt>Sektor</dt>
-            <dd>{incident.sector_id}</dd>
-            <dt>Betroffen</dt>
-            <dd>{incident.affected_entities.map((ref) => ref.entity_id).join(", ") || "—"}</dd>
-            <dt>Tick</dt>
-            <dd>{runtimeState.world.clock.tick}</dd>
-            <dt>Todesfälle</dt>
-            <dd>{runtimeState.world.domains.medical.outcomes.deaths_total}</dd>
-            <dt>Globales Risiko</dt>
-            <dd>{runtimeState.world.outcomes.global_risk}</dd>
-          </dl>
-
-          <h3>Öffentliche Signale</h3>
-          <ul className="signal-list">
-            {incident.public_signals.map((signal) => (
-              <li key={signal.code}>{signal.message}</li>
-            ))}
-          </ul>
-
-          <h3>Aktive Routing Overrides</h3>
-          {activeOverrides.length === 0 ? (
-            <p className="muted">Keine aktiven Overrides.</p>
-          ) : (
-            <ul className="override-list">
-              {activeOverrides.map(([key, override]) => (
-                <li key={key}>
-                  <code>
-                    {override.source_hospital_id} → {override.target_hospital_id}
-                  </code>
-                  <small>
-                    {override.priority}/{override.capability} · seit Tick{" "}
-                    {override.active_since_tick} · {override.created_by}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <h2>Hospitals</h2>
-          <div className="hospital-list">
-            {hospitals.map((hospital) => {
-              const load = getHospitalLoadPercent(runtimeState.world, hospital.id);
-              return (
-                <article className="hospital-card" key={hospital.id}>
-                  <div className="hospital-header">
-                    <strong>{hospital.id}</strong>
-                    <span>{Math.round(load)}%</span>
-                  </div>
-                  <p>{hospital.name}</p>
-                  <small>
-                    Beds: {hospital.capacity.staffed_beds_occupied}/
-                    {hospital.capacity.staffed_beds_total}
-                  </small>
-                  <small>
-                    overload_ticks: {hospital.risk_counters?.overload_ticks ?? 0}
-                  </small>
-                  <small>
-                    mismatch_ticks:{" "}
-                    {hospital.risk_counters?.capability_mismatch_ticks ?? 0}
-                  </small>
-                </article>
-              );
-            })}
-          </div>
+          <ActiveIncidentPanel
+            incident={incidentView}
+            outcome={outcomeView}
+            tick={runtimeState.world.clock.tick}
+          />
+          <MedicalOverviewPanel hospitals={hospitalViews} overrides={overrideViews} />
         </aside>
 
-        <section className="panel console-panel">
-          <h2>Operator Console</h2>
-          <textarea
-            value={playerCommand}
-            onChange={(event) => setPlayerCommand(event.target.value)}
-            rows={3}
+        <section className="panel">
+          <OperatorConsolePanel
+            commandText={playerCommand}
+            onCommandTextChange={setPlayerCommand}
+            onExecute={runPlayerCommand}
+            commandNames={registry.listCommandNames()}
+            examples={COMMAND_EXAMPLES}
+            lastResult={lastResult}
+            auditLines={auditLines}
           />
-          <button onClick={runPlayerCommand}>Ausführen</button>
-
-          <h3>Command-Beispiele</h3>
-          <div className="examples">
-            {COMMAND_EXAMPLES.map((command) => (
-              <button key={command} onClick={() => setPlayerCommand(command)}>
-                {command}
-              </button>
-            ))}
-          </div>
-
-          <h3>Letztes Result</h3>
-          <p className={lastResult?.success === false ? "error-text" : "ok-text"}>
-            {getResultLabel(lastResult)}
-          </p>
-          <pre>{lastResult ? formatJson(lastResult.output) : ""}</pre>
         </section>
 
         <aside className="panel">
-          <h2>AURORA</h2>
-          <textarea
-            value={auroraCommand}
-            onChange={(event) => setAuroraCommand(event.target.value)}
-            rows={3}
+          <AuroraPanel
+            messages={auroraMessages}
+            pendingRequest={
+              awaitingAuroraItem
+                ? {
+                    raw: awaitingAuroraItem.request.raw,
+                    permissionClass:
+                      registry.getHandler(awaitingAuroraItem.request.name)?.effect ??
+                      awaitingAuroraItem.request.permissionClass ??
+                      "world_prepare",
+                  }
+                : null
+            }
+            onDecision={resolveAurora}
+            alwaysAllowedPermissionClasses={Array.from(
+              runtimeState.permissions.alwaysAllowedPermissionClasses
+            )}
+            auroraCommand={auroraCommand}
+            onAuroraCommandChange={setAuroraCommand}
+            onQueueRequest={queueAuroraRequest}
           />
-          <button onClick={queueAuroraRequest}>AURORA Request queuen</button>
-
-          {awaitingAuroraItem ? (
-            <section className="approval-box">
-              <h3>Freigabe erforderlich</h3>
-              <code>{awaitingAuroraItem.request.raw}</code>
-              <div className="approval-actions">
-                <button onClick={() => resolveAurora("allow_once")}>
-                  Einmal erlauben
-                </button>
-                <button onClick={() => resolveAurora("allow_always")}>
-                  Immer erlauben
-                </button>
-                <button onClick={() => resolveAurora("deny")}>Ablehnen</button>
-              </div>
-            </section>
-          ) : (
-            <p className="muted">Keine offene Freigabe.</p>
-          )}
-
-          <h3>Queue</h3>
-          <ol className="queue-list">
-            {runtimeState.auroraQueue.items.map((item) => (
-              <li key={item.id}>
-                <span className={`queue-status queue-${item.status}`}>
-                  {item.status}
-                </span>
-                <code>{item.request.raw}</code>
-              </li>
-            ))}
-          </ol>
         </aside>
-      </section>
-
-      <section className="panel audit-panel">
-        <h2>Audit Log</h2>
-        <ol>
-          {runtimeState.auditLog.slice(-20).map((event) => (
-            <li key={event.id}>
-              <span>[{event.tick}]</span> <strong>{event.source}</strong>{" "}
-              <code>{event.command.raw}</code> —{" "}
-              <span className={event.success ? "ok-text" : "error-text"}>
-                {event.message}
-              </span>
-            </li>
-          ))}
-        </ol>
       </section>
     </main>
   );
