@@ -234,6 +234,11 @@ export type EnergyConsumerState = {
   minimum_supply: number;
   criticality: ConsumerCriticality;
   priority_class: EnergyPriorityClass;
+  /**
+   * Wer die priority_class zuletzt geändert hat. Fehlt das Feld, gilt die
+   * unveränderte Betreiberkonfiguration aus dem initialen WorldState.
+   */
+  priority_last_changed_by?: "player" | "aurora";
   status: ConsumerSupplyStatus;
   /** Öffentlich formulierte Folge, falls die Versorgung reduziert wird. */
   reduction_consequence: string;

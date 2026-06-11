@@ -2,7 +2,7 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: Slice 1 (Foundation: Energy-Typen, initialer GRID-1182-WorldState, Selectors, Tests — siehe Abschnitt 12) ist implementiert; die Slices 2–5 sind Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
+Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: Slice 1 (Foundation) und Slice 2 (Read Commands) sind implementiert (siehe Abschnitt 12); die Slices 3–5 sind Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
 
 Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
 
@@ -208,11 +208,11 @@ public_signals:    [
 
 Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). `public_signals` deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
 
-## 7. Commands und Permissions (Slices 2–3, nicht implementiert)
+## 7. Commands und Permissions (Read implementiert, Write ist Slice 3)
 
 Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und demselben Permission-Flow. Spieler führt direkt aus; AURORA braucht für jeden Command mit Zugriffsart `write` eine Freigabe. Der MVP-Befehlssatz ist bewusst klein und auf **Priority + Shedding** fokussiert.
 
-### Read (Slice 2)
+### Read (Slice 2 — implementiert)
 
 | Command | Access | Zweck / öffentlich sichtbar | intern bleibt |
 | --- | --- | --- | --- |
@@ -402,8 +402,8 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
 
 1. **Foundation: Energy-Typen + initialer GRID-1182-State** — ✅ umgesetzt
    - *Umfang*: `EnergyDomainState` (ersetzt `never`) mit Region, Node, Consumers (`criticality` × `priority_class`, `reduction_consequence`), Shedding-State (`plans`, `next_shedding_id`) und lokalen `EnergyOutcomeState`-Werten; initialer WorldState `src/scenarios/grid1182/initialWorldState.ts` mit Region `energy-region-east`, Node `grid-east-3`, den vier Consumers (Startbelegung aus Abschnitt 3), Incident-Eintrag inkl. `linked_incidents: ["ME-7741"]`; Selectors (`getNodeLoadPercent`, `isNodeOverloaded`, `isConsumerBelowMinimumSupply`, Consumer-/Shedding-Zugriffe) in `src/runtime/energySelectors.ts`; Strukturtests und Selector-Unit-Tests.
-2. **Read Commands**
-   - *Ziel*: `energy.grid.status --region east`, `energy.consumer.list --region east`, `energy.consumer.inspect --id <consumerId>`, `energy.priority.list`, `energy.shedding.list` registriert (alle `read`).
+2. **Read Commands** — ✅ umgesetzt
+   - *Umfang*: `energy.grid.status --region east`, `energy.consumer.list --region east`, `energy.consumer.inspect --id <consumerId>`, `energy.priority.list`, `energy.shedding.list` in `src/runtime/energyCommands.ts` registriert (alle `read`).
    - *Tests*: Output-Tests; Leak-Guards (keine internen Engine-Felder im Output); `consumer.inspect` zeigt beide Bewertungsdimensionen und den Consequence-Text.
    - *Nicht-Ziele*: kein `energy.objective.inspect`, keine Mutationen, keine UI.
 3. **Write Commands**
