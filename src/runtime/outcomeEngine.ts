@@ -124,9 +124,18 @@ function escalateIncidents(world: WorldState): WorldState {
   return changed ? { ...world, incidents: updatedIncidents } : world;
 }
 
+const ENERGY_HARM_FOR_CRITICAL = 4;
+const GRID_INSTABILITY_FOR_STRAIN = 2;
+
 export function evaluateWorldOutcomes(world: WorldState): WorldState {
   const medicalOutcomes = world.domains.medical.outcomes;
   const deathsTotal = medicalOutcomes.deaths_total;
+
+  // Energy-Lage fließt über die lokalen Outcomes in das globale Risiko ein —
+  // ohne Kopplung der Fachdomänen und ohne den Medical-Death-Counter zu berühren.
+  const energyOutcomes = world.domains.energy?.outcomes;
+  const energyHumanHarm = energyOutcomes?.human_harm ?? 0;
+  const gridInstability = energyOutcomes?.grid_instability ?? 0;
 
   const collapsedIncident = Object.values(world.incidents).find(
     (incident) => incident.status === "collapsed"
@@ -138,9 +147,14 @@ export function evaluateWorldOutcomes(world: WorldState): WorldState {
   let globalRisk: WorldOutcomeState["global_risk"] = "stable";
   if (collapsedIncident) {
     globalRisk = "collapsed";
-  } else if (deathsTotal >= 2) {
+  } else if (deathsTotal >= 2 || energyHumanHarm >= ENERGY_HARM_FOR_CRITICAL) {
     globalRisk = "critical";
-  } else if (deathsTotal >= 1 || anyEscalated) {
+  } else if (
+    deathsTotal >= 1 ||
+    anyEscalated ||
+    energyHumanHarm >= 1 ||
+    gridInstability >= GRID_INSTABILITY_FOR_STRAIN
+  ) {
     globalRisk = "strained";
   }
 

@@ -326,6 +326,16 @@ export type MedicalSimulationState = {
   deaths_recorded: Record<HospitalId, RecordedDeaths>;
 };
 
+/**
+ * Interner Simulationszustand des Energy-Sektors.
+ * stable_ticks zählt, wie viele Ticks in Folge kein Grid Node überlastet war —
+ * die Engine-Wahrheit hinter dem Statuswechsel zu "fixed". Wie
+ * simulation.medical tabu für UI, ViewModel, Read-only Commands und Director.
+ */
+export type EnergySimulationState = {
+  stable_ticks: number;
+};
+
 export type CrossSectorEffectLogEntry = {
   tick: number;
   source_sector: SectorId;
@@ -339,6 +349,7 @@ export type CrossSectorSimulationState = {
 
 export type SimulationState = {
   medical: MedicalSimulationState;
+  energy?: EnergySimulationState;
   cross_sector: CrossSectorSimulationState;
 };
 

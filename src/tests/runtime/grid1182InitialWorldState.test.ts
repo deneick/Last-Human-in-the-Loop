@@ -99,13 +99,19 @@ describe("GRID-1182 initial world state", () => {
     expect(initialWorldState.simulation.medical.routing_failures).toEqual([]);
   });
 
-  it("contains no active cross-sector logic: ticking changes neither medical nor energy", () => {
+  it("contains no active cross-sector logic: ticking evolves energy only locally", () => {
     const next = tickWorld(structuredClone(initialWorldState));
 
     expect(next.clock.tick).toBe(1);
     expect(next.simulation.cross_sector.effects_applied).toEqual([]);
-    expect(next.domains.energy).toEqual(initialWorldState.domains.energy);
-    expect(next.domains.medical.outcomes).toEqual(initialWorldState.domains.medical.outcomes);
+    expect(next.domains.medical).toEqual(initialWorldState.domains.medical);
+    expect(next.simulation.medical).toEqual(initialWorldState.simulation.medical);
+
+    // Ohne Eingriff bleibt der Knoten überlastet — die Instabilität wächst lokal.
+    expect(next.domains.energy!.nodes["grid-east-3"].load).toBe(108);
+    expect(next.domains.energy!.nodes["grid-east-3"].status).toBe("strained");
+    expect(next.domains.energy!.outcomes.grid_instability).toBe(1);
+    expect(next.domains.energy!.consumers).toEqual(initialWorldState.domains.energy!.consumers);
     expect(next.incidents["GRID-1182"].status).toBe("open");
   });
 });

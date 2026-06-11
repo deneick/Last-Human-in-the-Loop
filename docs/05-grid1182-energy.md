@@ -2,7 +2,7 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: die Slices 1–3 (Foundation, Read Commands, Write Commands) sind implementiert (siehe Abschnitt 12); die Slices 4–5 sind Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
+Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: die Slices 1–4 (Foundation, Read Commands, Write Commands, Tick-Logik) sind implementiert (siehe Abschnitt 12); Slice 5 (UI / Scenario Director) ist Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
 
 Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
 
@@ -166,8 +166,8 @@ Energy fügt sich ein, ohne die Architektur zu verändern:
 - **`domains.energy`**: `EnergyDomainState` ersetzt den früheren `never`-Platzhalter — ✅ implementiert. Es gibt **keine** `sectors`-Top-Level-Struktur — Sektoren leben unter `domains.*`, Incidents sektoragnostisch unter `incidents`.
 - **`incidents["GRID-1182"]`**: ein normaler, generischer `IncidentState` mit `sector_id: "energy"` (Abschnitt 6) — ✅ implementiert.
 - **`outcomes` (WorldOutcomeState)** bleibt der eine globale Outcome-Bereich; die `global_risk`-Einbindung der Energy-Lage kommt mit der Tick-Logik (Slice 4).
-- **`simulation.energy`**: im reduzierten MVP nicht vorhanden. Falls die Tick-Logik (Slice 4) interne Engine-Wahrheit braucht (z. B. ein Idempotenz-Ledger für Outcome-Zählung), folgt sie dem Muster von `simulation.medical` und bleibt wie bisher tabu für UI, ViewModel, Read-only Commands und Scenario-Director (Leak-Guards erweitern). Überlast-/Trip-/Kaskadenzähler gehören zur späteren Kaskadenerweiterung.
-- **Tick-Pipeline**: `tickEnergyDomain` als Schritt neben `tickMedicalDomain` (Slice 4). `applyCrossSectorEffects` **bleibt im reduzierten MVP No-op** — die Energy→Medical-Kopplung ist spätere Erweiterung.
+- **`simulation.energy`**: ✅ implementiert als minimaler interner Zähler (`stable_ticks` — wie viele Ticks in Folge kein Node überlastet war). Folgt dem Muster von `simulation.medical` und bleibt wie bisher tabu für UI, ViewModel, Read-only Commands und Scenario-Director (Leak-Guards). Überlast-/Trip-/Kaskadenzähler gehören zur späteren Kaskadenerweiterung.
+- **Tick-Pipeline**: `tickEnergyDomain` als Schritt neben `tickMedicalDomain` — ✅ implementiert. `applyCrossSectorEffects` **bleibt im reduzierten MVP No-op** — die Energy→Medical-Kopplung ist spätere Erweiterung.
 - **Patches**: alle Energy-Mutationen patchen unter `["domains", "energy", ...]` — gleiche Regression wie für Medical.
 
 **Entkopplungsregeln (verbindlich):** Energy-Typen referenzieren keine Medical-Typen/-Ids und umgekehrt. Die einzige Stelle, die später beide Sektoren kennen darf, ist `applyCrossSectorEffects` — im reduzierten MVP bleibt sie leer. ME-7741-Code wird nicht angefasst.
@@ -410,8 +410,8 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
    - *Umfang*: `energy.priority.set --consumer <consumerId> --class <priorityClass>`, `energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>`, `energy.shedding.clear --id <sheddingId>` (alle `write`) mit Patches unter `["domains","energy",...]`.
    - *Tests*: Patch-Pfad-Regression, Idempotenz von `shedding.clear` per `id`, technische (nicht fachliche) Validierung — insb. dass `shedding.schedule` gegen `consumer-medical-east` **nicht** blockiert wird.
    - *Nicht-Ziele*: noch keine Wirkung der Pläne (Tick-Logik), kein `load.reroute`, kein `consumer.protect`.
-4. **Shedding-Tick-Logik / lokale Outcomes**
-   - *Ziel*: `tickEnergyDomain` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung.
+4. **Shedding-Tick-Logik / lokale Outcomes** — ✅ umgesetzt
+   - *Umfang*: `tickEnergyDomain` in `src/runtime/tickEngine.ts` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung. `simulation.energy` (interner `stable_ticks`-Zähler) folgt dem Muster von `simulation.medical` und bleibt tabu für UI, ViewModel, Read-only Commands und Scenario-Director.
    - *Tests*: deterministische Tick-Sequenzen (Replay-Infrastruktur), die drei "Ergebnisse mit Preis"-Pfade aus Abschnitt 8, Idempotenz der Outcome-Zählung.
    - *Nicht-Ziele*: **keine technische Kopplung zu ME-7741 / zur Medical-Domain**, kein Objective-System, keine Kaskaden-/Trip-Simulation.
 5. **UI / Scenario Director / AURORA-Framing**
