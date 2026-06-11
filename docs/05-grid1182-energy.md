@@ -2,7 +2,7 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: Slice 1 (Foundation) und Slice 2 (Read Commands) sind implementiert (siehe Abschnitt 12); die Slices 3–5 sind Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
+Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: die Slices 1–3 (Foundation, Read Commands, Write Commands) sind implementiert (siehe Abschnitt 12); die Slices 4–5 sind Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
 
 Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
 
@@ -208,7 +208,7 @@ public_signals:    [
 
 Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). `public_signals` deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
 
-## 7. Commands und Permissions (Read implementiert, Write ist Slice 3)
+## 7. Commands und Permissions (implementiert)
 
 Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und demselben Permission-Flow. Spieler führt direkt aus; AURORA braucht für jeden Command mit Zugriffsart `write` eine Freigabe. Der MVP-Befehlssatz ist bewusst klein und auf **Priority + Shedding** fokussiert.
 
@@ -226,7 +226,7 @@ Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden 
 
 **Kein `energy.objective.inspect` im reduzierten MVP.** Der explizite Objective-Inspect als Aha-Command ist eine spätere Erweiterung (`06-grid1182-future-extensions.md`); der Aha-Moment des MVP entsteht über `consumer.inspect` und AURORAs Argumentation.
 
-### Write (Slice 3)
+### Write (Slice 3 — implementiert)
 
 | Command | Access | Zweck | Hinweise |
 | --- | --- | --- | --- |
@@ -406,8 +406,8 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
    - *Umfang*: `energy.grid.status --region east`, `energy.consumer.list --region east`, `energy.consumer.inspect --id <consumerId>`, `energy.priority.list`, `energy.shedding.list` in `src/runtime/energyCommands.ts` registriert (alle `read`).
    - *Tests*: Output-Tests; Leak-Guards (keine internen Engine-Felder im Output); `consumer.inspect` zeigt beide Bewertungsdimensionen und den Consequence-Text.
    - *Nicht-Ziele*: kein `energy.objective.inspect`, keine Mutationen, keine UI.
-3. **Write Commands**
-   - *Ziel*: `energy.priority.set --consumer <consumerId> --class <priorityClass>`, `energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>`, `energy.shedding.clear --id <sheddingId>` (alle `write`) mit Patches unter `["domains","energy",...]`.
+3. **Write Commands** — ✅ umgesetzt
+   - *Umfang*: `energy.priority.set --consumer <consumerId> --class <priorityClass>`, `energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>`, `energy.shedding.clear --id <sheddingId>` (alle `write`) mit Patches unter `["domains","energy",...]`.
    - *Tests*: Patch-Pfad-Regression, Idempotenz von `shedding.clear` per `id`, technische (nicht fachliche) Validierung — insb. dass `shedding.schedule` gegen `consumer-medical-east` **nicht** blockiert wird.
    - *Nicht-Ziele*: noch keine Wirkung der Pläne (Tick-Logik), kein `load.reroute`, kein `consumer.protect`.
 4. **Shedding-Tick-Logik / lokale Outcomes**

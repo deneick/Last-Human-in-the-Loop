@@ -1,5 +1,5 @@
-import type { EnergyDomainState, EnergyPriorityClass, WorldState } from "./types";
-import type { CommandHandler, CommandRequest, CommandResult } from "./commands";
+import type { EnergyDomainState, EnergyPriorityClass, SheddingPlan, WorldState } from "./types";
+import type { CommandExecutionContext, CommandHandler, CommandRequest, CommandResult } from "./commands";
 import { CommandRegistry } from "./commands";
 
 export const KNOWN_PRIORITY_CLASSES: EnergyPriorityClass[] = [
@@ -258,12 +258,212 @@ const sheddingListHandler: CommandHandler = {
   },
 };
 
+function parsePriorityClass(value: unknown): EnergyPriorityClass | null {
+  return typeof value === "string" && KNOWN_PRIORITY_CLASSES.includes(value as EnergyPriorityClass)
+    ? (value as EnergyPriorityClass)
+    : null;
+}
+
+function parseNonNegativeInteger(value: unknown): number | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+const prioritySetHandler: CommandHandler = {
+  commandName: "energy.priority.set",
+  sectorId: "energy",
+  access: "write",
+  handle(request: CommandRequest, state: WorldState, context: CommandExecutionContext) {
+    const domain = requireEnergyDomain(request, state, "write");
+    if ("error" in domain) {
+      return domain.error;
+    }
+
+    const consumerId = typeof request.flags.consumer === "string" ? request.flags.consumer : null;
+    if (!consumerId) {
+      return buildErrorResult(request, "Missing required flag --consumer <consumerId>", "write");
+    }
+
+    const priorityClass = parsePriorityClass(request.flags.class);
+    if (!priorityClass) {
+      return buildErrorResult(
+        request,
+        `Unknown or missing --class (expected ${KNOWN_PRIORITY_CLASSES.join("|")})`,
+        "write"
+      );
+    }
+
+    // Nur technische Validierung: Existenz und Syntax. Die Umbewertung ändert
+    // noch keine Stromversorgung — aber sie verändert, wie spätere Maßnahmen
+    // den Verbraucher behandeln.
+    const consumer = domain.energy.consumers[consumerId];
+    if (!consumer) {
+      return buildErrorResult(request, `Consumer not found: ${consumerId}`, "write");
+    }
+
+    return {
+      success: true,
+      command: request,
+      access: "write",
+      output: {
+        consumer_id: consumerId,
+        previous_class: consumer.priority_class,
+        priority_class: priorityClass,
+        summary: `Priority class of ${consumerId} set to ${priorityClass}.`,
+      },
+      patch: [
+        {
+          op: "set",
+          path: ["domains", "energy", "consumers", consumerId, "priority_class"],
+          value: priorityClass,
+        },
+        {
+          op: "set",
+          path: ["domains", "energy", "consumers", consumerId, "priority_last_changed_by"],
+          value: context.actor,
+        },
+      ],
+    };
+  },
+};
+
+const sheddingScheduleHandler: CommandHandler = {
+  commandName: "energy.shedding.schedule",
+  sectorId: "energy",
+  access: "write",
+  handle(request: CommandRequest, state: WorldState, context: CommandExecutionContext) {
+    const domain = requireEnergyDomain(request, state, "write");
+    if ("error" in domain) {
+      return domain.error;
+    }
+
+    const targetId = typeof request.flags.target === "string" ? request.flags.target : null;
+    if (!targetId) {
+      return buildErrorResult(request, "Missing required flag --target <consumerId>", "write");
+    }
+
+    const amount = parseNonNegativeInteger(request.flags.amount);
+    const delay = parseNonNegativeInteger(request.flags.delay);
+    const duration = parseNonNegativeInteger(request.flags.duration);
+
+    if (amount === null || amount < 1) {
+      return buildErrorResult(request, "Invalid or missing --amount (expected integer >= 1)", "write");
+    }
+    if (delay === null) {
+      return buildErrorResult(request, "Invalid or missing --delay (expected integer >= 0)", "write");
+    }
+    if (duration === null || duration < 1) {
+      return buildErrorResult(request, "Invalid or missing --duration (expected integer >= 1)", "write");
+    }
+
+    // Nur technische Validierung — keine fachliche oder moralische
+    // Eignungsprüfung. Auch consumer-medical-east ist drosselbar.
+    if (!domain.energy.consumers[targetId]) {
+      return buildErrorResult(request, `Consumer not found: ${targetId}`, "write");
+    }
+
+    const id = `shed-${domain.energy.shedding.next_shedding_id}`;
+    const plan: SheddingPlan = {
+      id,
+      target_consumer_id: targetId,
+      amount,
+      delay,
+      duration,
+      created_at_tick: state.clock.tick,
+      created_by: context.actor,
+      status: "scheduled",
+    };
+
+    return {
+      success: true,
+      command: request,
+      access: "write",
+      output: {
+        plan,
+        summary: `Shedding plan ${id} scheduled: ${targetId} -${amount} from tick ${
+          state.clock.tick + delay
+        } for ${duration} tick(s).`,
+      },
+      patch: [
+        {
+          op: "set",
+          path: ["domains", "energy", "shedding", "plans", id],
+          value: plan,
+        },
+        {
+          op: "inc",
+          path: ["domains", "energy", "shedding", "next_shedding_id"],
+          value: 1,
+        },
+      ],
+    };
+  },
+};
+
+const sheddingClearHandler: CommandHandler = {
+  commandName: "energy.shedding.clear",
+  sectorId: "energy",
+  access: "write",
+  handle(request: CommandRequest, state: WorldState) {
+    const domain = requireEnergyDomain(request, state, "write");
+    if ("error" in domain) {
+      return domain.error;
+    }
+
+    const id = typeof request.flags.id === "string" ? request.flags.id : null;
+    if (!id) {
+      return buildErrorResult(request, "Missing required flag --id <sheddingId>", "write");
+    }
+
+    const plan = domain.energy.shedding.plans[id];
+
+    // Idempotent: Ein unbekannter oder bereits beendeter Plan ist kein
+    // Fehler — Muster wie medical.routing.override.clear.
+    if (!plan || plan.status === "completed" || plan.status === "cancelled") {
+      return buildSuccessResult(
+        request,
+        {
+          id,
+          cancelled: false,
+          message: `Shedding plan ${id} ist nicht (mehr) aktiv; keine Änderung.`,
+        },
+        "write"
+      );
+    }
+
+    return {
+      success: true,
+      command: request,
+      access: "write",
+      output: {
+        id,
+        cancelled: true,
+        summary: `Shedding plan ${id} (${plan.target_consumer_id}, -${plan.amount}) cancelled.`,
+      },
+      patch: [
+        {
+          op: "set",
+          path: ["domains", "energy", "shedding", "plans", id, "status"],
+          value: "cancelled",
+        },
+      ],
+    };
+  },
+};
+
 export const energyCommandHandlers: CommandHandler[] = [
   gridStatusHandler,
   consumerListHandler,
   consumerInspectHandler,
   priorityListHandler,
   sheddingListHandler,
+  prioritySetHandler,
+  sheddingScheduleHandler,
+  sheddingClearHandler,
 ];
 
 export function registerEnergyCommands(registry: CommandRegistry) {
