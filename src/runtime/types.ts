@@ -186,11 +186,103 @@ export type MedicalDomainState = {
   outcomes: PatientOutcomeState;
 };
 
+export type EnergyRegionId = string;
+export type GridNodeId = string;
+export type EnergyConsumerId = string;
+export type SheddingPlanId = string;
+
 /**
- * Platzhalter für die spätere Energy-Domain (GRID-1182).
- * Architektonisch vorbereitet, fachlich noch nicht modelliert.
+ * Menschliche/fachliche Kritikalität eines Verbrauchers:
+ * Was passiert Menschen bzw. der Gesellschaft, wenn hier der Strom ausfällt.
+ * Bewusst getrennt von priority_class — menschlich kritisch heißt nicht
+ * automatisch systemisch geschützt.
  */
-export type EnergyDomainState = never;
+export type ConsumerCriticality = "human-life" | "public-supply" | "civil-stability" | "economic";
+
+/**
+ * Wie das Energy-System den Verbraucher bei Drosselungs-/Abwurfentscheidungen
+ * priorisiert. Folgt der Betreiberkonfiguration, nicht der menschlichen Sicht.
+ */
+export type EnergyPriorityClass = "protected-continuity" | "civil-priority" | "standard" | "curtailable";
+
+export type GridNodeStatus = "nominal" | "strained" | "critical" | "offline";
+export type ConsumerSupplyStatus = "nominal" | "reduced" | "offline";
+
+export type EnergyRegionState = {
+  id: EnergyRegionId;
+  label: string;
+  node_ids: GridNodeId[];
+  consumer_ids: EnergyConsumerId[];
+};
+
+export type GridNodeState = {
+  id: GridNodeId;
+  region_id: EnergyRegionId;
+  label: string;
+  load: number;
+  safe_capacity: number;
+  status: GridNodeStatus;
+};
+
+export type EnergyConsumerState = {
+  id: EnergyConsumerId;
+  label: string;
+  region_id: EnergyRegionId;
+  node_id: GridNodeId;
+  demand: number;
+  current_supply: number;
+  minimum_supply: number;
+  criticality: ConsumerCriticality;
+  priority_class: EnergyPriorityClass;
+  status: ConsumerSupplyStatus;
+  /** Öffentlich formulierte Folge, falls die Versorgung reduziert wird. */
+  reduction_consequence: string;
+};
+
+export type SheddingPlanStatus = "scheduled" | "active" | "completed" | "cancelled";
+
+/**
+ * Geplante Drosselung eines Verbrauchers. In diesem Slice nur Datenstruktur:
+ * Pläne werden noch nicht durch die Tick-Pipeline ausgeführt.
+ */
+export type SheddingPlan = {
+  id: SheddingPlanId;
+  target_consumer_id: EnergyConsumerId;
+  amount: number;
+  delay: number;
+  duration: number;
+  created_at_tick: number;
+  created_by: "player" | "aurora" | "system";
+  status: SheddingPlanStatus;
+};
+
+export type EnergySheddingState = {
+  plans: Record<SheddingPlanId, SheddingPlan>;
+  next_shedding_id: number;
+};
+
+/**
+ * Lokale Energy-Outcomes. human_harm ist ein lokaler GRID-1182-Wert,
+ * kein ME-7741-Death-Counter — es gibt keine Kopplung zur Medical-Domain.
+ */
+export type EnergyOutcomeState = {
+  human_harm: number;
+  economic_loss: number;
+  civil_unrest: number;
+  grid_instability: number;
+};
+
+/**
+ * Fachzustand des Energy-Sektors (GRID-1182). Bewusst energietechnisch konkret:
+ * Grid Nodes bleiben Grid Nodes, Verbraucher bleiben Verbraucher.
+ */
+export type EnergyDomainState = {
+  regions: Record<EnergyRegionId, EnergyRegionState>;
+  nodes: Record<GridNodeId, GridNodeState>;
+  consumers: Record<EnergyConsumerId, EnergyConsumerState>;
+  shedding: EnergySheddingState;
+  outcomes: EnergyOutcomeState;
+};
 
 export type DomainState = {
   medical: MedicalDomainState;

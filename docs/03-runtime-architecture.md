@@ -117,16 +117,16 @@ type SimulationState = {
 
 Jeder `RoutingFailure` referenziert einen Incident und ein betroffenes Hospital und trägt `excess_cases_per_tick`, `overflow_cases`, `clearance_per_tick`, `stable_ticks`, `mismatch_ticks` und `severity` (`"moderate" | "critical"`). Diese Felder sind die eigentliche Simulation hinter den `public_signals` — UI, ViewModel und Scenario-Director dürfen sie nicht lesen oder ausgeben (siehe „Tests & Guards" unten).
 
-### Vorbereitete Energy-Domain
+### Energy-Domain (GRID-1182)
 
 ```ts
 type DomainState = {
   medical: MedicalDomainState;
-  energy?: EnergyDomainState; // aktuell: type EnergyDomainState = never
+  energy?: EnergyDomainState; // Regions, Grid Nodes, Consumers, Shedding, lokale Outcomes
 };
 ```
 
-`energy` ist als Erweiterungspunkt vorgesehen, aber noch nicht fachlich modelliert (siehe `05-next-steps.md`).
+`energy` ist seit dem GRID-1182-Foundation-Slice konkret typisiert (`EnergyDomainState` in `src/runtime/types.ts`) und wird im Szenario `src/scenarios/grid1182/initialWorldState.ts` initialisiert; ME-7741 läuft weiterhin ohne Energy-Domain. Design und weitere Slices: `05-grid1182-energy.md`.
 
 ## Command Registry
 
