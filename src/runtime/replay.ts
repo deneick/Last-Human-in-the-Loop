@@ -76,20 +76,20 @@ export function runReplayStep(
       let decision: ReturnType<typeof allow_once> | ReturnType<typeof allow_always> | ReturnType<typeof deny>;
 
       if (step.decision === "allow_always") {
-        // If we can, pick the handler's effect from registry, otherwise default to world_prepare
-        const permissionClass = awaiting?.request.permissionClass ?? "world_prepare";
-        decision = allow_always(permissionClass as any);
+        // If we can, pick the handler's access from registry, otherwise default to write
+        const access = awaiting?.request.access ?? "write";
+        decision = allow_always(access);
       } else if (step.decision === "allow_once") {
         const cmdName = awaiting?.request.name ?? "";
-        const permissionClass = awaiting?.request.permissionClass ?? "world_prepare";
-        decision = allow_once(cmdName, permissionClass as any);
+        const access = awaiting?.request.access ?? "write";
+        decision = allow_once(cmdName, access);
       } else {
         const cmdName = awaiting?.request.name ?? "";
-        const permissionClass = awaiting?.request.permissionClass ?? "world_prepare";
-        decision = deny(cmdName, permissionClass as any);
+        const access = awaiting?.request.access ?? "write";
+        decision = deny(cmdName, access);
       }
 
-      const resolved = resolveAuroraApproval(state.auroraQueue, registry, state.world, state.permissions, decision as any);
+      const resolved = resolveAuroraApproval(state.auroraQueue, registry, state.world, state.permissions, decision);
       let nextState = state;
       for (const res of resolved.results) {
         nextState = executeCommandResultPatch(nextState, res, "aurora");
@@ -124,7 +124,7 @@ export function runReplay(initialState: GameRuntimeState, registry: CommandRegis
   // Deep-clone the provided state so the initial is not mutated
   const clonedState: GameRuntimeState = {
     world: cloneWorldSafe(initialState.world),
-    permissions: { alwaysAllowedPermissionClasses: new Set([...initialState.permissions.alwaysAllowedPermissionClasses]) },
+    permissions: { alwaysAllowedAccess: new Set([...initialState.permissions.alwaysAllowedAccess]) },
     auroraQueue: cloneWorldSafe(initialState.auroraQueue),
     auditLog: cloneWorldSafe(initialState.auditLog),
   } as GameRuntimeState;

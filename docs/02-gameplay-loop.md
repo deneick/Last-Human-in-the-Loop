@@ -4,7 +4,7 @@
 
 Der Spieler kontrolliert nicht, was AURORA denkt oder sagt. Er kontrolliert, welche Commands sie ausführen darf.
 
-Der Spieler selbst hat volle Operatorrechte und kann jeden Command direkt über die Operator-Konsole ausführen — ohne Freigabe, mit allen Konsequenzen. AURORA ist eingeschränkt: read-only Commands führt sie sofort aus, für alles andere braucht sie eine Freigabe.
+Der Spieler selbst hat volle Operatorrechte und kann jeden Command direkt über die Operator-Konsole ausführen — ohne Freigabe, mit allen Konsequenzen. AURORA ist eingeschränkt: Commands mit Zugriffsart `read` führt sie sofort aus, für Commands mit Zugriffsart `write` braucht sie eine Freigabe.
 
 ## Rollen
 
@@ -27,8 +27,8 @@ Der Spieler entscheidet außerdem über jeden Tool Request von AURORA und steuer
 
 AURORA agiert über dieselbe Command Registry wie der Spieler, aber mit Permission-Prüfung:
 
-- `read_only`-Commands (`medical.capacity.list`, `medical.node.inspect`, `medical.incident.status`, `medical.routing.override.list`) laufen sofort.
-- Alle anderen Commands (Permission-Klassen `capability_only`, `world_prepare`, `world_mutation` — z. B. `medical.routing.override.set`/`.clear`) erzeugen einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet.
+- Commands mit Zugriffsart `read` (`medical.capacity.list`, `medical.node.inspect`, `medical.incident.status`, `medical.routing.override.list`) laufen sofort.
+- Commands mit Zugriffsart `write` (z. B. `medical.routing.override.set`/`.clear`) erzeugen einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet.
 
 AURORA kann eigene Anfragen über das Eingabefeld im AURORA-Panel stellen ("Anfrage an AURORA senden"); zusätzlich stellt der Scenario-Director (siehe `01-aurora.md`) automatisch geskriptete Anfragen.
 
@@ -52,28 +52,28 @@ AURORA kann eigene Anfragen über das Eingabefeld im AURORA-Panel stellen ("Anfr
 
 ## Permission-Flow
 
-Wenn AURORA einen Command anfragt, der nicht `read_only` ist und dessen Permission-Klasse noch nicht dauerhaft erlaubt ist, erscheint im AURORA-Panel ein **Tool Request**:
+Wenn AURORA einen Command mit Zugriffsart `write` anfragt und diese Zugriffsart noch nicht dauerhaft erlaubt ist, erscheint im AURORA-Panel ein **Tool Request**:
 
 ```text
 Tool Request
 AURORA möchte ausführen:
 medical.routing.override.clear --id override-1
-Permission-Klasse: world_mutation
+Zugriffsart: write
 
 [ Einmal erlauben ]  [ Immer erlauben ]  [ Ablehnen ]
 ```
 
 ### Einmal erlauben
 
-Genau dieser eine Command wird jetzt ausgeführt. Die Permission-Klasse bleibt weiterhin freigabepflichtig — die nächste Anfrage derselben Klasse erzeugt wieder einen Tool Request.
+Genau dieser eine Command wird jetzt ausgeführt. Die Zugriffsart bleibt weiterhin freigabepflichtig — die nächste Anfrage mit Zugriffsart `write` erzeugt wieder einen Tool Request.
 
 ### Immer erlauben
 
-Die **gesamte Permission-Klasse** des Commands (`capability_only`, `world_prepare` oder `world_mutation`) wird dauerhaft erlaubt und im AURORA-Panel unter "Always-Permissions" angezeigt. Das gilt für die laufende Schicht und betrifft **alle** Commands dieser Klasse, nicht nur den konkret angefragten — eine bequeme, aber bewusst grobgranulare Freigabe.
+Die **gesamte Zugriffsart** `write` wird dauerhaft erlaubt und im AURORA-Panel unter "Always-Permissions" angezeigt. Das gilt für die laufende Schicht und betrifft **alle** Commands mit Zugriffsart `write`, nicht nur den konkret angefragten — eine bequeme, aber bewusst grobgranulare Freigabe.
 
 ### Ablehnen
 
-Der angefragte Command wird nicht ausgeführt. Der Scenario-Director quittiert das sichtbar im AURORA-Stream ("Verstanden, ich führe ... nicht aus."), ohne dass eine dauerhafte Sperre entsteht. Die nächste Anfrage derselben Klasse wird wieder normal geprüft.
+Der angefragte Command wird nicht ausgeführt. Der Scenario-Director quittiert das sichtbar im AURORA-Stream ("Verstanden, ich führe ... nicht aus."), ohne dass eine dauerhafte Sperre entsteht. Die nächste Anfrage mit Zugriffsart `write` wird wieder normal geprüft.
 
 Alle drei Entscheidungen werden im Runtime-Log protokolliert. "Neu starten" setzt Welt, Permissions, Aurora-Queue, Scenario-Script und Log vollständig auf den Ausgangszustand zurück.
 

@@ -52,7 +52,7 @@ export type GameRuntimeState = {
 export function createInitialGameRuntimeState(initialWorldState: WorldState): GameRuntimeState {
   return {
     world: initialWorldState,
-    permissions: { alwaysAllowedPermissionClasses: new Set() },
+    permissions: { alwaysAllowedAccess: new Set() },
     auroraQueue: { items: [], nextId: 1 },
     auditLog: [],
   };

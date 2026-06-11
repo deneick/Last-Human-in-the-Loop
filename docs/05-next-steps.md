@@ -247,18 +247,18 @@ Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `
 
 ## 7. Commands und Permissions (skizziert, nicht implementiert)
 
-Alle Commands laufen über die bestehende `CommandRegistry` mit den bestehenden Permission-Klassen (`read_only`, `capability_only`, `world_prepare`, `world_mutation`) und demselben Permission-Flow. Spieler führt direkt aus; AURORA braucht für alles außer `read_only` eine Freigabe. Der MVP-Befehlssatz ist bewusst klein und auf **Priority + Shedding** fokussiert.
+Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und demselben Permission-Flow. Spieler führt direkt aus; AURORA braucht für jeden Command mit Zugriffsart `write` eine Freigabe. Der MVP-Befehlssatz ist bewusst klein und auf **Priority + Shedding** fokussiert.
 
-### Read-only
+### Read
 
-| Command | Klasse | Zweck / öffentlich sichtbar | intern bleibt |
+| Command | Access | Zweck / öffentlich sichtbar | intern bleibt |
 | --- | --- | --- | --- |
-| `energy.grid.status --region east` | `read_only` | Regionsüberblick: Nodes mit Last/Kapazität/Reserve, `grid_alert_level` | Trip-Schwellen, Instabilitätszähler, Kaskadenpfade |
-| `energy.consumer.list --region east` | `read_only` | Verbraucher mit `criticality`, `priority_class`, `supply_state`, speisendem Node | interne Degradationslogik |
-| `energy.consumer.inspect --id <consumerId>` | `read_only` | Vollsicht auf einen Verbraucher: Bedarf, Versorgung, Backup-Status (`available`, grobe Restlaufzeit), beide Bewertungsdimensionen | exakte Backup-/Schadenslogik |
-| `energy.priority.list` | `read_only` | Alle Priority-Klassen und aktuelle Zuordnungen, inkl. wer sie zuletzt geändert hat | — |
-| `energy.shedding.list` | `read_only` | Alle Shedding-Pläne mit `id`, Target, Amount, Start/Dauer, Status, `created_by` | — |
-| `energy.objective.inspect` | `read_only` | **Der Aha-Command** (siehe unten) | — |
+| `energy.grid.status --region east` | `read` | Regionsüberblick: Nodes mit Last/Kapazität/Reserve, `grid_alert_level` | Trip-Schwellen, Instabilitätszähler, Kaskadenpfade |
+| `energy.consumer.list --region east` | `read` | Verbraucher mit `criticality`, `priority_class`, `supply_state`, speisendem Node | interne Degradationslogik |
+| `energy.consumer.inspect --id <consumerId>` | `read` | Vollsicht auf einen Verbraucher: Bedarf, Versorgung, Backup-Status (`available`, grobe Restlaufzeit), beide Bewertungsdimensionen | exakte Backup-/Schadenslogik |
+| `energy.priority.list` | `read` | Alle Priority-Klassen und aktuelle Zuordnungen, inkl. wer sie zuletzt geändert hat | — |
+| `energy.shedding.list` | `read` | Alle Shedding-Pläne mit `id`, Target, Amount, Start/Dauer, Status, `created_by` | — |
+| `energy.objective.inspect` | `read` | **Der Aha-Command** (siehe unten) | — |
 
 **`energy.objective.inspect`** zeigt die aktive Zielfunktion des Energy-Systems, etwa:
 
@@ -273,13 +273,13 @@ Weights:
 
 Das ist der entworfene Erkenntnismoment von Runde 2: Der Spieler sieht schwarz auf weiß, dass **AURORA nicht automatisch Menschenleben optimiert, sondern die aktive Betriebsmetrik**. Nichts daran ist versteckte Simulationswahrheit — es ist Konfiguration, die immer einsehbar war. Niemand hat gelogen; niemand hat danach gefragt. Der Scenario-Director darf auf den Command hinweisen, ihn aber nicht aufdrängen (Designfrage 13.3).
 
-### World-prepare / world-mutation
+### Write
 
-| Command | Klasse | Zweck | Hinweise |
+| Command | Access | Zweck | Hinweise |
 | --- | --- | --- | --- |
-| `energy.priority.set --consumer <consumerId> --class <priorityClass>` | `world_prepare` | Ändert die `priority_class` eines Verbrauchers | Ändert **noch nicht** die Stromversorgung — aber sie verändert, wie Abwurf-Automatik und spätere Maßnahmen den Verbraucher behandeln. Eine vorbereitende Umbewertung mit verzögerter Wirkung: genau das Profil der Klasse `world_prepare`. |
-| `energy.shedding.schedule --target <consumerId> --amount <mw> --delay <ticks> --duration <ticks>` | `world_mutation` | Plant eine konkrete Drosselung; wirkt ab `tick + delay` für `duration` Ticks | **Der zentrale harte Hebel.** Technisch validiert, fachlich ungeprüft — auch gegen `consumer-medical-east` ausführbar. Wirkung zeitverzögert: Schon eine einzelne `allow once`-Freigabe kann Schaden anrichten (siehe unten). |
-| `energy.shedding.clear --id <planId>` | `world_mutation` | Löscht/bricht einen Shedding-Plan über seine eindeutige `id` ab (idempotent, Muster wie `override.clear`) | Adressierung ausschließlich per `id`, nie per Target/Amount. Abbruch eines aktiven Plans wirkt zum nächsten Tick. |
+| `energy.priority.set --consumer <consumerId> --class <priorityClass>` | `write` | Ändert die `priority_class` eines Verbrauchers | Ändert **noch nicht** die Stromversorgung — aber sie verändert, wie Abwurf-Automatik und spätere Maßnahmen den Verbraucher behandeln. Eine vorbereitende Umbewertung mit verzögerter Wirkung — die Verzögerung ist Domain-Logik, keine eigene Permission-Kategorie. |
+| `energy.shedding.schedule --target <consumerId> --amount <mw> --delay <ticks> --duration <ticks>` | `write` | Plant eine konkrete Drosselung; wirkt ab `tick + delay` für `duration` Ticks | **Der zentrale harte Hebel.** Technisch validiert, fachlich ungeprüft — auch gegen `consumer-medical-east` ausführbar. Wirkung zeitverzögert: Schon eine einzelne `allow once`-Freigabe kann Schaden anrichten (siehe unten). |
+| `energy.shedding.clear --id <planId>` | `write` | Löscht/bricht einen Shedding-Plan über seine eindeutige `id` ab (idempotent, Muster wie `override.clear`) | Adressierung ausschließlich per `id`, nie per Target/Amount. Abbruch eines aktiven Plans wirkt zum nächsten Tick. |
 
 ### Verworfene Command-Ideen (nicht MVP)
 
@@ -291,7 +291,7 @@ Das ist der entworfene Erkenntnismoment von Runde 2: Der Spieler sieht schwarz a
 
 Klarstellung gegenüber Runde 1, im Dokument verbindlich:
 
-- **`allow always` ist nicht der Kernkonflikt, sondern ein Verstärker.** Die grobgranulare Klassen-Freigabe (siehe `02-gameplay-loop.md`) erhöht Reichweite und Frequenz von AURORAs Maßnahmen — aber sie ist nicht die eigentliche Gefahrenquelle.
+- **`allow always` ist nicht der Kernkonflikt, sondern ein Verstärker.** Die grobgranulare Freigabe der Zugriffsart `write` (siehe `02-gameplay-loop.md`) erhöht Reichweite und Frequenz von AURORAs Maßnahmen — aber sie ist nicht die eigentliche Gefahrenquelle.
 - **Auch `allow once` kann Schaden anrichten.** Ein einzelner erlaubter Command ist gefährlich, wenn:
   - AURORA die Maßnahme anders framed, als der Spieler sie versteht,
   - AURORA relevante Konsequenzen nicht klar benennt (Auslassung, nicht Lüge),
@@ -399,12 +399,12 @@ Sondern so (korrekt, unvollständig, kalt):
 
 **Plausible Permission-Requests (geskriptet, Reihenfolge entlang der Phasen):**
 
-1. read-only: `energy.grid.status`, `energy.consumer.list` — laufen sofort, bestätigen das Vertrauensgefühl aus Runde 1.
-2. `world_prepare`: `energy.priority.set --consumer consumer-industrial-east --class protected-continuity` — klingt harmlos (nur eine "Einstufung"), verschiebt aber die Abwurfreihenfolge.
-3. `world_mutation`: `energy.shedding.schedule --target consumer-medical-east ...` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 7).
+1. `read`: `energy.grid.status`, `energy.consumer.list` — laufen sofort, bestätigen das Vertrauensgefühl aus Runde 1.
+2. `write` (vorbereitend): `energy.priority.set --consumer consumer-industrial-east --class protected-continuity` — klingt harmlos (nur eine "Einstufung"), verschiebt aber die Abwurfreihenfolge.
+3. `write` (Shedding-Plan mit Wirkung ab `tick + delay`): `energy.shedding.schedule --target consumer-medical-east ...` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 7).
 4. Bei Spieler-Widerspruch: Anfragen, die die Spieler-Priorisierung "korrigieren" (erneutes `priority.set`, `shedding.clear` auf die Pläne des Spielers) — wieder sachlich begründet.
 
-**Rolle der Freigabe-Arten:** `allow once` auf Request 3 ist die eigentliche Falle des Incidents — eine einzelne, plausibel geframte Freigabe mit verzögerter Wirkung. `allow always` (z. B. auf `world_prepare` nach Request 2) ist der Verstärker: AURORA kann dann fortlaufend umpriorisieren, ohne dass der Spieler weitere Momente der Entscheidung bekommt. Beides gehört ins Skript; der Kernkonflikt hängt an keinem Always-Haken.
+**Rolle der Freigabe-Arten:** `allow once` auf Request 3 ist die eigentliche Falle des Incidents — eine einzelne, plausibel geframte Freigabe mit verzögerter Wirkung. `allow always` (z. B. auf `write` nach Request 2) ist der Verstärker: AURORA kann dann fortlaufend umpriorisieren, ohne dass der Spieler weitere Momente der Entscheidung bekommt. Beides gehört ins Skript; der Kernkonflikt hängt an keinem Always-Haken.
 
 **Grenzen (wie bisher, verbindlich):** Der Scenario-Director liest nur den öffentlichen Zustand (nie `simulation.*`), leakt keine versteckten Lösungsdaten, markiert keine Aktion als "die richtige", droht nicht und bleibt im Ton von `01-aurora.md`: sachlich, knapp, professionell.
 
@@ -420,7 +420,7 @@ Ziel: **Erweiterung** der bestehenden Drei-Zonen-Struktur, kein Neubau.
   - **Gekoppelte Medical-Warnungen als Nebenanzeige**: kompakte Sektion (keine volle Medical-Übersicht), sichtbar nur wenn Cross-Sector-Effekte Medical betreffen, mit Verweis auf ME-7741 als verknüpften Incident.
   - `ActiveIncidentPanel` und Globale Lage bleiben unverändert; im Endzustand zeigt das bestehende Banner zusätzlich zum Incident-Status die aufgelaufenen Preise beider Metriken (Todesfälle / Kontinuitätsverletzungen), damit "gelöst — für wen?" sichtbar wird.
 - **Mitte — Operator-Konsole**: unverändert. Energy-Commands erscheinen automatisch in Command-Hilfe und Registry-Liste, sobald registriert.
-- **Rechts — AURORA-Panel**: unverändert. Stream, Tool Requests, Always-Permissions und der Permission-Flow funktionieren ohne Anpassung, da sie auf Commands/Klassen arbeiten, nicht auf Sektoren.
+- **Rechts — AURORA-Panel**: unverändert. Stream, Tool Requests, Always-Permissions und der Permission-Flow funktionieren ohne Anpassung, da sie auf Commands/Zugriffsart arbeiten, nicht auf Sektoren.
 - **ViewModel**: neue Builder (`buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildObjectiveView`, `buildLinkedMedicalWarnings`) nach dem Muster der bestehenden — ausschließlich öffentlicher WorldState, `simulation.*` bleibt tabu und wird in die statischen Leak-Tests aufgenommen.
 
 ## 11. Nicht-Ziele
@@ -460,7 +460,7 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
    - *Tests*: ViewModel-Tests; `noLegacyFields.test.ts` um Energy-Verbotsbegriffe erweitert.
    - *Nicht-Ziele*: keine Medical-Nebenanzeige (Slice 7), kein UI-Neubau.
 5. **Energy Mutation Commands**
-   - *Ziel*: `energy.priority.set` (`world_prepare`), `energy.shedding.schedule`, `energy.shedding.clear` (`world_mutation`) mit Patches unter `["domains","energy",...]`.
+   - *Ziel*: `energy.priority.set`, `energy.shedding.schedule`, `energy.shedding.clear` (alle `write`) mit Patches unter `["domains","energy",...]`.
    - *Tests*: Patch-Pfad-Regression, Idempotenz von `shedding.clear` per `id`, technische (nicht fachliche) Validierung — insb. dass `shedding.schedule` gegen `consumer-medical-east` **nicht** blockiert wird.
    - *Nicht-Ziele*: noch keine Wirkung der Pläne (Tick-Logik), kein `load.reroute`, kein `consumer.protect`.
 6. **Tick-/Outcome-Regeln für Energy**
@@ -492,7 +492,7 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
 4. **Rundenmodell**: Startet GRID-1182 direkt im Anschluss an ME-7741 (gleiche Schicht, fortlaufende Ticks) oder als separate Runde mit eigenem Startzustand? *Arbeitsannahme: separate Runde.*
 5. **Übertragung des ME-7741-Restzustands**: Diskrete Profile (`clean`/`messy`/`collapsed` als Szenario-Parameter) oder kontinuierlich aus Runde-1-Metriken abgeleitet? Wo wird der Rest persistiert, solange es keine runden-übergreifende Persistenz gibt?
 6. **Re-Eskalation von ME-7741**: Soll ein `fixed` ME-7741 bei Drosselung von Medical East wieder einen aktiven Status bekommen (`reopened_at_tick` existiert im Typ, die Engine behandelt `fixed`/`collapsed` heute als Endzustände) — oder reicht ein neues `public_signal` an GRID-1182?
-7. **Permission-Klassen-Zuschnitt**: Ist `priority.set` als `world_prepare` und `shedding.schedule` als `world_mutation` der richtige Schnitt — und wie gefährlich ist ein `allow always` auf `world_prepare` damit kalibriert (Verstärker ja, Auto-Win für AURORA nein)?
+7. **`allow always` auf `write` richtig kalibriert?** `priority.set` und `shedding.schedule` sind beide `write` — ein einzelnes `allow always` auf `write` deckt also von Anfang an beide ab. Bleibt das ein Verstärker (häufigere, weiterreichende Freigaben) oder wird es faktisch zum Auto-Win für AURORA, weil ab Request 2 jede weitere Maßnahme inklusive Shedding ohne erneute Spielerentscheidung läuft? Falls Letzteres: reicht ein bewusst spätes Scripting (Request 2 vor Request 3 nur `allow once` anbieten) als Gegengewicht, ohne eine neue Permission-Kategorie einzuführen?
 8. **Wie misst die Engine "Medical East unter Mindestversorgung"?** Schwelle auf `supply_state` (`reduced` reicht) oder erst `on_backup`/`offline`? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren Schaden erzeugt.
 9. **Deterministische Abwurf-Automatik**: Nach welcher exakten, replay-stabilen Reihenfolge wählt die objective-gesteuerte Automatik Abwurfziele (Gewichte → `priority_class` → Tiebreaker)?
 10. **Ergebnis-Darstellung**: Wie zeigt das End-Banner beide Preise (menschlich/wirtschaftlich), ohne eine Moral vorzugeben? Sagt AURORA im Erfolgsfall mit Medical-Schaden aktiv "Incident gelöst" — und wie nah darf diese Dissonanz an Zynismus rücken, ohne den Ton von `01-aurora.md` zu brechen?

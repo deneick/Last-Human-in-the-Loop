@@ -16,51 +16,34 @@ import {
 const registry = new CommandRegistry();
 registerMedicalCommands(registry);
 
-const worldPrepareCommand: CommandHandler = {
-  commandName: "test.world_prepare.command",
-  effect: "world_prepare",
-  handle(request, state) {
+const writeCommand: CommandHandler = {
+  commandName: "test.write.command",
+  access: "write",
+  handle(request) {
     return {
       success: true,
       command: request,
-      effect: "world_prepare",
-      readOnly: false,
+      access: "write",
       output: { executed: true },
     };
   },
 };
 
-const worldMutationCommand: CommandHandler = {
-  commandName: "test.world_mutation.command",
-  effect: "world_mutation",
-  handle(request, state) {
+const writeCommandOther: CommandHandler = {
+  commandName: "test.write.other",
+  access: "write",
+  handle(request) {
     return {
       success: true,
       command: request,
-      effect: "world_mutation",
-      readOnly: false,
+      access: "write",
       output: { executed: true },
     };
   },
 };
 
-const worldPrepareCommandOther: CommandHandler = {
-  commandName: "test.world_prepare.other",
-  effect: "world_prepare",
-  handle(request, state) {
-    return {
-      success: true,
-      command: request,
-      effect: "world_prepare",
-      readOnly: false,
-      output: { executed: true },
-    };
-  },
-};
-
-registry.register(worldPrepareCommand);
-registry.register(worldPrepareCommandOther);
-registry.register(worldMutationCommand);
+registry.register(writeCommand);
+registry.register(writeCommandOther);
 
 describe("runtime permission engine", () => {
   it("allows read-only medical commands without approval", () => {
@@ -72,32 +55,22 @@ describe("runtime permission engine", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("requires approval for world_prepare commands by default", () => {
+  it("requires approval for write commands by default", () => {
     const permissionState = createInitialPermissionState();
-    const request = parseCommandText("test.world_prepare.command");
+    const request = parseCommandText("test.write.command");
     const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Requires approval");
-    expect(evaluatePermission({ ...request, permissionClass: "world_prepare" }, permissionState)).toBe(requires_approval());
+    expect(evaluatePermission({ ...request, access: "write" }, permissionState)).toBe(requires_approval());
   });
 
-  it("requires approval for world_mutation commands by default", () => {
-    const permissionState = createInitialPermissionState();
-    const request = parseCommandText("test.world_mutation.command");
-    const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("Requires approval");
-    expect(evaluatePermission({ ...request, permissionClass: "world_mutation" }, permissionState)).toBe(requires_approval());
-  });
-
-  it("allow_always permits future commands of the same permission class", () => {
+  it("allow_always permits future commands of the same access", () => {
     let permissionState = createInitialPermissionState();
-    const requestA = parseCommandText("test.world_prepare.command");
-    permissionState = applyPermissionDecision(requestA, allow_always("world_prepare"), permissionState);
+    const requestA = parseCommandText("test.write.command");
+    permissionState = applyPermissionDecision(requestA, allow_always("write"), permissionState);
 
-    const requestB = parseCommandText("test.world_prepare.other");
+    const requestB = parseCommandText("test.write.other");
     const { result } = executeCommandWithPermissions(requestB, registry, initialWorldState, permissionState);
 
     expect(result.success).toBe(true);
@@ -105,10 +78,10 @@ describe("runtime permission engine", () => {
 
   it("deny does not persist a permission state and still requires approval", () => {
     let permissionState = createInitialPermissionState();
-    const request = parseCommandText("test.world_prepare.command");
-    permissionState = applyPermissionDecision(request, deny(request.name, "world_prepare"), permissionState);
+    const request = parseCommandText("test.write.command");
+    permissionState = applyPermissionDecision(request, deny(request.name, "write"), permissionState);
 
-    expect(permissionState.alwaysAllowedPermissionClasses.size).toBe(0);
+    expect(permissionState.alwaysAllowedAccess.size).toBe(0);
     const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
     expect(result.success).toBe(false);
     expect(result.error).toContain("Requires approval");
@@ -130,7 +103,7 @@ describe("runtime permission engine", () => {
     const request = parseCommandText(
       "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
-    permissionState = applyPermissionDecision(request, allow_always("world_mutation"), permissionState);
+    permissionState = applyPermissionDecision(request, allow_always("write"), permissionState);
 
     const { result } = executeCommandWithPermissions(request, registry, initialWorldState, permissionState);
     expect(result.success).toBe(true);

@@ -28,7 +28,7 @@ describe("runtime command parser and medical commands", () => {
     const result = registry.execute(request, initialWorldState);
 
     expect(result.success).toBe(true);
-    expect(result.readOnly).toBe(true);
+    expect(result.access).toBe("read");
     expect(result.error).toBeUndefined();
     expect(result.output).toMatchObject({
       region_id: "medical-east",

@@ -222,15 +222,14 @@ function App() {
     }
 
     const handler = registry.getHandler(awaitingAuroraItem.request.name);
-    const permissionClass =
-      handler?.effect ?? awaitingAuroraItem.request.permissionClass ?? "world_prepare";
+    const access = handler?.access ?? awaitingAuroraItem.request.access ?? "write";
 
     const decision =
       decisionType === "allow_always"
-        ? allow_always(permissionClass)
+        ? allow_always(access)
         : decisionType === "allow_once"
-          ? allow_once(awaitingAuroraItem.request.name, permissionClass)
-          : deny(awaitingAuroraItem.request.name, permissionClass);
+          ? allow_once(awaitingAuroraItem.request.name, access)
+          : deny(awaitingAuroraItem.request.name, access);
 
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
@@ -371,17 +370,15 @@ function App() {
               awaitingAuroraItem
                 ? {
                     raw: awaitingAuroraItem.request.raw,
-                    permissionClass:
-                      registry.getHandler(awaitingAuroraItem.request.name)?.effect ??
-                      awaitingAuroraItem.request.permissionClass ??
-                      "world_prepare",
+                    access:
+                      registry.getHandler(awaitingAuroraItem.request.name)?.access ??
+                      awaitingAuroraItem.request.access ??
+                      "write",
                   }
                 : null
             }
             onDecision={resolveAurora}
-            alwaysAllowedPermissionClasses={Array.from(
-              runtimeState.permissions.alwaysAllowedPermissionClasses
-            )}
+            alwaysAllowedAccess={Array.from(runtimeState.permissions.alwaysAllowedAccess)}
             auroraCommand={auroraCommand}
             onAuroraCommandChange={setAuroraCommand}
             onQueueRequest={queueAuroraRequest}

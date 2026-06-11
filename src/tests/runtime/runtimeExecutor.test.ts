@@ -93,14 +93,13 @@ describe("runtime executor with audit log", () => {
     let executionCount = 0;
     countingRegistry.register({
       commandName: "test.counting.set",
-      effect: "world_mutation",
+      access: "write",
       handle(request) {
         executionCount += 1;
         return {
           success: true,
           command: request,
-          effect: "world_mutation",
-          readOnly: false,
+          access: "write",
           output: { executionCount },
           patch: [
             {

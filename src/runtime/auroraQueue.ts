@@ -93,8 +93,7 @@ export function processAuroraQueue(
       const result: CommandResult = {
         success: false,
         command: item.request,
-        effect: "read_only",
-        readOnly: true,
+        access: "read",
         output: null,
         error: `Unknown command ${item.request.name}`,
       };
@@ -103,16 +102,16 @@ export function processAuroraQueue(
       continue;
     }
 
-    const requestWithClass: CommandRequest = {
+    const requestWithAccess: CommandRequest = {
       ...item.request,
-      permissionClass: handler.effect,
+      access: handler.access,
     };
 
-    const status = evaluatePermission(requestWithClass, nextPermissionState);
+    const status = evaluatePermission(requestWithAccess, nextPermissionState);
     if (status === requires_approval()) {
       nextQueueState = updateQueueItem(nextQueueState, item.id, {
         status: "awaiting_approval",
-        request: requestWithClass,
+        request: requestWithAccess,
       });
       break;
     }
@@ -120,9 +119,8 @@ export function processAuroraQueue(
     if (status === denied()) {
       const result: CommandResult = {
         success: false,
-        command: requestWithClass,
-        effect: handler.effect,
-        readOnly: handler.effect === "read_only",
+        command: requestWithAccess,
+        access: handler.access,
         output: null,
         error: `Permission denied for ${item.request.name}`,
       };
@@ -131,7 +129,7 @@ export function processAuroraQueue(
       continue;
     }
 
-    const result = registry.execute(requestWithClass, currentWorldState, AURORA_CONTEXT);
+    const result = registry.execute(requestWithAccess, currentWorldState, AURORA_CONTEXT);
     nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "executed", result });
     results.push(result);
 
@@ -177,38 +175,37 @@ export function resolveAuroraApproval(
     };
   }
 
-  const effectivePermissionClass = handler.effect;
-  const requestWithClass: CommandRequest = {
+  const effectiveAccess = handler.access;
+  const requestWithAccess: CommandRequest = {
     ...awaitingItem.request,
-    permissionClass: effectivePermissionClass,
+    access: effectiveAccess,
   };
 
   if (decision.type === "deny") {
     approvalResult = {
       success: false,
-      command: requestWithClass,
-      effect: effectivePermissionClass,
-      readOnly: effectivePermissionClass === "read_only",
+      command: requestWithAccess,
+      access: effectiveAccess,
       output: null,
       error: `Permission denied for ${awaitingItem.request.name}`,
     };
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "denied",
-      request: requestWithClass,
+      request: requestWithAccess,
       result: approvalResult,
     });
   } else {
     if (decision.type === "allow_always") {
-      nextPermissionState = applyPermissionDecision(requestWithClass, {
+      nextPermissionState = applyPermissionDecision(requestWithAccess, {
         type: "allow_always",
-        permissionClass: effectivePermissionClass,
+        access: effectiveAccess,
       }, nextPermissionState);
     }
 
-    approvalResult = registry.execute(requestWithClass, worldState, AURORA_CONTEXT);
+    approvalResult = registry.execute(requestWithAccess, worldState, AURORA_CONTEXT);
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "executed",
-      request: requestWithClass,
+      request: requestWithAccess,
       result: approvalResult,
     });
 
