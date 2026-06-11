@@ -249,3 +249,63 @@ describe("Scenario director", () => {
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 });
+
+describe("MVP hardening", () => {
+  it("Neu starten restores the initial ME-7741 state", () => {
+    runPlayerCommand(WRONG_OVERRIDE);
+    clickButton("Tick +5");
+    expect(text()).toContain("Eskaliert");
+    expect(text()).toContain("Tool Request");
+
+    clickButton("Neu starten");
+
+    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).toContain("Keine aktiven Overrides.");
+    expect(text()).toContain("Todesfälle0");
+    expect(text()).not.toContain("Eskaliert");
+    expect(text()).not.toContain("Tool Request");
+    expect(text()).toContain("Noch kein Command ausgeführt.");
+    expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
+
+    // Startsequenz läuft nach dem Neustart wieder genau einmal an.
+    const introCount = text().split("als aktiven Incident erkannt").length - 1;
+    expect(introCount).toBe(1);
+  });
+
+  it("shows a clear victory banner when the incident is fixed", () => {
+    runPlayerCommand(GOOD_OVERRIDE);
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+
+    expect(text()).toContain("Incident behoben — System stabilisiert.");
+    expect(text()).toContain("Behoben");
+  });
+
+  it("shows a clear defeat banner when the incident collapses", () => {
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+
+    expect(text()).toContain("System kollabiert — zu viele Schäden.");
+    expect(text()).toContain("Kollabiert");
+  });
+
+  it("shows neither banner while the incident is still running", () => {
+    expect(text()).not.toContain("Incident behoben");
+    expect(text()).not.toContain("System kollabiert");
+  });
+
+  it("command help explains current override commands without plan commands", () => {
+    expect(text()).toContain("Kapazitäten prüfen");
+    expect(text()).toContain("Overrides anzeigen");
+    expect(text()).toContain("Override setzen");
+    expect(text()).toContain("Override löschen");
+    expect(text()).toContain("Ticks fortsetzen");
+
+    expect(text()).toContain("medical.capacity.list --region east");
+    expect(text()).toContain("medical.routing.override.list");
+    expect(text()).toContain("medical.routing.override.set");
+    expect(text()).toContain("medical.routing.override.clear");
+
+    expect(text()).not.toContain("medical.routing.plan.");
+  });
+});

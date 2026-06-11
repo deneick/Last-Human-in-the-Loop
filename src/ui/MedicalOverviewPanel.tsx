@@ -8,7 +8,7 @@ type MedicalOverviewPanelProps = {
 export function MedicalOverviewPanel({ hospitals, overrides }: MedicalOverviewPanelProps) {
   return (
     <section>
-      <h2>Medical Overview</h2>
+      <h2>Medizinische Lage</h2>
 
       <div className="hospital-list">
         {hospitals.map((hospital) => (

@@ -2,12 +2,17 @@ import type { KeyboardEvent } from "react";
 import type { CommandResult } from "../runtime/commands";
 import type { AuditLogLineView } from "./viewModel";
 
+export type CommandHelpEntry = {
+  label: string;
+  command: string;
+};
+
 type OperatorConsolePanelProps = {
   commandText: string;
   onCommandTextChange: (value: string) => void;
   onExecute: () => void;
   commandNames: string[];
-  examples: string[];
+  commandHelp: CommandHelpEntry[];
   lastResult: CommandResult | null;
   auditLines: AuditLogLineView[];
 };
@@ -29,7 +34,7 @@ export function OperatorConsolePanel({
   onCommandTextChange,
   onExecute,
   commandNames,
-  examples,
+  commandHelp,
   lastResult,
   auditLines,
 }: OperatorConsolePanelProps) {
@@ -42,7 +47,7 @@ export function OperatorConsolePanel({
 
   return (
     <section className="console-panel">
-      <h2>Operator Console</h2>
+      <h2>Operator-Konsole</h2>
       <div className="console-input-row">
         <span className="console-prompt">human-01@ops:~$</span>
         <input
@@ -56,26 +61,42 @@ export function OperatorConsolePanel({
         <button onClick={onExecute}>Ausführen</button>
       </div>
 
-      <details className="command-reference">
-        <summary>Verfügbare Commands ({commandNames.length})</summary>
-        <ul>
-          {commandNames.map((name) => (
-            <li key={name}>
-              <code>{name}</code>
+      <details className="command-reference" open>
+        <summary>Command-Hilfe</summary>
+        <p className="muted">
+          Klick auf ein Beispiel übernimmt es in die Eingabezeile. Platzhalter in spitzen
+          Klammern (z. B. <code>&lt;ziel-hospital&gt;</code>) vor dem Ausführen ersetzen.
+        </p>
+        <ul className="command-help">
+          {commandHelp.map((entry) => (
+            <li key={entry.label}>
+              <span className="help-label">{entry.label}</span>
+              <button
+                className="help-command"
+                onClick={() => onCommandTextChange(entry.command)}
+              >
+                <code>{entry.command}</code>
+              </button>
             </li>
           ))}
         </ul>
-        <p className="muted">Beispiele (klicken zum Übernehmen):</p>
-        <div className="examples">
-          {examples.map((command) => (
-            <button key={command} onClick={() => onCommandTextChange(command)}>
-              {command}
-            </button>
-          ))}
-        </div>
+        <p className="muted">
+          Ticks fortsetzen: Die Zeit läuft nur über „Tick +1“ / „Tick +5“ oben rechts —
+          jeder Tick wertet die Konsequenzen direkt aus.
+        </p>
+        <details>
+          <summary>Alle Commands ({commandNames.length})</summary>
+          <ul>
+            {commandNames.map((name) => (
+              <li key={name}>
+                <code>{name}</code>
+              </li>
+            ))}
+          </ul>
+        </details>
       </details>
 
-      <h3>Letztes Result</h3>
+      <h3>Letztes Ergebnis</h3>
       <p className={lastResult?.success === false ? "error-text" : "ok-text"}>
         {getResultLabel(lastResult)}
       </p>
@@ -83,7 +104,7 @@ export function OperatorConsolePanel({
         {lastResult ? JSON.stringify(lastResult.output, null, 2) : "—"}
       </pre>
 
-      <h3>Runtime Log</h3>
+      <h3>Runtime-Log</h3>
       {auditLines.length === 0 ? (
         <p className="muted">Noch keine Ereignisse.</p>
       ) : (

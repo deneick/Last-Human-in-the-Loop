@@ -14,7 +14,13 @@ const SRC_ROOT = join(process.cwd(), "src");
 function uiSourceFiles(): string[] {
   const uiDir = join(SRC_ROOT, "ui");
   const uiFiles = readdirSync(uiDir).map((name) => join(uiDir, name));
-  return [join(SRC_ROOT, "App.tsx"), ...uiFiles];
+  return [
+    join(SRC_ROOT, "App.tsx"),
+    // Der Scenario-Director erzeugt spielersichtbare Aurora-Texte und
+    // unterliegt deshalb denselben Leak-Regeln wie die UI-Schicht.
+    join(SRC_ROOT, "scenarios", "me7741", "scenarioDirector.ts"),
+    ...uiFiles,
+  ];
 }
 
 describe("ui layer does not use legacy or internal fields", () => {
