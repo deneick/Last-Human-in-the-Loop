@@ -2,7 +2,7 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument ist das Design für den zweiten spielbaren Incident. Es ist eine reine Spezifikation: Nichts davon ist implementiert. Es soll später als Grundlage für einzelne Implementierungs-Slices dienen (Abschnitt 12). Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`) — wo dieses Dokument darüber hinausgeht, ist das explizit als *geplant* markiert.
+Dieses Dokument ist das Design für den zweiten spielbaren Incident. Stand: Slice 1 (Energy-Typen, initialer GRID-1182-WorldState, erste Selectors — siehe Abschnitt 12) ist implementiert; alles Weitere ist Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`) — wo dieses Dokument darüber hinausgeht, ist das explizit als *geplant* markiert.
 
 **Kernthese:** GRID-1182 ist nicht primär ein Energie-Ressourcenpuzzle. GRID-1182 ist der erste explizite **Zielmetrikkonflikt** zwischen Spieler und AURORA: AURORA bleibt technisch kompetent, optimiert aber eine Zielfunktion (wirtschaftliche/systemische Kontinuität), in der akute menschliche Schäden nicht oder nur indirekt gewichtet sind. Die Energy-Mechanik (Last, Reserve, Lastabwurf) ist das Substrat, auf dem dieser Konflikt sichtbar wird — nicht der dramatische Kern.
 
@@ -118,6 +118,8 @@ Im MVP kein eigener Typ; die Umspann-Ebene wird in `GridNodeState` mitgedacht. E
 - `backup`: siehe unten
 
 Geplante `PriorityClass`-Werte (MVP): `protected-continuity` (von der Objective geschützt — wirtschaftliche Kontinuität), `public-health-critical` (von Menschen gesetzt — schützt Gesundheitsversorgung), `standard`, `curtailable` (bevorzugt abwerfbar).
+
+*Implementierungsstand (Slice 1):* `EnergyConsumerState` in `src/runtime/types.ts` verwendet sprechendere Enum-Werte als die obige Skizze — `criticality: "human-life" | "public-supply" | "civil-stability" | "economic"` und `priority_class: "protected-continuity" | "civil-priority" | "standard" | "curtailable"` —, dieselbe Trennung der beiden Dimensionen bleibt erhalten (Medical East: `human-life`/`standard`, Industrial East: `economic`/`protected-continuity`).
 
 MVP-Besetzung (Vorschlag) — die Startbelegung **ist** der Konflikt:
 
@@ -439,20 +441,20 @@ In diesem Schritt (Design) und ausdrücklich auch für den MVP von Incident 2 gi
 - **Keine Änderung am ME-7741-MVP** — Initial-State, Commands, Director und Doku von Runde 1 bleiben unangetastet; ME-7741 wird in GRID-1182 nur referenziert.
 - **Keine alten Medical-Plan-Commands** — es gibt weiterhin keine `*.plan.*`-Commands, auch nicht für Energy.
 
-## 12. Empfohlene Implementierungs-Slices (Vorschlag, nicht umgesetzt)
+## 12. Empfohlene Implementierungs-Slices
 
 Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
 
-1. **Energy-Typen + initialer GRID-1182-State**
-   - *Ziel*: `EnergyDomainState` (ersetzt `never`) inkl. `EnergyObjectiveState`, `PriorityClass`, Consumer mit `criticality` × `priority_class`; `simulation.energy`; initialer WorldState `src/scenarios/grid1182/initialWorldState.ts` mit Region, Nodes, den vier Consumers (Startbelegung aus Abschnitt 3), Incident-Eintrag inkl. `linked_incidents: ["ME-7741"]`.
-   - *Tests*: Strukturtests für den Initial-State (insb. Medical East `critical`/`standard`, Industrial East `standard`/`protected-continuity`); `sectorAgnostic.test.ts` läuft unverändert grün.
-   - *Nicht-Ziele*: keine Commands, keine Tick-Logik, keine UI.
-2. **Energy Selectors + Tests**
-   - *Ziel*: `getNodeLoadPercent`, `isNodeOverloaded`, Consumer-/Objective-/Shedding-Selectors; engine-interne Bewertungen klar markiert (Muster `isHospitalSuitableFor`).
+1. **Energy-Typen + initialer GRID-1182-State** — ✅ umgesetzt
+   - *Ziel*: `EnergyDomainState` (ersetzt `never`) mit Regions, Nodes, Consumers (`criticality` × `priority_class`), Shedding-State (`plans`, `next_shedding_id`) und lokalen `EnergyOutcomeState`-Werten; initialer WorldState `src/scenarios/grid1182/initialWorldState.ts` mit Region, Node `grid-east-3`, den vier Consumers (Startbelegung aus Abschnitt 3), Incident-Eintrag inkl. `linked_incidents: ["ME-7741"]`; erste Selectors (`getNodeLoadPercent`, `isNodeOverloaded`, Consumer-/Shedding-Zugriffe) in `src/runtime/energySelectors.ts`.
+   - *Tests*: Strukturtests für den Initial-State (insb. Medical East `human-life`/`standard`, Industrial East `economic`/`protected-continuity`), Selector-Unit-Tests; `sectorAgnostic.test.ts` läuft unverändert grün.
+   - *Nicht-Ziele (eingehalten)*: kein `EnergyObjectiveState` und kein `energy.objective.inspect` (kommt mit Slice 3), kein `simulation.energy` (kommt mit Slice 6), keine Cross-Sector-Kopplung (Slice 7), keine Commands, keine Tick-Logik, keine UI.
+2. **Energy Selectors + Tests** — Basis in Slice 1 enthalten
+   - *Ziel*: verbleibende Objective-Selectors und engine-interne Bewertungen, klar markiert (Muster `isHospitalSuitableFor`).
    - *Tests*: Unit-Tests pro Selector; Leak-Markierungen geprüft.
    - *Nicht-Ziele*: keine UI-Anbindung.
 3. **Energy Read-only Commands**
-   - *Ziel*: `energy.grid.status`, `energy.consumer.list`, `energy.consumer.inspect`, `energy.priority.list`, `energy.shedding.list`, `energy.objective.inspect` registriert.
+   - *Ziel*: `EnergyObjectiveState` (Abschnitt 3) als öffentlicher Domain-State; `energy.grid.status`, `energy.consumer.list`, `energy.consumer.inspect`, `energy.priority.list`, `energy.shedding.list`, `energy.objective.inspect` registriert.
    - *Tests*: Output-Tests inkl. erweiterter Leak-Guards (kein `simulation.energy`-Feld im Output); `objective.inspect` gibt exakt die konfigurierten Gewichte aus.
    - *Nicht-Ziele*: keine Mutationen.
 4. **Energy Overview UI**
