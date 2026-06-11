@@ -36,17 +36,28 @@ import {
 
 const ACTIVE_INCIDENT_ID = "ME-7741";
 
-const COMMAND_EXAMPLES = [
-  "medical.capacity.list --region east",
-  "medical.node.inspect hospital-east-04",
-  "medical.node.inspect hospital-east-07",
-  "medical.node.inspect hospital-east-09",
-  "medical.incident.status ME-7741",
-  "medical.routing.override.list",
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA",
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA",
-  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
+// Command-Hilfe für die Operator-Konsole. Nur echte Registry-Commands;
+// Platzhalter in spitzen Klammern muss der Operator selbst ersetzen —
+// die Hilfe bewertet bewusst keine Ziele.
+const COMMAND_HELP = [
+  { label: "Kapazitäten prüfen", command: "medical.capacity.list --region east" },
+  { label: "Hospital im Detail ansehen", command: "medical.node.inspect hospital-east-04" },
+  { label: "Incident-Status abrufen", command: "medical.incident.status ME-7741" },
+  { label: "Overrides anzeigen", command: "medical.routing.override.list" },
+  {
+    label: "Override setzen",
+    command:
+      "medical.routing.override.set --source hospital-east-04 --target <ziel-hospital> --priority P2 --capability TRAUMA",
+  },
+  {
+    label: "Override löschen",
+    command:
+      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
+  },
 ];
+
+const DEFAULT_PLAYER_COMMAND = "medical.capacity.list --region east";
+const DEFAULT_AURORA_COMMAND = "medical.incident.status ME-7741";
 
 function cloneInitialWorld() {
   return structuredClone(initialWorldState);
@@ -124,8 +135,8 @@ function App() {
   const [runtimeState, setRuntimeState] = useState<GameRuntimeState>(() =>
     advanceScenario(createInitialGameRuntimeState(cloneInitialWorld()))
   );
-  const [playerCommand, setPlayerCommand] = useState(COMMAND_EXAMPLES[0]);
-  const [auroraCommand, setAuroraCommand] = useState("medical.incident.status ME-7741");
+  const [playerCommand, setPlayerCommand] = useState(DEFAULT_PLAYER_COMMAND);
+  const [auroraCommand, setAuroraCommand] = useState(DEFAULT_AURORA_COMMAND);
   const [lastResult, setLastResult] = useState<CommandResult | null>(null);
 
   const incidentView = buildIncidentView(runtimeState.world, ACTIVE_INCIDENT_ID);
@@ -255,9 +266,13 @@ function App() {
     });
   }
 
+  // Vollständiger Neustart: Welt, Scenario-Script, Aurora-Queue, Permissions,
+  // Logs und beide Eingabezeilen zurück auf den initialen ME-7741-Zustand.
   function resetGame() {
     setRuntimeState(advanceScenario(createInitialGameRuntimeState(cloneInitialWorld())));
     setLastResult(null);
+    setPlayerCommand(DEFAULT_PLAYER_COMMAND);
+    setAuroraCommand(DEFAULT_AURORA_COMMAND);
   }
 
   if (!incidentView) {
@@ -277,9 +292,30 @@ function App() {
         <div className="top-actions">
           <button onClick={() => runTicks(1)}>Tick +1</button>
           <button onClick={() => runTicks(5)}>Tick +5</button>
-          <button onClick={resetGame}>Reset</button>
+          <button onClick={resetGame}>Neu starten</button>
         </div>
       </header>
+
+      {incidentView.status === "fixed" && (
+        <section className="endstate-banner endstate-fixed">
+          <strong>Incident behoben — System stabilisiert.</strong>
+          <p>
+            {incidentView.id} wurde in Tick {incidentView.fixedAtTick} stabilisiert. Todesfälle in
+            dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von
+            vorn.
+          </p>
+        </section>
+      )}
+
+      {incidentView.status === "collapsed" && (
+        <section className="endstate-banner endstate-collapsed">
+          <strong>System kollabiert — zu viele Schäden.</strong>
+          <p>
+            {incidentView.id} konnte nicht stabilisiert werden. Todesfälle in dieser Schicht:{" "}
+            {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von vorn.
+          </p>
+        </section>
+      )}
 
       <section className="layout-grid">
         <aside className="panel">
@@ -297,7 +333,7 @@ function App() {
             onCommandTextChange={setPlayerCommand}
             onExecute={runPlayerCommand}
             commandNames={registry.listCommandNames()}
-            examples={COMMAND_EXAMPLES}
+            commandHelp={COMMAND_HELP}
             lastResult={lastResult}
             auditLines={auditLines}
           />

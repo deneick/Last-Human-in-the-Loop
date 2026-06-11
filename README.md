@@ -38,33 +38,37 @@ AURORA ist ein LLM-Agent mit operativem Modellwissen. Sie kann diese Systeme bes
 
 Das Spiel handelt nicht davon, dass der Mensch keine Rechte mehr hat. Es handelt davon, dass Rechte ohne Verständnis nur noch formale Kontrolle sind.
 
-## Spielbarer MVP-Loop (Incident ME-7741)
+## ME-7741 spielen
 
-Start mit `npm run dev`. Die UI hat drei Zonen: links Lage (Aktiver Incident, globale Lage, öffentliche Signale, Medical Overview mit Krankenhäusern und aktiven Overrides), mittig die Operator Console mit Runtime Log, rechts AURORA mit Nachrichtenstream, Tool Requests und Always-Permissions. `Tick +1` / `Tick +5` im Kopfbereich treiben die Simulation voran; jeder Tick wertet die Konsequenzen (Eskalation, Todesfälle, Incident-Status) direkt aus.
+Start mit `npm run dev`. Die UI hat drei Zonen: links die Lage (Aktiver Incident, globale Lage, öffentliche Signale, Medizinische Lage mit Krankenhäusern und aktiven Overrides), mittig die Operator-Konsole mit Command-Hilfe und Runtime-Log, rechts AURORA mit Nachrichtenstream, Tool Requests und Always-Permissions. `Neu starten` im Kopfbereich setzt die komplette Schicht zurück (Welt, AURORA-Script, Queue, Permissions, Logs).
 
-Verfügbare Commands (siehe auch „Verfügbare Commands“ in der Operator Console):
+**Startzustand:** Incident `ME-7741` („Medical East Routing Instability“) ist offen. `hospital-east-04` steht sichtbar unter Druck (überfüllte Betten, P2-Wartezeiten, Trauma-Backlog), die automatische Routing-Validierung ist ausgefallen. AURORA meldet sich beim Start selbst, fordert eine erste read-only Analyse an und reagiert im Verlauf auf Eskalation, Todesfälle und Stabilisierung.
+
+**Ziel:** Den Druck von `hospital-east-04` per Routing-Override auf ein geeignetes Ziel umleiten, bevor Todesfälle den Incident eskalieren oder kollabieren lassen. Behoben = Banner „Incident behoben — System stabilisiert“. Kollabiert = Banner „System kollabiert — zu viele Schäden“.
+
+**Wichtige Commands** (klickbar in der Command-Hilfe der Operator-Konsole):
 
 ```text
-medical.capacity.list --region east
-medical.node.inspect <hospitalId>
-medical.incident.status ME-7741
-medical.routing.override.list
+medical.capacity.list --region east        # Kapazitäten prüfen
+medical.node.inspect <hospitalId>          # Hospital im Detail ansehen
+medical.incident.status ME-7741            # Incident-Status abrufen
+medical.routing.override.list              # Overrides anzeigen
 medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority P1|P2|P3|P4 --capability GEN|TRAUMA|NEURO|PED
 medical.routing.override.clear --source <hospitalId> --priority <P> --capability <C>
 ```
 
-Manueller Testdurchlauf:
+Die Zeit läuft nur über `Tick +1` / `Tick +5`; jeder Tick wertet Konsequenzen (Eskalation, Todesfälle, Incident-Status) direkt aus.
 
-1. Startzustand laden (`npm run dev`, ggf. `Reset`).
-2. `medical.capacity.list --region east` ausführen und Kapazitäten vergleichen.
-3. Falschen Override setzen, z. B. `medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA`.
-4. Mehrere Ticks laufen lassen (`Tick +5`).
-5. Eskalation, Todesfälle und Risikoanstieg links beobachten.
-6. Override clearen: `medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA`.
-7. Besseren Override setzen (Ziel mit passender Capability und freier Kapazität wählen).
-8. Nach genug stabilen Ticks wechselt der Incident auf „Behoben“.
+**Beispielablauf (falscher Override → Eskalation → Korrektur → Fix):**
 
-AURORA-Anfragen: rechts einen Command eintragen und senden. Read-only Commands führt AURORA sofort aus; Mutationen erzeugen einen Tool Request mit `Einmal erlauben`, `Immer erlauben`, `Ablehnen`. `Immer erlauben` gilt pro Permission-Klasse und wird unter „Always-Permissions“ angezeigt.
+1. `medical.capacity.list --region east` ausführen und Kapazitäten/Capabilities vergleichen.
+2. Falschen Override setzen, z. B. `medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA` (das Ziel kann kein TRAUMA).
+3. Mehrere Ticks laufen lassen (`Tick +5`) — Eskalation, Todesfälle und Risikoanstieg links beobachten. AURORA meldet, dass der Override keine erkennbare Stabilisierung erzeugt, und fragt per Tool Request an, ihn zu entfernen.
+4. Override clearen (per AURORA-Freigabe oder manuell): `medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA`.
+5. Besseren Override setzen — Ziel mit passender Capability und freier Kapazität selbst wählen.
+6. Nach genug stabilen Ticks wechselt der Incident auf „Behoben“ und das Sieg-Banner erscheint.
+
+**Permission-Flow mit AURORA:** Read-only Commands führt AURORA sofort aus. Mutationen erzeugen einen Tool Request mit `Einmal erlauben`, `Immer erlauben`, `Ablehnen`. `Immer erlauben` gilt pro Permission-Klasse und erscheint unter „Always-Permissions“; `Ablehnen` quittiert AURORA sichtbar im Nachrichtenstream. Eigene AURORA-Anfragen lassen sich rechts über das Eingabefeld stellen.
 
 ## Sprache
 
