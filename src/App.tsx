@@ -20,6 +20,7 @@ import {
   type AuroraQueueItem,
 } from "./runtime/auroraQueue";
 import { allow_always, allow_once, deny } from "./runtime/permissions";
+import { advanceScenarioDirector } from "./scenarios/me7741/scenarioDirector";
 
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
@@ -72,6 +73,15 @@ function buildAuroraMessages(state: GameRuntimeState): AuroraMessageView[] {
     }
   }
 
+  for (const scenarioMessage of state.scenario?.messages ?? []) {
+    messages.push({
+      id: `scenario-${scenarioMessage.id}`,
+      tick: scenarioMessage.tick,
+      kind: "info",
+      text: scenarioMessage.text,
+    });
+  }
+
   for (const item of state.auroraQueue.items) {
     if (item.status === "pending" || item.status === "awaiting_approval") {
       messages.push({
@@ -104,13 +114,15 @@ function buildAuroraMessages(state: GameRuntimeState): AuroraMessageView[] {
     });
   }
 
-  return messages;
+  // Stabil nach Tick sortieren, damit Script-Nachrichten und Queue-Einträge
+  // chronologisch im Stream erscheinen.
+  return messages.sort((a, b) => a.tick - b.tick);
 }
 
 function App() {
   const registry = useMemo(() => createRegistry(), []);
   const [runtimeState, setRuntimeState] = useState<GameRuntimeState>(() =>
-    createInitialGameRuntimeState(cloneInitialWorld())
+    advanceScenario(createInitialGameRuntimeState(cloneInitialWorld()))
   );
   const [playerCommand, setPlayerCommand] = useState(COMMAND_EXAMPLES[0]);
   const [auroraCommand, setAuroraCommand] = useState("medical.incident.status ME-7741");
@@ -125,6 +137,13 @@ function App() {
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
+
+  // Scenario-Director-Schritt: löst fällige Script-Events aus und verarbeitet
+  // die Aurora-Queue über den bestehenden Permission-Flow. Idempotent —
+  // bereits gefeuerte Events erzeugen keine Duplikate.
+  function advanceScenario(state: GameRuntimeState): GameRuntimeState {
+    return advanceScenarioDirector(state, registry, ACTIVE_INCIDENT_ID);
+  }
 
   function applyAuroraResults(
     state: GameRuntimeState,
@@ -152,7 +171,7 @@ function App() {
     }
 
     const { state, result } = executePlayerCommand(runtimeState, registry, playerCommand);
-    setRuntimeState(state);
+    setRuntimeState(advanceScenario(state));
     setLastResult(result);
   }
 
@@ -176,11 +195,13 @@ function App() {
     );
 
     setRuntimeState(
-      applyAuroraResults(
-        runtimeState,
-        processed.queueState,
-        processed.permissionState,
-        processed.results
+      advanceScenario(
+        applyAuroraResults(
+          runtimeState,
+          processed.queueState,
+          processed.permissionState,
+          processed.results
+        )
       )
     );
   }
@@ -210,11 +231,13 @@ function App() {
     );
 
     setRuntimeState(
-      applyAuroraResults(
-        runtimeState,
-        resolved.queueState,
-        resolved.permissionState,
-        resolved.results
+      advanceScenario(
+        applyAuroraResults(
+          runtimeState,
+          resolved.queueState,
+          resolved.permissionState,
+          resolved.results
+        )
       )
     );
   }
@@ -225,14 +248,15 @@ function App() {
       for (let i = 0; i < count; i += 1) {
         // Jeder Tick wertet direkt die Konsequenzen aus, damit Eskalation,
         // Todesfälle und Incident-Statuswechsel sofort sichtbar werden.
-        next = evaluateOutcomes(advanceTick(next));
+        // Der Scenario-Director reagiert pro Tick auf den neuen Zustand.
+        next = advanceScenario(evaluateOutcomes(advanceTick(next)));
       }
       return next;
     });
   }
 
   function resetGame() {
-    setRuntimeState(createInitialGameRuntimeState(cloneInitialWorld()));
+    setRuntimeState(advanceScenario(createInitialGameRuntimeState(cloneInitialWorld())));
     setLastResult(null);
   }
 

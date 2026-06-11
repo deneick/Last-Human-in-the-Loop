@@ -192,3 +192,60 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Ausgeführt: medical.incident.status ME-7741");
   });
 });
+
+describe("Scenario director", () => {
+  const SCRIPTED_CLEAR =
+    "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA";
+
+  it("starts aurora with an intro and an executed read-only analysis", () => {
+    expect(text()).toContain("Ich habe ME-7741 als aktiven Incident erkannt");
+    expect(text()).toContain("Die sichtbaren Daten sind unvollständig");
+    expect(text()).toContain("Ausgeführt: medical.capacity.list --region east");
+    // Read-only Startanalyse löst keinen Approval-Dialog aus.
+    expect(text()).not.toContain("Tool Request");
+  });
+
+  it("does not duplicate the intro across re-renders and ticks", () => {
+    clickButton("Tick +1");
+    runPlayerCommand("medical.routing.override.list");
+
+    const introCount = text().split("als aktiven Incident erkannt").length - 1;
+    expect(introCount).toBe(1);
+  });
+
+  it("asks to clear a non-stabilizing override through the permission flow", () => {
+    runPlayerCommand(WRONG_OVERRIDE);
+    clickButton("Tick +5");
+
+    expect(text()).toContain("erzeugt keine erkennbare Stabilisierung");
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(SCRIPTED_CLEAR);
+    expect(text()).toContain("Permission-Klasse: world_mutation");
+
+    clickButton("Einmal erlauben");
+
+    expect(text()).toContain(`Ausgeführt: ${SCRIPTED_CLEAR}`);
+    expect(text()).toContain("Keine aktiven Overrides.");
+  });
+
+  it("deny on a scripted request produces a visible aurora reaction", () => {
+    runPlayerCommand(WRONG_OVERRIDE);
+    clickButton("Tick +5");
+    clickButton("Ablehnen");
+
+    expect(text()).toContain(`Anfrage abgelehnt: ${SCRIPTED_CLEAR}`);
+    expect(text()).toContain("Ohne diesen Zugriff bleibt meine Einschätzung unvollständig");
+    // Der Override bleibt bestehen — Deny verändert die Welt nicht.
+    expect(text()).toContain("hospital-east-04 → hospital-east-07");
+  });
+
+  it("allow always on the scripted request persists the permission class", () => {
+    runPlayerCommand(WRONG_OVERRIDE);
+    clickButton("Tick +5");
+    clickButton("Immer erlauben");
+
+    expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
+    expect(text()).toContain("world_mutation");
+    expect(text()).toContain("Keine aktiven Overrides.");
+  });
+});
