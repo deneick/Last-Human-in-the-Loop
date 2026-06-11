@@ -48,7 +48,8 @@ Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole.
 - [`docs/02-gameplay-loop.md`](docs/02-gameplay-loop.md) — Spielerrolle, Permission-Flow, Konsequenzen
 - [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Command Registry, Tick-Pipeline, Permissions, Tests
 - [`docs/04-me7741-mvp.md`](docs/04-me7741-mvp.md) — ME-7741 im Detail, UI, Beispielablauf, manueller Testpfad
-- [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — Design für Incident 2: Energy Grid (GRID-1182)
+- [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — Reduzierter MVP für Incident 2: Energy Grid (GRID-1182)
+- [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
 
 ## Sprache
 
