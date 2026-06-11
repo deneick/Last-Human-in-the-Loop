@@ -15,11 +15,38 @@ export type RuntimeAuditEvent = {
   patch?: unknown;
 };
 
+export type ScenarioAuroraMessage = {
+  id: string;
+  tick: number;
+  text: string;
+};
+
+/**
+ * Verfolgt geskriptete Scenario-Ereignisse (z. B. das Aurora-Script des
+ * aktiven Szenarios), damit jedes Script-Event idempotent genau einmal
+ * ausgelöst wird — unabhängig davon, wie oft der Director läuft.
+ */
+export type ScenarioRuntimeState = {
+  firedEventIds: string[];
+  /** Map von Script-Event-Id auf die Id des erzeugten Aurora-Queue-Items. */
+  scriptedQueueItemIds: Record<string, string>;
+  messages: ScenarioAuroraMessage[];
+};
+
+export function createInitialScenarioRuntimeState(): ScenarioRuntimeState {
+  return {
+    firedEventIds: [],
+    scriptedQueueItemIds: {},
+    messages: [],
+  };
+}
+
 export type GameRuntimeState = {
   world: WorldState;
   permissions: PermissionState;
   auroraQueue: AuroraQueueState;
   auditLog: RuntimeAuditEvent[];
+  scenario?: ScenarioRuntimeState;
 };
 
 export function createInitialGameRuntimeState(initialWorldState: WorldState): GameRuntimeState {
