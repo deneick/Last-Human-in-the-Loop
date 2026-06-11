@@ -146,6 +146,7 @@ export const initialWorldState: WorldState = {
       transports: {},
       routing: {
         manual_overrides: {},
+        next_override_id: 1,
       },
       outcomes: {
         deaths_total: 0,

@@ -52,13 +52,16 @@ type MedicalDomainState = {
   regions: Record<MedicalRegionId, MedicalRegionState>;
   hospitals: Record<HospitalId, HospitalState>;
   transports: Record<TransportId, TransportState>;
-  routing: { manual_overrides: Record<string, ManualRoutingOverride> };
+  routing: {
+    manual_overrides: Record<string, ManualRoutingOverride>;
+    next_override_id: number;
+  };
   outcomes: PatientOutcomeState;
 };
 ```
 
 - **`hospitals`**: jedes `HospitalState` enthält `capacity` (Betten/Notfallslots/Triage), `intake_policy` (akzeptierte Prioritäten/Capabilities, `diversion_mode`), `clinical_capabilities`, `current_case_mix` (waiting/active cases, capability load), `operational`-Flags, `routing` (Gewichtung/Raten) und optional `risk_counters` (`overload_ticks`, `capability_mismatch_ticks`).
-- **`routing.manual_overrides`**: Record von `ManualRoutingOverride`, Key = `` `${source_hospital_id}:${priority}:${capability}` `` (z. B. `"hospital-east-04:P2:TRAUMA"`). Ein Override sagt: Fälle mit dieser Priorität/Capability, die eigentlich an `source_hospital_id` gehen, werden Richtung `target_hospital_id` umgeleitet. `created_by` ist `"player"` oder `"aurora"`.
+- **`routing.manual_overrides`**: Record von `ManualRoutingOverride`, Key (der "Slot") = `` `${source_hospital_id}:${priority}:${capability}` `` (z. B. `"hospital-east-04:P2:TRAUMA"`). Ein Override sagt: Fälle mit dieser Priorität/Capability, die eigentlich an `source_hospital_id` gehen, werden Richtung `target_hospital_id` umgeleitet. `created_by` ist `"player"` oder `"aurora"`. Jeder Override trägt zusätzlich eine stabile `id` (`"override-<n>"`, vergeben aus `routing.next_override_id`). Ein neuer `override.set` auf denselben Slot ersetzt den bisherigen Eintrag, vergibt aber eine neue `id` — `medical.routing.override.clear` adressiert Overrides ausschließlich über diese `id`, nicht über den Slot.
 - **`outcomes`** (`PatientOutcomeState`): `deaths_total`, `deaths_by_cause` (`overload`/`capability_mismatch`/`transport_delay`), `deaths_by_hospital`, `preventable_deaths`.
 
 ### Generischer IncidentState
@@ -157,8 +160,8 @@ class CommandRegistry {
 | `medical.node.inspect <hospitalId>` | `read_only` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
 | `medical.incident.status <incidentId>` | `read_only` | Incident-Stammdaten + `public_signals`. |
 | `medical.routing.override.list [--source <id>]` | `read_only` | Aktive `manual_overrides`, optional gefiltert nach Quelle. |
-| `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `world_mutation` | Legt/überschreibt einen Override. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
-| `medical.routing.override.clear --source <id> --priority <P> --capability <C>` | `world_mutation` | Entfernt einen Override (idempotent — kein Fehler, wenn keiner existiert). |
+| `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `world_mutation` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
+| `medical.routing.override.clear --id <overrideId>` | `world_mutation` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
 
 Es gibt **keine** `medical.routing.plan.*`-Commands. Routing-Eingriffe laufen ausschließlich über `override.set` / `.clear` / `.list`.
 
@@ -177,14 +180,21 @@ type PatchOperation =
 `applyWorldStatePatch(state, patch)` wendet die Operationen immutable an. Beispiel aus `medical.routing.override.set`:
 
 ```ts
-patch: [{
-  op: "set",
-  path: ["domains", "medical", "routing", "manual_overrides", key],
-  value: override,
-}]
+patch: [
+  {
+    op: "set",
+    path: ["domains", "medical", "routing", "manual_overrides", key],
+    value: override, // enthält die neu vergebene id
+  },
+  {
+    op: "inc",
+    path: ["domains", "medical", "routing", "next_override_id"],
+    value: 1,
+  },
+]
 ```
 
-`medical.routing.override.clear` nutzt `op: "unset"` auf demselben Pfad. Alle Patch-Pfade für Medical-Commands beginnen mit `["domains", "medical", ...]` — das ist Teil der sektoragnostischen Regression in `tests/runtime/sectorAgnostic.test.ts`.
+`medical.routing.override.clear --id <overrideId>` sucht den Slot, dessen Override diese `id` trägt, und nutzt `op: "unset"` auf dessen Pfad. Existiert keine Override mit dieser `id` mehr, liefert der Handler `success: true, removed: false` ohne Patch. Alle Patch-Pfade für Medical-Commands beginnen mit `["domains", "medical", ...]` — das ist Teil der sektoragnostischen Regression in `tests/runtime/sectorAgnostic.test.ts`.
 
 ## Tick-Pipeline
 

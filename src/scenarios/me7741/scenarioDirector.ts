@@ -114,7 +114,7 @@ const SCRIPT_EVENTS: ScriptEvent[] = [
       if (!override) {
         return null;
       }
-      return `medical.routing.override.clear --source ${override.source_hospital_id} --priority ${override.priority} --capability ${override.capability}`;
+      return `medical.routing.override.clear --id ${override.id}`;
     },
   },
   {

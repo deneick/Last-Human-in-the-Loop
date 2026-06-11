@@ -17,7 +17,7 @@ Der Spieler kann über die Operator-Konsole jeden registrierten Command ausführ
 - `medical.incident.status ME-7741`
 - `medical.routing.override.list`
 - `medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority <P1|P2|P3|P4> --capability <GEN|TRAUMA|NEURO|PED>`
-- `medical.routing.override.clear --source <hospitalId> --priority <P> --capability <C>`
+- `medical.routing.override.clear --id <override-id>`
 
 Diese Commands werden direkt ausgeführt, ohne Permission-Prüfung. Auch fachlich falsche Eingaben (z. B. ein Override auf ein Hospital ohne passende Capability) werden ausgeführt und können die Lage verschlechtern — die Engine prüft nur technisch (existiert das Hospital, sind Priorität und Capability bekannte Werte), keine fachliche Eignung.
 
@@ -57,7 +57,7 @@ Wenn AURORA einen Command anfragt, der nicht `read_only` ist und dessen Permissi
 ```text
 Tool Request
 AURORA möchte ausführen:
-medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA
+medical.routing.override.clear --id override-1
 Permission-Klasse: world_mutation
 
 [ Einmal erlauben ]  [ Immer erlauben ]  [ Ablehnen ]

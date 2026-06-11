@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const SRC_ROOT = join(process.cwd(), "src");
+const PROJECT_ROOT = process.cwd();
 
 function uiSourceFiles(): string[] {
   const uiDir = join(SRC_ROOT, "ui");
@@ -21,6 +22,14 @@ function uiSourceFiles(): string[] {
     join(SRC_ROOT, "scenarios", "me7741", "scenarioDirector.ts"),
     ...uiFiles,
   ];
+}
+
+function docFiles(): string[] {
+  const docsDir = join(PROJECT_ROOT, "docs");
+  const docFilesInDir = readdirSync(docsDir)
+    .filter((name) => name.endsWith(".md"))
+    .map((name) => join(docsDir, name));
+  return [join(PROJECT_ROOT, "README.md"), ...docFilesInDir];
 }
 
 describe("ui layer does not use legacy or internal fields", () => {
@@ -64,5 +73,30 @@ describe("ui layer does not use legacy or internal fields", () => {
         "isHospitalSuitableFor"
       );
     }
+  });
+});
+
+describe("medical.routing.override.clear uses only the id-based form", () => {
+  const allSources = [
+    ...uiSourceFiles().map((file) => ({ file, content: readFileSync(file, "utf8") })),
+    ...docFiles().map((file) => ({ file, content: readFileSync(file, "utf8") })),
+  ];
+
+  it("no UI or doc file uses the removed slot-based clear form", () => {
+    for (const { file, content } of allSources) {
+      expect(
+        content,
+        `${file} must not use the removed "override.clear --source" form`
+      ).not.toMatch(/override\.clear\s+--source/);
+    }
+  });
+
+  it("README and docs document the id-based clear form", () => {
+    const docSources = docFiles().map((file) => ({ file, content: readFileSync(file, "utf8") }));
+    const anyDocumentsIdClear = docSources.some(({ content }) =>
+      content.includes("override.clear --id")
+    );
+
+    expect(anyDocumentsIdClear).toBe(true);
   });
 });

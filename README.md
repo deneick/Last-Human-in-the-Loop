@@ -37,7 +37,7 @@ medical.node.inspect <hospitalId>
 medical.incident.status ME-7741
 medical.routing.override.list
 medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority P1|P2|P3|P4 --capability GEN|TRAUMA|NEURO|PED
-medical.routing.override.clear --source <hospitalId> --priority <P> --capability <C>
+medical.routing.override.clear --id <override-id>
 ```
 
 Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole.

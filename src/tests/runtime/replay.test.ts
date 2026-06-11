@@ -23,8 +23,7 @@ const SELF_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-04 --priority P2 --capability TRAUMA";
 const INVALID_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-99 --priority P2 --capability TRAUMA";
-const CLEAR_OVERRIDE =
-  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA";
+const CLEAR_OVERRIDE = "medical.routing.override.clear --id override-1";
 
 describe("Replay Engine - Golden Runs", () => {
   it("Safe override: set -> stabilize -> fixed, no deaths", () => {

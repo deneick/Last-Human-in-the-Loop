@@ -75,6 +75,7 @@ describe("ui view model", () => {
   it("builds override views from domains.medical.routing.manual_overrides", () => {
     const world = cloneWorld();
     world.domains.medical.routing.manual_overrides["hospital-east-04:P2:TRAUMA"] = {
+      id: "override-3",
       source_hospital_id: "hospital-east-04",
       target_hospital_id: "hospital-east-09",
       priority: "P2",
@@ -87,6 +88,7 @@ describe("ui view model", () => {
 
     expect(views).toHaveLength(1);
     expect(views[0]).toEqual({
+      id: "override-3",
       key: "hospital-east-04:P2:TRAUMA",
       sourceHospitalId: "hospital-east-04",
       targetHospitalId: "hospital-east-09",
