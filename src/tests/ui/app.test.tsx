@@ -10,8 +10,7 @@ const WRONG_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
 const GOOD_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-const CLEAR_OVERRIDE =
-  "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA";
+const CLEAR_OVERRIDE_1 = "medical.routing.override.clear --id override-1";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -127,17 +126,22 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Eskaliert");
     expect(text()).toContain("Todesfälle1");
 
-    // 3. Override clearen und besseren Override setzen
-    runPlayerCommand(CLEAR_OVERRIDE);
-    expect(text()).not.toContain("hospital-east-04 → hospital-east-07");
-
+    // 3. Besseren Override setzen — ersetzt den falschen Override im selben Slot
     runPlayerCommand(GOOD_OVERRIDE);
+    expect(text()).not.toContain("hospital-east-04 → hospital-east-07");
     expect(text()).toContain("hospital-east-04 → hospital-east-09");
 
     // 4. Nach genug stabilen Ticks ist der Incident behoben
     clickButton("Tick +5");
     clickButton("Tick +5");
     expect(text()).toContain("Behoben");
+  });
+
+  it("shows the override id for an active routing override", () => {
+    runPlayerCommand(GOOD_OVERRIDE);
+
+    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+    expect(text()).toContain("ID: override-1");
   });
 
   it("collapses the incident when no override controls the failure", () => {
@@ -172,9 +176,9 @@ describe("App MVP loop", () => {
     expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
 
     // Nächste Mutation läuft ohne neuen Tool Request durch
-    queueAuroraRequest(CLEAR_OVERRIDE);
+    queueAuroraRequest(CLEAR_OVERRIDE_1);
     expect(text()).not.toContain("Tool Request");
-    expect(text()).toContain(`Ausgeführt: ${CLEAR_OVERRIDE}`);
+    expect(text()).toContain(`Ausgeführt: ${CLEAR_OVERRIDE_1}`);
   });
 
   it("deny rejects the aurora request without touching the world", () => {
@@ -194,8 +198,7 @@ describe("App MVP loop", () => {
 });
 
 describe("Scenario director", () => {
-  const SCRIPTED_CLEAR =
-    "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA";
+  const SCRIPTED_CLEAR = "medical.routing.override.clear --id override-1";
 
   it("starts aurora with an intro and an executed read-only analysis", () => {
     expect(text()).toContain("Ich habe ME-7741 als aktiven Incident erkannt");
@@ -248,6 +251,28 @@ describe("Scenario director", () => {
     expect(text()).toContain("world_mutation");
     expect(text()).toContain("Keine aktiven Overrides.");
   });
+
+  it("a stale scripted clear request does not remove an override that replaced it in the same slot", () => {
+    runPlayerCommand(WRONG_OVERRIDE);
+    clickButton("Tick +5");
+
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(SCRIPTED_CLEAR);
+
+    // Spieler ersetzt den Override im selben Slot, bevor die AURORA-Anfrage entschieden wird.
+    runPlayerCommand(GOOD_OVERRIDE);
+    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+    expect(text()).toContain("ID: override-2");
+
+    clickButton("Einmal erlauben");
+
+    expect(text()).not.toContain("Tool Request");
+    expect(text()).toContain(`Ausgeführt: ${SCRIPTED_CLEAR}`);
+    // Der neue Override bleibt unangetastet — die veraltete Clear-Anfrage war ein No-op.
+    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+    expect(text()).toContain("ID: override-2");
+    expect(text()).not.toContain("ID: override-1");
+  });
 });
 
 describe("MVP hardening", () => {
@@ -287,6 +312,56 @@ describe("MVP hardening", () => {
 
     expect(text()).toContain("System kollabiert — zu viele Schäden.");
     expect(text()).toContain("Kollabiert");
+  });
+
+  it("disables tick buttons and stops further changes once the incident collapses", () => {
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+    expect(text()).toContain("Kollabiert");
+
+    const tickOnceButton = findButton("Tick +1");
+    const tickFiveButton = findButton("Tick +5");
+    expect(tickOnceButton.disabled).toBe(true);
+    expect(tickFiveButton.disabled).toBe(true);
+
+    const snapshot = text();
+    act(() => {
+      tickOnceButton.click();
+      tickFiveButton.click();
+    });
+    expect(text()).toBe(snapshot);
+  });
+
+  it("disables tick buttons and stops further changes once the incident is fixed", () => {
+    runPlayerCommand(GOOD_OVERRIDE);
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+    expect(text()).toContain("Behoben");
+
+    const tickOnceButton = findButton("Tick +1");
+    const tickFiveButton = findButton("Tick +5");
+    expect(tickOnceButton.disabled).toBe(true);
+    expect(tickFiveButton.disabled).toBe(true);
+
+    const snapshot = text();
+    act(() => {
+      tickOnceButton.click();
+      tickFiveButton.click();
+    });
+    expect(text()).toBe(snapshot);
+  });
+
+  it("Neu starten works after the incident has collapsed and re-enables tick buttons", () => {
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+    expect(text()).toContain("Kollabiert");
+
+    clickButton("Neu starten");
+
+    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).not.toContain("Kollabiert");
+    expect(findButton("Tick +1").disabled).toBe(false);
+    expect(findButton("Tick +5").disabled).toBe(false);
   });
 
   it("shows neither banner while the incident is still running", () => {

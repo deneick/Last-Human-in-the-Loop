@@ -27,6 +27,7 @@ export type IncidentView = {
   collapsedAtTick: number | null;
   affectedEntityIds: string[];
   signals: IncidentSignalView[];
+  isFinal: boolean;
 };
 
 const INCIDENT_STATUS_LABELS: Record<string, string> = {
@@ -58,6 +59,7 @@ export function buildIncidentView(world: WorldState, incidentId: string): Incide
       message: signal.message,
       firstSeenAtTick: signal.first_seen_at_tick,
     })),
+    isFinal: incident.status === "fixed" || incident.status === "collapsed",
   };
 }
 
@@ -127,6 +129,7 @@ export function buildHospitalViews(world: WorldState): HospitalView[] {
 }
 
 export type OverrideView = {
+  id: string;
   key: string;
   sourceHospitalId: string;
   targetHospitalId: string;
@@ -139,6 +142,7 @@ export type OverrideView = {
 export function buildOverrideViews(world: WorldState): OverrideView[] {
   return Object.entries(world.domains.medical.routing.manual_overrides).map(
     ([key, override]) => ({
+      id: override.id,
       key,
       sourceHospitalId: override.source_hospital_id,
       targetHospitalId: override.target_hospital_id,

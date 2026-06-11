@@ -1,4 +1,4 @@
-import type { ClinicalCapability, PriorityClass, WorldState } from "./types";
+import type { ClinicalCapability, ManualRoutingOverride, PriorityClass, WorldState } from "./types";
 import type { CommandExecutionContext, CommandHandler, CommandResult, CommandRequest } from "./commands";
 import { CommandRegistry } from "./commands";
 
@@ -206,7 +206,9 @@ const routingOverrideSetHandler: CommandHandler = {
     }
 
     const key = routingOverrideKey(source, priority, capability);
-    const override = {
+    const id = `override-${state.domains.medical.routing.next_override_id}`;
+    const override: ManualRoutingOverride = {
+      id,
       source_hospital_id: source,
       target_hospital_id: target,
       priority,
@@ -223,13 +225,18 @@ const routingOverrideSetHandler: CommandHandler = {
       output: {
         key,
         override,
-        summary: `Manual routing override ${key} -> ${target} set.`,
+        summary: `Manual routing override ${id} (${key} -> ${target}) set.`,
       },
       patch: [
         {
           op: "set",
           path: ["domains", "medical", "routing", "manual_overrides", key],
           value: override,
+        },
+        {
+          op: "inc",
+          path: ["domains", "medical", "routing", "next_override_id"],
+          value: 1,
         },
       ],
     };
@@ -241,35 +248,31 @@ const routingOverrideClearHandler: CommandHandler = {
   sectorId: "medical",
   effect: "world_mutation",
   handle(request: CommandRequest, state: WorldState) {
-    const source = typeof request.flags.source === "string" ? request.flags.source : null;
-    const priority = parsePriority(request.flags.priority);
-    const capability = parseCapability(request.flags.capability);
+    const id = typeof request.flags.id === "string" ? request.flags.id : null;
 
-    if (!source) {
-      return buildErrorResult(request, "Missing required flag --source <hospitalId>", "world_mutation");
-    }
-    if (!priority) {
-      return buildErrorResult(request, `Unknown or missing --priority (expected ${KNOWN_PRIORITIES.join("|")})`, "world_mutation");
-    }
-    if (!capability) {
-      return buildErrorResult(request, `Unknown or missing --capability (expected ${KNOWN_CAPABILITIES.join("|")})`, "world_mutation");
+    if (!id) {
+      return buildErrorResult(request, "Missing required flag --id <overrideId>", "world_mutation");
     }
 
-    const key = routingOverrideKey(source, priority, capability);
-    const existing = state.domains.medical.routing.manual_overrides[key];
+    const entry = Object.entries(state.domains.medical.routing.manual_overrides).find(
+      ([, override]) => override.id === id
+    );
 
-    // Idempotent: Clear ohne bestehende Regel ist kein Fehler.
-    if (!existing) {
+    // Idempotent: Eine nicht mehr aktive (oder nie existierende) Override-Id
+    // ist kein Fehler — z. B. wenn der Slot zwischenzeitlich ersetzt wurde.
+    if (!entry) {
       return buildSuccessResult(
         request,
         {
-          key,
+          id,
           removed: false,
-          message: `No manual routing override existed for key ${key}`,
+          message: `Override ${id} ist nicht mehr aktiv; keine Änderung.`,
         },
         "world_mutation"
       );
     }
+
+    const [key] = entry;
 
     return {
       success: true,
@@ -277,9 +280,10 @@ const routingOverrideClearHandler: CommandHandler = {
       effect: "world_mutation",
       readOnly: false,
       output: {
+        id,
         key,
         removed: true,
-        summary: `Manual routing override ${key} cleared.`,
+        summary: `Manual routing override ${id} (${key}) cleared.`,
       },
       patch: [
         {

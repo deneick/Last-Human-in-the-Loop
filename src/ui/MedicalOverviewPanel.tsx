@@ -57,7 +57,7 @@ export function MedicalOverviewPanel({ hospitals, overrides }: MedicalOverviewPa
                 {override.sourceHospitalId} → {override.targetHospitalId}
               </code>
               <small>
-                {override.priority}/{override.capability} · seit Tick{" "}
+                ID: {override.id} · {override.priority}/{override.capability} · seit Tick{" "}
                 {override.activeSinceTick} · gesetzt von {override.createdBy}
               </small>
             </li>

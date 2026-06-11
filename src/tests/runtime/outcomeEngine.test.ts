@@ -150,7 +150,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     runtimeState = executePlayerCommand(
       runtimeState,
       registry,
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+      "medical.routing.override.clear --id override-1"
     ).state;
     for (let i = 0; i < 9; i++) {
       runtimeState = advanceTick(runtimeState);

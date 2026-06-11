@@ -166,9 +166,7 @@ describe("AURORA request queue", () => {
     const setRequest = parseCommandText(
       "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
-    const clearRequest = parseCommandText(
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
-    );
+    const clearRequest = parseCommandText("medical.routing.override.clear --id override-1");
     const permissionState = applyPermissionDecision(
       setRequest,
       allow_always("world_mutation"),
@@ -200,9 +198,7 @@ describe("AURORA request queue", () => {
     const setRequest = parseCommandText(
       "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
-    const clearRequest = parseCommandText(
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
-    );
+    const clearRequest = parseCommandText("medical.routing.override.clear --id override-1");
 
     queueState = enqueueAuroraRequest(setRequest, queueState, initialWorldState.clock.tick);
     queueState = enqueueAuroraRequest(clearRequest, queueState, initialWorldState.clock.tick + 1);

@@ -51,8 +51,7 @@ const COMMAND_HELP = [
   },
   {
     label: "Override löschen",
-    command:
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA",
+    command: "medical.routing.override.clear --id <override-id>",
   },
 ];
 
@@ -253,14 +252,28 @@ function App() {
     );
   }
 
+  function isIncidentFinal(state: GameRuntimeState): boolean {
+    const status = state.world.incidents[ACTIVE_INCIDENT_ID]?.status;
+    return status === "fixed" || status === "collapsed";
+  }
+
   function runTicks(count: number) {
     setRuntimeState((state) => {
+      // Behoben/Kollabiert sind Endzustände — weitere Ticks sind ein No-op,
+      // nur "Neu starten" führt aus diesen Zuständen heraus.
+      if (isIncidentFinal(state)) {
+        return state;
+      }
+
       let next = state;
       for (let i = 0; i < count; i += 1) {
         // Jeder Tick wertet direkt die Konsequenzen aus, damit Eskalation,
         // Todesfälle und Incident-Statuswechsel sofort sichtbar werden.
         // Der Scenario-Director reagiert pro Tick auf den neuen Zustand.
         next = advanceScenario(evaluateOutcomes(advanceTick(next)));
+        if (isIncidentFinal(next)) {
+          break;
+        }
       }
       return next;
     });
@@ -290,8 +303,20 @@ function App() {
           </p>
         </div>
         <div className="top-actions">
-          <button onClick={() => runTicks(1)}>Tick +1</button>
-          <button onClick={() => runTicks(5)}>Tick +5</button>
+          <button
+            onClick={() => runTicks(1)}
+            disabled={incidentView.isFinal}
+            title={incidentView.isFinal ? "Incident beendet — nur Neu starten geht weiter." : undefined}
+          >
+            Tick +1
+          </button>
+          <button
+            onClick={() => runTicks(5)}
+            disabled={incidentView.isFinal}
+            title={incidentView.isFinal ? "Incident beendet — nur Neu starten geht weiter." : undefined}
+          >
+            Tick +5
+          </button>
           <button onClick={resetGame}>Neu starten</button>
         </div>
       </header>

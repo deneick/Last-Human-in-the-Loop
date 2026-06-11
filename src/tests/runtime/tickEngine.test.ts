@@ -162,7 +162,7 @@ describe("tick engine deterministic simulation", () => {
     runtimeState = executePlayerCommand(
       runtimeState,
       registry,
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+      "medical.routing.override.clear --id override-1"
     ).state;
     runtimeState = advanceTick(runtimeState);
 

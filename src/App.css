@@ -34,6 +34,15 @@ button:hover {
   background: #22304a;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background: #172033;
+}
+
 textarea {
   width: 100%;
   border: 1px solid #334155;

@@ -25,6 +25,7 @@ describe("medical.routing.override commands", () => {
     const override = nextState.domains.medical.routing.manual_overrides[OVERRIDE_KEY];
 
     expect(override).toMatchObject({
+      id: "override-1",
       source_hospital_id: "hospital-east-04",
       target_hospital_id: "hospital-east-09",
       priority: "P2",
@@ -32,6 +33,7 @@ describe("medical.routing.override commands", () => {
       active_since_tick: 0,
       created_by: "player",
     });
+    expect(nextState.domains.medical.routing.next_override_id).toBe(2);
   });
 
   it("records aurora as creator when executed in aurora context", () => {
@@ -87,38 +89,93 @@ describe("medical.routing.override commands", () => {
     expect(result.error).toContain("--priority");
   });
 
-  it("clears an existing override via unset patch", () => {
+  it("generates a new id for each override.set and replaces the override in the same slot", () => {
+    const firstRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    );
+    const firstResult = registry.execute(firstRequest, initialWorldState);
+    let state = applyWorldStatePatch(initialWorldState, firstResult.patch ?? []);
+    expect(state.domains.medical.routing.manual_overrides[OVERRIDE_KEY].id).toBe("override-1");
+
+    const secondRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA"
+    );
+    const secondResult = registry.execute(secondRequest, state);
+    state = applyWorldStatePatch(state, secondResult.patch ?? []);
+
+    const override = state.domains.medical.routing.manual_overrides[OVERRIDE_KEY];
+    expect(override.id).toBe("override-2");
+    expect(override.target_hospital_id).toBe("hospital-east-07");
+    expect(Object.keys(state.domains.medical.routing.manual_overrides)).toHaveLength(1);
+  });
+
+  it("clears an existing override via clear --id", () => {
     const setRequest = parseCommandText(
       "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
     const setResult = registry.execute(setRequest, initialWorldState);
     const stateWithOverride = applyWorldStatePatch(initialWorldState, setResult.patch ?? []);
+    const overrideId = stateWithOverride.domains.medical.routing.manual_overrides[OVERRIDE_KEY].id;
 
-    const clearRequest = parseCommandText(
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
-    );
+    const clearRequest = parseCommandText(`medical.routing.override.clear --id ${overrideId}`);
     const clearResult = registry.execute(clearRequest, stateWithOverride);
 
     expect(clearResult.success).toBe(true);
+    expect(clearResult.patch).toBeDefined();
     const finalState = applyWorldStatePatch(stateWithOverride, clearResult.patch ?? []);
     expect(OVERRIDE_KEY in finalState.domains.medical.routing.manual_overrides).toBe(false);
   });
 
-  it("clear is idempotent when no override exists", () => {
-    const request = parseCommandText(
-      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+  it("clear --id of a replaced override does not remove the newer override in the same slot", () => {
+    const firstRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
+    const firstResult = registry.execute(firstRequest, initialWorldState);
+    let state = applyWorldStatePatch(initialWorldState, firstResult.patch ?? []);
+    const firstId = state.domains.medical.routing.manual_overrides[OVERRIDE_KEY].id;
+
+    const secondRequest = parseCommandText(
+      "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA"
+    );
+    const secondResult = registry.execute(secondRequest, state);
+    state = applyWorldStatePatch(state, secondResult.patch ?? []);
+    const secondId = state.domains.medical.routing.manual_overrides[OVERRIDE_KEY].id;
+
+    const staleClear = parseCommandText(`medical.routing.override.clear --id ${firstId}`);
+    const staleResult = registry.execute(staleClear, state);
+
+    expect(staleResult.success).toBe(true);
+    expect(staleResult.patch).toBeUndefined();
+    expect(staleResult.output).toMatchObject({ id: firstId, removed: false });
+
+    expect(state.domains.medical.routing.manual_overrides[OVERRIDE_KEY].id).toBe(secondId);
+  });
+
+  it("clear --id is idempotent for an unknown or no-longer-active override id", () => {
+    const request = parseCommandText("medical.routing.override.clear --id override-999");
     const result = registry.execute(request, initialWorldState);
 
     expect(result.success).toBe(true);
     expect(result.patch).toBeUndefined();
     expect(result.output).toMatchObject({
+      id: "override-999",
       removed: false,
-      message: expect.stringContaining("No manual routing override existed"),
+      message: expect.stringContaining("nicht mehr aktiv"),
     });
   });
 
-  it("lists active overrides without leaking internal routing failures", () => {
+  it("rejects the old --source/--priority/--capability clear form (missing --id)", () => {
+    const request = parseCommandText(
+      "medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA"
+    );
+    const result = registry.execute(request, initialWorldState);
+
+    expect(result.success).toBe(false);
+    expect(result.patch).toBeUndefined();
+    expect(result.error).toContain("--id");
+  });
+
+  it("lists active overrides with their id, without leaking internal routing failures", () => {
     const setRequest = parseCommandText(
       "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
     );
@@ -131,6 +188,9 @@ describe("medical.routing.override commands", () => {
     expect(listResult.success).toBe(true);
     expect(listResult.readOnly).toBe(true);
     expect(listResult.output).toMatchObject({ count: 1 });
+
+    const overrides = (listResult.output as { overrides: Array<{ id: string }> }).overrides;
+    expect(overrides[0].id).toBe("override-1");
 
     const serialized = JSON.stringify(listResult.output);
     expect(serialized).not.toContain("routing_failures");

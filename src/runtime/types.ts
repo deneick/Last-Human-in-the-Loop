@@ -150,12 +150,17 @@ export type TransportState = {
   active: boolean;
 };
 
+export type RoutingOverrideId = string;
+
 /**
  * Manuelle Routing-Override-Regel. Der Key im manual_overrides-Record
- * ergibt sich aus source_hospital_id + priority + capability,
- * z. B. "hospital-east-04:P2:TRAUMA".
+ * (der "Slot") ergibt sich aus source_hospital_id + priority + capability,
+ * z. B. "hospital-east-04:P2:TRAUMA". Die `id` ist die stabile Kennung
+ * dieser konkreten Override-Instanz und überlebt nicht das Ersetzen
+ * desselben Slots durch einen neuen Override.
  */
 export type ManualRoutingOverride = {
+  id: RoutingOverrideId;
   source_hospital_id: HospitalId;
   target_hospital_id: HospitalId;
   priority: PriorityClass;
@@ -166,6 +171,7 @@ export type ManualRoutingOverride = {
 
 export type MedicalRoutingState = {
   manual_overrides: Record<string, ManualRoutingOverride>;
+  next_override_id: number;
 };
 
 /**
