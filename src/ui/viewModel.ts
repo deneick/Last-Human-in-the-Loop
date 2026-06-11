@@ -1,12 +1,13 @@
 import type { WorldState } from "../runtime/types";
 import type { RuntimeAuditEvent } from "../runtime/runtimeState";
 import { getHospitalLoadPercent } from "../runtime/selectors";
+import { getEnergyDomain, getNodeLoadPercent } from "../runtime/energySelectors";
 
 /**
  * View-Model für die Operator-UI.
  *
- * Liest ausschließlich beobachtbare Welt: domains.medical und
- * incident.public_signals. world.simulation ist hier bewusst tabu —
+ * Liest ausschließlich beobachtbare Welt: domains.medical, domains.energy
+ * und incident.public_signals. world.simulation ist hier bewusst tabu —
  * die UI darf keine interne Simulationswahrheit leaken.
  */
 
@@ -152,6 +153,160 @@ export function buildOverrideViews(world: WorldState): OverrideView[] {
       createdBy: override.created_by,
     })
   );
+}
+
+export type GridNodeView = {
+  id: string;
+  label: string;
+  load: number;
+  safeCapacity: number;
+  loadPercent: number;
+  overloaded: boolean;
+  status: string;
+  statusLabel: string;
+};
+
+const NODE_STATUS_LABELS: Record<string, string> = {
+  nominal: "Nominal",
+  strained: "Angespannt",
+  critical: "Kritisch",
+  offline: "Offline",
+};
+
+export function buildGridNodeViews(world: WorldState): GridNodeView[] {
+  const energy = getEnergyDomain(world);
+  if (!energy) {
+    return [];
+  }
+
+  return Object.values(energy.nodes).map((node) => {
+    const loadPercent = getNodeLoadPercent(world, node.id);
+    return {
+      id: node.id,
+      label: node.label,
+      load: node.load,
+      safeCapacity: node.safe_capacity,
+      loadPercent,
+      overloaded: loadPercent > 100,
+      status: node.status,
+      statusLabel: NODE_STATUS_LABELS[node.status] ?? node.status,
+    };
+  });
+}
+
+export type ConsumerView = {
+  id: string;
+  label: string;
+  nodeId: string;
+  criticality: string;
+  criticalityLabel: string;
+  priorityClass: string;
+  demand: number;
+  currentSupply: number;
+  minimumSupply: number;
+  status: string;
+  statusLabel: string;
+  reductionConsequence: string;
+  priorityLastChangedBy: string | null;
+};
+
+const CRITICALITY_LABELS: Record<string, string> = {
+  "human-life": "Menschenleben",
+  "public-supply": "Öffentliche Versorgung",
+  "civil-stability": "Zivile Stabilität",
+  economic: "Wirtschaftlich",
+};
+
+const CONSUMER_STATUS_LABELS: Record<string, string> = {
+  nominal: "Nominal",
+  reduced: "Reduziert",
+  offline: "Offline",
+};
+
+export function buildConsumerViews(world: WorldState): ConsumerView[] {
+  const energy = getEnergyDomain(world);
+  if (!energy) {
+    return [];
+  }
+
+  return Object.values(energy.consumers).map((consumer) => ({
+    id: consumer.id,
+    label: consumer.label,
+    nodeId: consumer.node_id,
+    criticality: consumer.criticality,
+    criticalityLabel: CRITICALITY_LABELS[consumer.criticality] ?? consumer.criticality,
+    priorityClass: consumer.priority_class,
+    demand: consumer.demand,
+    currentSupply: consumer.current_supply,
+    minimumSupply: consumer.minimum_supply,
+    status: consumer.status,
+    statusLabel: CONSUMER_STATUS_LABELS[consumer.status] ?? consumer.status,
+    reductionConsequence: consumer.reduction_consequence,
+    priorityLastChangedBy: consumer.priority_last_changed_by ?? null,
+  }));
+}
+
+export type SheddingPlanView = {
+  id: string;
+  targetConsumerId: string;
+  amount: number;
+  delay: number;
+  duration: number;
+  createdAtTick: number;
+  createdBy: string;
+  status: string;
+  statusLabel: string;
+};
+
+const SHEDDING_STATUS_LABELS: Record<string, string> = {
+  scheduled: "Geplant",
+  active: "Aktiv",
+  completed: "Abgeschlossen",
+  cancelled: "Abgebrochen",
+};
+
+export function buildSheddingViews(world: WorldState): SheddingPlanView[] {
+  const energy = getEnergyDomain(world);
+  if (!energy) {
+    return [];
+  }
+
+  return Object.values(energy.shedding.plans).map((plan) => ({
+    id: plan.id,
+    targetConsumerId: plan.target_consumer_id,
+    amount: plan.amount,
+    delay: plan.delay,
+    duration: plan.duration,
+    createdAtTick: plan.created_at_tick,
+    createdBy: plan.created_by,
+    status: plan.status,
+    statusLabel: SHEDDING_STATUS_LABELS[plan.status] ?? plan.status,
+  }));
+}
+
+export type EnergyOutcomesView = {
+  humanHarm: number;
+  economicLoss: number;
+  civilUnrest: number;
+  gridInstability: number;
+};
+
+/**
+ * Lokale Energy-Outcomes für das Ergebnis-Banner: beide Preise
+ * (menschlich und wirtschaftlich) nebeneinander, ohne Moralwertung.
+ */
+export function buildEnergyOutcomesView(world: WorldState): EnergyOutcomesView | null {
+  const energy = getEnergyDomain(world);
+  if (!energy) {
+    return null;
+  }
+
+  return {
+    humanHarm: energy.outcomes.human_harm,
+    economicLoss: energy.outcomes.economic_loss,
+    civilUnrest: energy.outcomes.civil_unrest,
+    gridInstability: energy.outcomes.grid_instability,
+  };
 }
 
 export type AuditLogLineView = {

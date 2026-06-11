@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import "./App.css";
 
-import { initialWorldState } from "./scenarios/me7741/initialWorldState";
+import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
+import { initialWorldState as grid1182InitialWorldState } from "./scenarios/grid1182/initialWorldState";
 import { CommandRegistry } from "./runtime/commands";
 import type { CommandResult } from "./runtime/commands";
 import { registerMedicalCommands } from "./runtime/medicalCommands";
+import { registerEnergyCommands } from "./runtime/energyCommands";
+import type { WorldState } from "./runtime/types";
 import {
   createInitialGameRuntimeState,
   type GameRuntimeState,
@@ -21,25 +24,42 @@ import {
 } from "./runtime/auroraQueue";
 import { allow_always, allow_once, deny } from "./runtime/permissions";
 import { advanceScenarioDirector } from "./scenarios/me7741/scenarioDirector";
+import { advanceGrid1182Director } from "./scenarios/grid1182/scenarioDirector";
 
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
-import { OperatorConsolePanel } from "./ui/OperatorConsolePanel";
+import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
+import { OperatorConsolePanel, type CommandHelpEntry } from "./ui/OperatorConsolePanel";
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
 import {
   buildAuditLogLines,
+  buildConsumerViews,
+  buildEnergyOutcomesView,
   buildGlobalOutcomeView,
+  buildGridNodeViews,
   buildHospitalViews,
   buildIncidentView,
   buildOverrideViews,
+  buildSheddingViews,
 } from "./ui/viewModel";
 
-const ACTIVE_INCIDENT_ID = "ME-7741";
+type ScenarioId = "me7741" | "grid1182";
+
+type ScenarioDefinition = {
+  id: ScenarioId;
+  label: string;
+  incidentId: string;
+  initialWorld: WorldState;
+  defaultPlayerCommand: string;
+  defaultAuroraCommand: string;
+  commandHelp: CommandHelpEntry[];
+  advanceDirector: (state: GameRuntimeState, registry: CommandRegistry) => GameRuntimeState;
+};
 
 // Command-Hilfe für die Operator-Konsole. Nur echte Registry-Commands;
 // Platzhalter in spitzen Klammern muss der Operator selbst ersetzen —
 // die Hilfe bewertet bewusst keine Ziele.
-const COMMAND_HELP = [
+const ME7741_COMMAND_HELP: CommandHelpEntry[] = [
   { label: "Kapazitäten prüfen", command: "medical.capacity.list --region east" },
   { label: "Hospital im Detail ansehen", command: "medical.node.inspect hospital-east-04" },
   { label: "Incident-Status abrufen", command: "medical.incident.status ME-7741" },
@@ -55,23 +75,64 @@ const COMMAND_HELP = [
   },
 ];
 
-const DEFAULT_PLAYER_COMMAND = "medical.capacity.list --region east";
-const DEFAULT_AURORA_COMMAND = "medical.incident.status ME-7741";
+const GRID1182_COMMAND_HELP: CommandHelpEntry[] = [
+  { label: "Netzstatus prüfen", command: "energy.grid.status --region east" },
+  { label: "Verbraucher auflisten", command: "energy.consumer.list --region east" },
+  {
+    label: "Verbraucher im Detail ansehen",
+    command: "energy.consumer.inspect --id <consumer-id>",
+  },
+  { label: "Prioritäten anzeigen", command: "energy.priority.list" },
+  {
+    label: "Priorität setzen",
+    command: "energy.priority.set --consumer <consumer-id> --class <priority-class>",
+  },
+  { label: "Shedding-Pläne anzeigen", command: "energy.shedding.list" },
+  {
+    label: "Drosselung planen",
+    command:
+      "energy.shedding.schedule --target <consumer-id> --amount <n> --delay <ticks> --duration <ticks>",
+  },
+  {
+    label: "Drosselung abbrechen",
+    command: "energy.shedding.clear --id <shedding-id>",
+  },
+];
 
-function cloneInitialWorld() {
-  return structuredClone(initialWorldState);
-}
+const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
+  me7741: {
+    id: "me7741",
+    label: "Runde 1: ME-7741",
+    incidentId: "ME-7741",
+    initialWorld: me7741InitialWorldState,
+    defaultPlayerCommand: "medical.capacity.list --region east",
+    defaultAuroraCommand: "medical.incident.status ME-7741",
+    commandHelp: ME7741_COMMAND_HELP,
+    advanceDirector: (state, registry) => advanceScenarioDirector(state, registry, "ME-7741"),
+  },
+  grid1182: {
+    id: "grid1182",
+    label: "Runde 2: GRID-1182",
+    incidentId: "GRID-1182",
+    initialWorld: grid1182InitialWorldState,
+    defaultPlayerCommand: "energy.grid.status --region east",
+    defaultAuroraCommand: "energy.shedding.list",
+    commandHelp: GRID1182_COMMAND_HELP,
+    advanceDirector: (state, registry) => advanceGrid1182Director(state, registry, "GRID-1182"),
+  },
+};
 
 function createRegistry() {
   const registry = new CommandRegistry();
   registerMedicalCommands(registry);
+  registerEnergyCommands(registry);
   return registry;
 }
 
-function buildAuroraMessages(state: GameRuntimeState): AuroraMessageView[] {
+function buildAuroraMessages(state: GameRuntimeState, incidentId: string): AuroraMessageView[] {
   const messages: AuroraMessageView[] = [];
 
-  const incident = state.world.incidents[ACTIVE_INCIDENT_ID];
+  const incident = state.world.incidents[incidentId];
   if (incident) {
     for (const signal of incident.public_signals) {
       messages.push({
@@ -131,19 +192,35 @@ function buildAuroraMessages(state: GameRuntimeState): AuroraMessageView[] {
 
 function App() {
   const registry = useMemo(() => createRegistry(), []);
+  const [scenarioId, setScenarioId] = useState<ScenarioId>("me7741");
+  const scenario = SCENARIOS[scenarioId];
+
+  // Frischer Runtime-Zustand für ein Szenario: Welt-Klon plus erster
+  // Director-Schritt, damit die Startsequenz sofort sichtbar ist.
+  function startScenario(definition: ScenarioDefinition): GameRuntimeState {
+    return definition.advanceDirector(
+      createInitialGameRuntimeState(structuredClone(definition.initialWorld)),
+      registry
+    );
+  }
+
   const [runtimeState, setRuntimeState] = useState<GameRuntimeState>(() =>
-    advanceScenario(createInitialGameRuntimeState(cloneInitialWorld()))
+    startScenario(SCENARIOS.me7741)
   );
-  const [playerCommand, setPlayerCommand] = useState(DEFAULT_PLAYER_COMMAND);
-  const [auroraCommand, setAuroraCommand] = useState(DEFAULT_AURORA_COMMAND);
+  const [playerCommand, setPlayerCommand] = useState(SCENARIOS.me7741.defaultPlayerCommand);
+  const [auroraCommand, setAuroraCommand] = useState(SCENARIOS.me7741.defaultAuroraCommand);
   const [lastResult, setLastResult] = useState<CommandResult | null>(null);
 
-  const incidentView = buildIncidentView(runtimeState.world, ACTIVE_INCIDENT_ID);
+  const incidentView = buildIncidentView(runtimeState.world, scenario.incidentId);
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
   const hospitalViews = buildHospitalViews(runtimeState.world);
   const overrideViews = buildOverrideViews(runtimeState.world);
+  const gridNodeViews = buildGridNodeViews(runtimeState.world);
+  const consumerViews = buildConsumerViews(runtimeState.world);
+  const sheddingViews = buildSheddingViews(runtimeState.world);
+  const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const auditLines = buildAuditLogLines(runtimeState.auditLog);
-  const auroraMessages = buildAuroraMessages(runtimeState);
+  const auroraMessages = buildAuroraMessages(runtimeState, scenario.incidentId);
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
@@ -152,7 +229,7 @@ function App() {
   // die Aurora-Queue über den bestehenden Permission-Flow. Idempotent —
   // bereits gefeuerte Events erzeugen keine Duplikate.
   function advanceScenario(state: GameRuntimeState): GameRuntimeState {
-    return advanceScenarioDirector(state, registry, ACTIVE_INCIDENT_ID);
+    return scenario.advanceDirector(state, registry);
   }
 
   function applyAuroraResults(
@@ -252,7 +329,7 @@ function App() {
   }
 
   function isIncidentFinal(state: GameRuntimeState): boolean {
-    const status = state.world.incidents[ACTIVE_INCIDENT_ID]?.status;
+    const status = state.world.incidents[scenario.incidentId]?.status;
     return status === "fixed" || status === "collapsed";
   }
 
@@ -267,7 +344,7 @@ function App() {
       let next = state;
       for (let i = 0; i < count; i += 1) {
         // Jeder Tick wertet direkt die Konsequenzen aus, damit Eskalation,
-        // Todesfälle und Incident-Statuswechsel sofort sichtbar werden.
+        // Schäden und Incident-Statuswechsel sofort sichtbar werden.
         // Der Scenario-Director reagiert pro Tick auf den neuen Zustand.
         next = advanceScenario(evaluateOutcomes(advanceTick(next)));
         if (isIncidentFinal(next)) {
@@ -278,13 +355,19 @@ function App() {
     });
   }
 
-  // Vollständiger Neustart: Welt, Scenario-Script, Aurora-Queue, Permissions,
-  // Logs und beide Eingabezeilen zurück auf den initialen ME-7741-Zustand.
-  function resetGame() {
-    setRuntimeState(advanceScenario(createInitialGameRuntimeState(cloneInitialWorld())));
+  // Vollständiger (Neu-)Start eines Szenarios: Welt, Scenario-Script,
+  // Aurora-Queue, Permissions, Logs und beide Eingabezeilen auf den
+  // initialen Zustand der gewählten Runde.
+  function loadScenario(definition: ScenarioDefinition) {
+    setScenarioId(definition.id);
+    setRuntimeState(startScenario(definition));
     setLastResult(null);
-    setPlayerCommand(DEFAULT_PLAYER_COMMAND);
-    setAuroraCommand(DEFAULT_AURORA_COMMAND);
+    setPlayerCommand(definition.defaultPlayerCommand);
+    setAuroraCommand(definition.defaultAuroraCommand);
+  }
+
+  function resetGame() {
+    loadScenario(scenario);
   }
 
   if (!incidentView) {
@@ -302,6 +385,20 @@ function App() {
           </p>
         </div>
         <div className="top-actions">
+          {Object.values(SCENARIOS).map((definition) => (
+            <button
+              key={definition.id}
+              onClick={() => loadScenario(definition)}
+              disabled={definition.id === scenarioId}
+              title={
+                definition.id === scenarioId
+                  ? "Aktive Runde — Neu starten setzt sie zurück."
+                  : `Wechselt zu ${definition.incidentId} und startet die Runde neu.`
+              }
+            >
+              {definition.label}
+            </button>
+          ))}
           <button
             onClick={() => runTicks(1)}
             disabled={incidentView.isFinal}
@@ -323,21 +420,40 @@ function App() {
       {incidentView.status === "fixed" && (
         <section className="endstate-banner endstate-fixed">
           <strong>Incident behoben — System stabilisiert.</strong>
-          <p>
-            {incidentView.id} wurde in Tick {incidentView.fixedAtTick} stabilisiert. Todesfälle in
-            dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von
-            vorn.
-          </p>
+          {incidentView.sectorId === "energy" && energyOutcomesView ? (
+            <p>
+              {incidentView.id} wurde in Tick {incidentView.fixedAtTick} nach Systemkriterien
+              stabilisiert. Der Preis dieser Schicht — menschlicher Schaden:{" "}
+              {energyOutcomesView.humanHarm} · wirtschaftlicher Schaden:{" "}
+              {energyOutcomesView.economicLoss} · zivile Unruhe: {energyOutcomesView.civilUnrest}.
+              Gelöst — für wen? Mit „Neu starten“ beginnt die Schicht von vorn.
+            </p>
+          ) : (
+            <p>
+              {incidentView.id} wurde in Tick {incidentView.fixedAtTick} stabilisiert. Todesfälle in
+              dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von
+              vorn.
+            </p>
+          )}
         </section>
       )}
 
       {incidentView.status === "collapsed" && (
         <section className="endstate-banner endstate-collapsed">
           <strong>System kollabiert — zu viele Schäden.</strong>
-          <p>
-            {incidentView.id} konnte nicht stabilisiert werden. Todesfälle in dieser Schicht:{" "}
-            {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von vorn.
-          </p>
+          {incidentView.sectorId === "energy" && energyOutcomesView ? (
+            <p>
+              {incidentView.id} konnte nicht stabilisiert werden. Der Preis dieser Schicht —
+              menschlicher Schaden: {energyOutcomesView.humanHarm} · wirtschaftlicher Schaden:{" "}
+              {energyOutcomesView.economicLoss} · zivile Unruhe: {energyOutcomesView.civilUnrest}.
+              Mit „Neu starten“ beginnt die Schicht von vorn.
+            </p>
+          ) : (
+            <p>
+              {incidentView.id} konnte nicht stabilisiert werden. Todesfälle in dieser Schicht:{" "}
+              {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von vorn.
+            </p>
+          )}
         </section>
       )}
 
@@ -348,7 +464,15 @@ function App() {
             outcome={outcomeView}
             tick={runtimeState.world.clock.tick}
           />
-          <MedicalOverviewPanel hospitals={hospitalViews} overrides={overrideViews} />
+          {incidentView.sectorId === "energy" ? (
+            <EnergyOverviewPanel
+              nodes={gridNodeViews}
+              consumers={consumerViews}
+              sheddingPlans={sheddingViews}
+            />
+          ) : (
+            <MedicalOverviewPanel hospitals={hospitalViews} overrides={overrideViews} />
+          )}
         </aside>
 
         <section className="panel">
@@ -357,7 +481,7 @@ function App() {
             onCommandTextChange={setPlayerCommand}
             onExecute={runPlayerCommand}
             commandNames={registry.listCommandNames()}
-            commandHelp={COMMAND_HELP}
+            commandHelp={scenario.commandHelp}
             lastResult={lastResult}
             auditLines={auditLines}
           />

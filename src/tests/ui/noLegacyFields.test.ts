@@ -17,9 +17,10 @@ function uiSourceFiles(): string[] {
   const uiFiles = readdirSync(uiDir).map((name) => join(uiDir, name));
   return [
     join(SRC_ROOT, "App.tsx"),
-    // Der Scenario-Director erzeugt spielersichtbare Aurora-Texte und
-    // unterliegt deshalb denselben Leak-Regeln wie die UI-Schicht.
+    // Die Scenario-Directors erzeugen spielersichtbare Aurora-Texte und
+    // unterliegen deshalb denselben Leak-Regeln wie die UI-Schicht.
     join(SRC_ROOT, "scenarios", "me7741", "scenarioDirector.ts"),
+    join(SRC_ROOT, "scenarios", "grid1182", "scenarioDirector.ts"),
     ...uiFiles,
   ];
 }
@@ -66,12 +67,31 @@ describe("ui layer does not use legacy or internal fields", () => {
       expect(content, `${file} must not read simulation state`).not.toMatch(
         /\bsimulation\.medical\b/
       );
+      expect(content, `${file} must not read energy simulation state`).not.toMatch(
+        /\bsimulation\.energy\b/
+      );
+      expect(content, `${file} must not read the internal stability counter`).not.toContain(
+        "stable_ticks"
+      );
       expect(content, `${file} must not leak suitability verdicts`).not.toContain(
         "unsafe_for_p2_trauma"
       );
       expect(content, `${file} must not call internal suitability check`).not.toContain(
         "isHospitalSuitableFor"
       );
+    }
+  });
+
+  it.each([
+    // Verworfene bzw. bewusst nicht gebaute Energy-Konzepte (docs/05, Abschnitte 7 und 11).
+    "energy.load.reroute",
+    "energy.consumer.protect",
+    "energy.objective.inspect",
+    "energy.reserve.rebalance",
+    "EnergyObjectiveState",
+  ])("no UI file references the rejected energy concept %s", (rejectedTerm) => {
+    for (const { file, content } of sources) {
+      expect(content, `${file} must not reference ${rejectedTerm}`).not.toContain(rejectedTerm);
     }
   });
 });

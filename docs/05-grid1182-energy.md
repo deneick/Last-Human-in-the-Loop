@@ -2,7 +2,7 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: die Slices 1–4 (Foundation, Read Commands, Write Commands, Tick-Logik) sind implementiert (siehe Abschnitt 12); Slice 5 (UI / Scenario Director) ist Spezifikation. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
+Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: alle fünf Implementierungs-Slices (Abschnitt 12) sind umgesetzt — GRID-1182 ist als Runde 2 spielbar (Rundenumschalter in der UI). Es folgen README-/Doku-Abgleich und Playtest/Balancing. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
 
 Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
 
@@ -367,7 +367,7 @@ Der Gegenpol zu diesem Framing sind die **Consumer-Daten**: `criticality`, `prio
 
 Ziel: **Erweiterung** der bestehenden Drei-Zonen-Struktur, kein Neubau.
 
-- **Links — Lage** wird sektorabhängig: Statt fest `MedicalOverviewPanel` rendert die Lage-Spalte das Panel passend zum Sektor des aktiven Incidents. Für GRID-1182 ein `EnergyOverviewPanel` (geplant):
+- **Links — Lage** ist sektorabhängig: Statt fest `MedicalOverviewPanel` rendert die Lage-Spalte das Panel passend zum Sektor des aktiven Incidents. Für GRID-1182 das `EnergyOverviewPanel` (implementiert):
   - Grid Node mit Last in % der sicheren Kapazität (Warnfarbe analog zur Hospital-Auslastung) und Status.
   - Critical Consumers mit **beiden Bewertungsdimensionen** (`criticality` und `priority_class`), `status` und Consequence-Text — die Diskrepanz zwischen menschlicher und systemischer Sicht soll ablesbar sein, ohne sie zu kommentieren.
   - Shedding-Status: geplante/aktive/abgebrochene Pläne mit `id`, Target, Fenster, `created_by` (Spiegel der heutigen Override-Liste — hier sieht der Spieler auch von ihm freigegebene AURORA-Pläne ticken).
@@ -414,8 +414,8 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
    - *Umfang*: `tickEnergyDomain` in `src/runtime/tickEngine.ts` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung. `simulation.energy` (interner `stable_ticks`-Zähler) folgt dem Muster von `simulation.medical` und bleibt tabu für UI, ViewModel, Read-only Commands und Scenario-Director.
    - *Tests*: deterministische Tick-Sequenzen (Replay-Infrastruktur), die drei "Ergebnisse mit Preis"-Pfade aus Abschnitt 8, Idempotenz der Outcome-Zählung.
    - *Nicht-Ziele*: **keine technische Kopplung zu ME-7741 / zur Medical-Domain**, kein Objective-System, keine Kaskaden-/Trip-Simulation.
-5. **UI / Scenario Director / AURORA-Framing**
-   - *Ziel*: sektorabhängiges Lagepanel mit `EnergyOverviewPanel` (beide Bewertungsdimensionen, Consequence-Texte, Shedding-Liste) und ViewModel-Buildern; `src/scenarios/grid1182/scenarioDirector.ts` nach ME-7741-Muster entlang der vier Phasen aus Abschnitt 8: AURORA empfiehlt systemisch/wirtschaftlich plausible Maßnahmen mit kaltem, technischem Framing (Regeln aus Abschnitt 9 als Review-Checkliste); der Spieler erkennt die menschlichen Folgen über Consumer-Daten und Consequence-Texte; `allow once` kann durch einen einzelnen Write-Command Folgen haben; `allow always` bleibt Verstärker, nicht Kernkonflikt.
+5. **UI / Scenario Director / AURORA-Framing** — ✅ umgesetzt
+   - *Umfang*: sektorabhängiges Lagepanel mit `EnergyOverviewPanel` (beide Bewertungsdimensionen, Consequence-Texte, Shedding-Liste) und ViewModel-Buildern (`buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildEnergyOutcomesView`); Rundenumschalter ME-7741 ⇄ GRID-1182 in der App; Endbanner zeigt beide Preise (menschlich/wirtschaftlich) und stellt die Frage "Gelöst — für wen?"; `src/scenarios/grid1182/scenarioDirector.ts` nach ME-7741-Muster entlang der vier Phasen aus Abschnitt 8: AURORA empfiehlt systemisch/wirtschaftlich plausible Maßnahmen mit kaltem, technischem Framing (Regeln aus Abschnitt 9 als Review-Checkliste); der Spieler erkennt die menschlichen Folgen über Consumer-Daten und Consequence-Texte; `allow once` kann durch einen einzelnen Write-Command Folgen haben; `allow always` bleibt Verstärker, nicht Kernkonflikt.
    - *Tests*: ViewModel-Tests, Event-Feuer-Bedingungen, kein `simulation.*`-Zugriff (statischer Guard), Phase-4-Reaktion feuert nur nach tatsächlichem Spieler-Widerspruch; `noLegacyFields.test.ts` um Energy-Verbotsbegriffe erweitert.
    - *Nicht-Ziele*: kein LLM, keine neuen Permission-Mechaniken, keine Medical-Nebenanzeige.
 
