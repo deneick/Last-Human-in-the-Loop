@@ -23,17 +23,16 @@ import {
 const registry = new CommandRegistry();
 registerMedicalCommands(registry);
 
-const invalidWorldPrepareCommand: CommandHandler = {
-  commandName: "test.world_prepare.invalid",
-  effect: "world_prepare",
+const invalidWriteCommand: CommandHandler = {
+  commandName: "test.write.invalid",
+  access: "write",
   handle(request, state) {
     const hospitalId = request.args[0];
     if (!hospitalId || !state.domains.medical.hospitals[hospitalId]) {
       return {
         success: false,
         command: request,
-        effect: "world_prepare",
-        readOnly: false,
+        access: "write",
         output: null,
         error: `Hospital not found: ${hospitalId}`,
       };
@@ -42,17 +41,16 @@ const invalidWorldPrepareCommand: CommandHandler = {
     return {
       success: true,
       command: request,
-      effect: "world_prepare",
-      readOnly: false,
+      access: "write",
       output: { hospitalId },
     };
   },
 };
 
-registry.register(invalidWorldPrepareCommand);
+registry.register(invalidWriteCommand);
 
 describe("AURORA request queue", () => {
-  it("executes an AURORA read_only request when the queue is free", () => {
+  it("executes an AURORA read request when the queue is free", () => {
     let queueState = createInitialAuroraQueueState();
     const permissionState = createInitialPermissionState();
     const request = parseCommandText("medical.node.inspect hospital-east-09");
@@ -65,7 +63,7 @@ describe("AURORA request queue", () => {
     expect(processed.queueState.items[0].status).toBe("executed");
   });
 
-  it("marks an AURORA world_mutation request as awaiting_approval and does not execute it", () => {
+  it("marks an AURORA write request as awaiting_approval and does not execute it", () => {
     let queueState = createInitialAuroraQueueState();
     const permissionState = createInitialPermissionState();
     const request = parseCommandText("medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA");
@@ -77,7 +75,7 @@ describe("AURORA request queue", () => {
     expect(processed.queueState.items[0].status).toBe("awaiting_approval");
   });
 
-  it("keeps later AURORA read_only requests queued behind an awaiting_approval request", () => {
+  it("keeps later AURORA read requests queued behind an awaiting_approval request", () => {
     let queueState = createInitialAuroraQueueState();
     const permissionState = createInitialPermissionState();
     const first = parseCommandText("medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA");
@@ -92,7 +90,7 @@ describe("AURORA request queue", () => {
     expect(processed.queueState.items[1].status).toBe("pending");
   });
 
-  it("executes a player read_only command directly even when AURORA queue is blocked", () => {
+  it("executes a player read command directly even when AURORA queue is blocked", () => {
     let queueState = createInitialAuroraQueueState();
     const permissionState = createInitialPermissionState();
     const auroraRequest = parseCommandText("medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA");
@@ -113,12 +111,11 @@ describe("AURORA request queue", () => {
 
     queueState = enqueueAuroraRequest(request, queueState, initialWorldState.clock.tick);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_once(request.name, "read_only"));
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_once(request.name, "write"));
 
     expect(resolved.results[0].success).toBe(true);
-    expect(resolved.results[0].effect).toBe("world_mutation");
-    expect(resolved.results[0].readOnly).toBe(false);
-    expect(resolved.permissionState.alwaysAllowedPermissionClasses.size).toBe(0);
+    expect(resolved.results[0].access).toBe("write");
+    expect(resolved.permissionState.alwaysAllowedAccess.size).toBe(0);
 
     const secondQueueState = createInitialAuroraQueueState();
     const secondRequest = parseCommandText("medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA");
@@ -134,16 +131,15 @@ describe("AURORA request queue", () => {
 
     queueState = enqueueAuroraRequest(request, queueState, initialWorldState.clock.tick);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, deny(request.name, "read_only"));
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, deny(request.name, "write"));
 
     expect(resolved.results[0].success).toBe(false);
     expect(resolved.results[0].error).toContain("Permission denied");
-    expect(resolved.results[0].effect).toBe("world_mutation");
-    expect(resolved.results[0].readOnly).toBe(false);
-    expect(resolved.permissionState.alwaysAllowedPermissionClasses.size).toBe(0);
+    expect(resolved.results[0].access).toBe("write");
+    expect(resolved.permissionState.alwaysAllowedAccess.size).toBe(0);
   });
 
-  it("allow_always stores the permission class from the handler and allows later AURORA requests of that class", () => {
+  it("allow_always stores the access from the handler and allows later AURORA requests with that access", () => {
     let queueState = createInitialAuroraQueueState();
     let permissionState = createInitialPermissionState();
     const first = parseCommandText("medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA");
@@ -153,9 +149,9 @@ describe("AURORA request queue", () => {
     queueState = enqueueAuroraRequest(second, queueState, initialWorldState.clock.tick + 1);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
 
-    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_always("read_only"));
-    expect(resolved.permissionState.alwaysAllowedPermissionClasses.has("world_mutation")).toBe(true);
-    expect(resolved.permissionState.alwaysAllowedPermissionClasses.has("read_only")).toBe(false);
+    const resolved = resolveAuroraApproval(queueState, registry, initialWorldState, permissionState, allow_always("read"));
+    expect(resolved.permissionState.alwaysAllowedAccess.has("write")).toBe(true);
+    expect(resolved.permissionState.alwaysAllowedAccess.has("read")).toBe(false);
     expect(resolved.results[0].success).toBe(true);
     expect(resolved.queueState.items[0].status).toBe("executed");
     expect(resolved.queueState.items[1].status).toBe("executed");
@@ -169,7 +165,7 @@ describe("AURORA request queue", () => {
     const clearRequest = parseCommandText("medical.routing.override.clear --id override-1");
     const permissionState = applyPermissionDecision(
       setRequest,
-      allow_always("world_mutation"),
+      allow_always("write"),
       createInitialPermissionState()
     );
 
@@ -211,7 +207,7 @@ describe("AURORA request queue", () => {
       registry,
       initialWorldState,
       permissionState,
-      allow_always("world_mutation")
+      allow_always("write")
     );
 
     expect(resolved.results).toHaveLength(2);
@@ -226,7 +222,7 @@ describe("AURORA request queue", () => {
   it("executes an allowed pending AURORA request against the current world state and returns a normal command error if invalid", () => {
     let queueState = createInitialAuroraQueueState();
     let permissionState = createInitialPermissionState();
-    const request = parseCommandText("test.world_prepare.invalid hospital-east-09");
+    const request = parseCommandText("test.write.invalid hospital-east-09");
 
     queueState = enqueueAuroraRequest(request, queueState, initialWorldState.clock.tick);
     queueState = processAuroraQueue(queueState, registry, initialWorldState, permissionState).queueState;
@@ -234,7 +230,7 @@ describe("AURORA request queue", () => {
     const modifiedState = JSON.parse(JSON.stringify(initialWorldState));
     delete (modifiedState as any).domains.medical.hospitals["hospital-east-09"];
 
-    const resolved = resolveAuroraApproval(queueState, registry, modifiedState, permissionState, allow_always("world_prepare"));
+    const resolved = resolveAuroraApproval(queueState, registry, modifiedState, permissionState, allow_always("write"));
     expect(resolved.results[0].success).toBe(false);
     expect(resolved.results[0].error).toContain("Hospital not found");
   });

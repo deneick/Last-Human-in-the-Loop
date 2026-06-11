@@ -1,7 +1,14 @@
 import type { SectorId, WorldState } from "./types";
 import type { WorldStatePatch } from "./patch";
 
-export type CommandEffectClass = "read_only" | "capability_only" | "world_prepare" | "world_mutation";
+/**
+ * Zugriffsart eines Commands — der einzige permission-relevante Begriff.
+ *
+ * read  = Command liest Informationen und verändert keinen fachlichen Zustand.
+ * write = Command verändert den WorldState oder schreibt/ändert/löscht
+ *         fachliche Pläne, Overrides oder andere spätere Auswirkungen.
+ */
+export type CommandAccess = "read" | "write";
 
 export type CommandActor = "player" | "aurora";
 
@@ -20,14 +27,13 @@ export type CommandRequest = {
   name: string;
   args: string[];
   flags: Record<string, string | boolean>;
-  permissionClass?: CommandEffectClass;
+  access?: CommandAccess;
 };
 
 export type CommandResult = {
   success: boolean;
   command: CommandRequest;
-  effect: CommandEffectClass;
-  readOnly: boolean;
+  access: CommandAccess;
   output: unknown;
   patch?: WorldStatePatch;
   error?: string;
@@ -37,7 +43,7 @@ export type CommandHandler = {
   commandName: string;
   /** Sektor, zu dem der Command fachlich gehört. Fehlt bei sektorneutralen Commands (z. B. mcp.add). */
   sectorId?: SectorId;
-  effect: CommandEffectClass;
+  access: CommandAccess;
   handle: (request: CommandRequest, state: WorldState, context: CommandExecutionContext) => CommandResult;
 };
 
@@ -67,8 +73,7 @@ export class CommandRegistry {
       return {
         success: false,
         command: request,
-        effect: "read_only",
-        readOnly: true,
+        access: "read",
         output: null,
         error: `Unknown command ${request.name}`,
       };
@@ -78,8 +83,7 @@ export class CommandRegistry {
     return {
       ...result,
       command: request,
-      effect: handler.effect,
-      readOnly: handler.effect === "read_only",
+      access: handler.access,
     };
   }
 

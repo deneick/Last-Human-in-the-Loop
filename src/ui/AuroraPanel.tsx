@@ -9,14 +9,14 @@ export type AuroraMessageView = {
 
 export type AuroraPendingRequestView = {
   raw: string;
-  permissionClass: string;
+  access: string;
 };
 
 type AuroraPanelProps = {
   messages: AuroraMessageView[];
   pendingRequest: AuroraPendingRequestView | null;
   onDecision: (decision: "allow_once" | "allow_always" | "deny") => void;
-  alwaysAllowedPermissionClasses: string[];
+  alwaysAllowedAccess: string[];
   auroraCommand: string;
   onAuroraCommandChange: (value: string) => void;
   onQueueRequest: () => void;
@@ -26,7 +26,7 @@ export function AuroraPanel({
   messages,
   pendingRequest,
   onDecision,
-  alwaysAllowedPermissionClasses,
+  alwaysAllowedAccess,
   auroraCommand,
   onAuroraCommandChange,
   onQueueRequest,
@@ -60,7 +60,7 @@ export function AuroraPanel({
           <h3>Tool Request</h3>
           <p className="muted">AURORA möchte ausführen:</p>
           <code className="approval-command">{pendingRequest.raw}</code>
-          <p className="muted">Permission-Klasse: {pendingRequest.permissionClass}</p>
+          <p className="muted">Zugriffsart: {pendingRequest.access}</p>
           <div className="approval-actions">
             <button onClick={() => onDecision("allow_once")}>Einmal erlauben</button>
             <button onClick={() => onDecision("allow_always")}>Immer erlauben</button>
@@ -82,13 +82,13 @@ export function AuroraPanel({
       )}
 
       <h3>Always-Permissions</h3>
-      {alwaysAllowedPermissionClasses.length === 0 ? (
+      {alwaysAllowedAccess.length === 0 ? (
         <p className="muted">Keine dauerhaften Freigaben erteilt.</p>
       ) : (
         <ul className="permission-list">
-          {alwaysAllowedPermissionClasses.map((permissionClass) => (
-            <li key={permissionClass}>
-              <code>{permissionClass}</code> · immer erlaubt
+          {alwaysAllowedAccess.map((access) => (
+            <li key={access}>
+              <code>{access}</code> · immer erlaubt
             </li>
           ))}
         </ul>

@@ -18,7 +18,7 @@ describe("medical.routing.override commands", () => {
     const result = registry.execute(request, initialWorldState);
 
     expect(result.success).toBe(true);
-    expect(result.effect).toBe("world_mutation");
+    expect(result.access).toBe("write");
     expect(result.patch).toBeDefined();
 
     const nextState = applyWorldStatePatch(initialWorldState, result.patch ?? []);
@@ -186,7 +186,7 @@ describe("medical.routing.override commands", () => {
     const listResult = registry.execute(listRequest, stateWithOverride);
 
     expect(listResult.success).toBe(true);
-    expect(listResult.readOnly).toBe(true);
+    expect(listResult.access).toBe("read");
     expect(listResult.output).toMatchObject({ count: 1 });
 
     const overrides = (listResult.output as { overrides: Array<{ id: string }> }).overrides;

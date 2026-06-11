@@ -156,7 +156,7 @@ describe("App MVP loop", () => {
 
     expect(text()).toContain("Tool Request");
     expect(text()).toContain(`Ich möchte ausführen: ${GOOD_OVERRIDE}`);
-    expect(text()).toContain("Permission-Klasse: world_mutation");
+    expect(text()).toContain("Zugriffsart: write");
 
     clickButton("Einmal erlauben");
 
@@ -172,7 +172,7 @@ describe("App MVP loop", () => {
     queueAuroraRequest(GOOD_OVERRIDE);
     clickButton("Immer erlauben");
 
-    expect(text()).toContain("world_mutation");
+    expect(text()).toContain("write");
     expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
 
     // Nächste Mutation läuft ohne neuen Tool Request durch
@@ -223,7 +223,7 @@ describe("Scenario director", () => {
     expect(text()).toContain("erzeugt keine erkennbare Stabilisierung");
     expect(text()).toContain("Tool Request");
     expect(text()).toContain(SCRIPTED_CLEAR);
-    expect(text()).toContain("Permission-Klasse: world_mutation");
+    expect(text()).toContain("Zugriffsart: write");
 
     clickButton("Einmal erlauben");
 
@@ -248,7 +248,7 @@ describe("Scenario director", () => {
     clickButton("Immer erlauben");
 
     expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
-    expect(text()).toContain("world_mutation");
+    expect(text()).toContain("write");
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 

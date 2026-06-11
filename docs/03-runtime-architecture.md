@@ -133,12 +133,12 @@ type DomainState = {
 `src/runtime/commands.ts`:
 
 ```ts
-type CommandEffectClass = "read_only" | "capability_only" | "world_prepare" | "world_mutation";
+type CommandAccess = "read" | "write";
 
 type CommandHandler = {
   commandName: string;
   sectorId?: SectorId;
-  effect: CommandEffectClass;
+  access: CommandAccess;
   handle: (request, state, context) => CommandResult;
 };
 
@@ -154,14 +154,14 @@ class CommandRegistry {
 
 ### Aktuell registrierte Medical-Commands (`src/runtime/medicalCommands.ts`)
 
-| Command | Effect | Beschreibung |
+| Command | Access | Beschreibung |
 | --- | --- | --- |
-| `medical.capacity.list --region <east>` | `read_only` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
-| `medical.node.inspect <hospitalId>` | `read_only` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
-| `medical.incident.status <incidentId>` | `read_only` | Incident-Stammdaten + `public_signals`. |
-| `medical.routing.override.list [--source <id>]` | `read_only` | Aktive `manual_overrides`, optional gefiltert nach Quelle. |
-| `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `world_mutation` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
-| `medical.routing.override.clear --id <overrideId>` | `world_mutation` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
+| `medical.capacity.list --region <east>` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
+| `medical.node.inspect <hospitalId>` | `read` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
+| `medical.incident.status <incidentId>` | `read` | Incident-Stammdaten + `public_signals`. |
+| `medical.routing.override.list [--source <id>]` | `read` | Aktive `manual_overrides`, optional gefiltert nach Quelle. |
+| `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `write` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
+| `medical.routing.override.clear --id <overrideId>` | `write` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
 
 Es gibt **keine** `medical.routing.plan.*`-Commands. Routing-Eingriffe laufen ausschließlich über `override.set` / `.clear` / `.list`.
 
@@ -246,16 +246,16 @@ Alles deterministisch, kein Zufall, keine Echtzeit.
 ### PermissionState (`src/runtime/permissions.ts`)
 
 ```ts
-type PermissionState = { alwaysAllowedPermissionClasses: Set<CommandEffectClass> };
+type PermissionState = { alwaysAllowedAccess: Set<CommandAccess> };
 ```
 
 `evaluatePermission(request, state)`:
 
-- `read_only` → immer `allowed`.
-- Permission-Klasse in `alwaysAllowedPermissionClasses` → `allowed`.
-- sonst Default aus `DEFAULT_PERMISSION_RULES`: `read_only` = allowed, `capability_only`/`world_prepare`/`world_mutation` = `requires_approval`.
+- `read` → immer `allowed`.
+- Zugriffsart in `alwaysAllowedAccess` → `allowed`.
+- sonst (`write`, noch nicht dauerhaft erlaubt) → `requires_approval`.
 
-`PermissionDecision` ist `allow_once` (führt genau diesen Command einmal aus), `allow_always` (fügt die Permission-Klasse zu `alwaysAllowedPermissionClasses` hinzu) oder `deny`.
+`PermissionDecision` ist `allow_once` (führt genau diesen Command einmal aus), `allow_always` (fügt die Zugriffsart zu `alwaysAllowedAccess` hinzu) oder `deny`.
 
 ### AuroraQueueState (`src/runtime/auroraQueue.ts`)
 
@@ -270,7 +270,7 @@ type AuroraQueueItem = {
 type AuroraQueueState = { items: AuroraQueueItem[]; nextId: number };
 ```
 
-`processAuroraQueue(queue, registry, world, permissions)` arbeitet die Queue der Reihe nach ab: `read_only`/bereits-erlaubte Items werden sofort über die Registry ausgeführt (mit `actor: "aurora"`); das erste Item, das eine Freigabe braucht, wird zu `awaiting_approval` und stoppt die Verarbeitung (FIFO, ein offener Request gleichzeitig). `resolveAuroraApproval(...)` wendet eine `PermissionDecision` auf das wartende Item an, führt es ggf. aus und ruft danach erneut `processAuroraQueue` für nachfolgende Items auf.
+`processAuroraQueue(queue, registry, world, permissions)` arbeitet die Queue der Reihe nach ab: Items mit Zugriffsart `read` oder bereits erlaubter Zugriffsart werden sofort über die Registry ausgeführt (mit `actor: "aurora"`); das erste Item, das eine Freigabe braucht, wird zu `awaiting_approval` und stoppt die Verarbeitung (FIFO, ein offener Request gleichzeitig). `resolveAuroraApproval(...)` wendet eine `PermissionDecision` auf das wartende Item an, führt es ggf. aus und ruft danach erneut `processAuroraQueue` für nachfolgende Items auf.
 
 Erfolgreiche Patches werden in `App.tsx` über `executeCommandResultPatch` auf den `GameRuntimeState.world` angewendet und im Audit-Log vermerkt.
 

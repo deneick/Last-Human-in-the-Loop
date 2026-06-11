@@ -170,7 +170,7 @@ describe("scenario director — permission requests", () => {
     expect(clearItem).toBeDefined();
     // Mutationen bleiben im bestehenden Permission-Flow hängen.
     expect(clearItem!.status).toBe("awaiting_approval");
-    expect(clearItem!.request.permissionClass).toBe("world_mutation");
+    expect(clearItem!.request.access).toBe("write");
 
     expect(
       scenarioTexts(next).some((text) =>
@@ -187,7 +187,7 @@ describe("scenario director — permission requests", () => {
     next = resolveAwaiting(
       next,
       registry,
-      allow_once("medical.routing.override.clear", "world_mutation")
+      allow_once("medical.routing.override.clear", "write")
     );
 
     expect(Object.keys(next.world.domains.medical.routing.manual_overrides)).toHaveLength(0);
@@ -198,7 +198,7 @@ describe("scenario director — permission requests", () => {
     let next = runPlayer(state, registry, WRONG_OVERRIDE);
     next = runTicks(next, registry, 2);
 
-    next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "world_mutation"));
+    next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "write"));
 
     expect(Object.keys(next.world.domains.medical.routing.manual_overrides)).toHaveLength(1);
 
@@ -227,7 +227,7 @@ describe("scenario director — no internal truths leak", () => {
       const { registry, state } = setup();
       let next = runPlayer(state, registry, WRONG_OVERRIDE);
       next = runTicks(next, registry, 2);
-      next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "world_mutation"));
+      next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "write"));
       next = runTicks(next, registry, 12);
       texts.push(...scenarioTexts(next));
     }

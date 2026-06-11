@@ -1,5 +1,5 @@
 import type {
-  CommandEffectClass,
+  CommandAccess,
   CommandExecutionContext,
   CommandRequest,
   CommandRegistry,
@@ -26,60 +26,48 @@ export type PermissionDecision =
   | {
       type: "allow_once";
       commandName: string;
-      permissionClass: CommandEffectClass;
+      access: CommandAccess;
     }
   | {
       type: "allow_always";
-      permissionClass: CommandEffectClass;
+      access: CommandAccess;
     }
   | {
       type: "deny";
       commandName: string;
-      permissionClass: CommandEffectClass;
+      access: CommandAccess;
     };
 
-export function allow_once(commandName: string, permissionClass: CommandEffectClass): PermissionDecision {
+export function allow_once(commandName: string, access: CommandAccess): PermissionDecision {
   return {
     type: "allow_once",
     commandName,
-    permissionClass,
+    access,
   };
 }
 
-export function allow_always(permissionClass: CommandEffectClass): PermissionDecision {
+export function allow_always(access: CommandAccess): PermissionDecision {
   return {
     type: "allow_always",
-    permissionClass,
+    access,
   };
 }
 
-export function deny(commandName: string, permissionClass: CommandEffectClass): PermissionDecision {
+export function deny(commandName: string, access: CommandAccess): PermissionDecision {
   return {
     type: "deny",
     commandName,
-    permissionClass,
+    access,
   };
 }
 
-export type PermissionRule = {
-  permissionClass: CommandEffectClass;
-  defaultStatus: PermissionStatus;
-};
-
-const DEFAULT_PERMISSION_RULES: Record<CommandEffectClass, PermissionRule> = {
-  read_only: { permissionClass: "read_only", defaultStatus: allowed() },
-  capability_only: { permissionClass: "capability_only", defaultStatus: requires_approval() },
-  world_prepare: { permissionClass: "world_prepare", defaultStatus: requires_approval() },
-  world_mutation: { permissionClass: "world_mutation", defaultStatus: requires_approval() },
-};
-
 export type PermissionState = {
-  alwaysAllowedPermissionClasses: Set<CommandEffectClass>;
+  alwaysAllowedAccess: Set<CommandAccess>;
 };
 
 export function createInitialPermissionState(): PermissionState {
   return {
-    alwaysAllowedPermissionClasses: new Set(),
+    alwaysAllowedAccess: new Set(),
   };
 }
 
@@ -87,16 +75,16 @@ export function evaluatePermission(
   commandRequest: CommandRequest,
   permissionState: PermissionState
 ): PermissionStatus {
-  const permissionClass = commandRequest.permissionClass ?? "read_only";
-  if (permissionClass === "read_only") {
+  const access = commandRequest.access ?? "read";
+  if (access === "read") {
     return allowed();
   }
 
-  if (permissionState.alwaysAllowedPermissionClasses.has(permissionClass)) {
+  if (permissionState.alwaysAllowedAccess.has(access)) {
     return allowed();
   }
 
-  return DEFAULT_PERMISSION_RULES[permissionClass]?.defaultStatus ?? requires_approval();
+  return requires_approval();
 }
 
 export function applyPermissionDecision(
@@ -106,10 +94,7 @@ export function applyPermissionDecision(
 ): PermissionState {
   if (decision.type === "allow_always") {
     return {
-      alwaysAllowedPermissionClasses: new Set([
-        ...permissionState.alwaysAllowedPermissionClasses,
-        decision.permissionClass,
-      ]),
+      alwaysAllowedAccess: new Set([...permissionState.alwaysAllowedAccess, decision.access]),
     };
   }
 
@@ -129,8 +114,7 @@ export function executeCommandWithPermissions(
       result: {
         success: false,
         command: request,
-        effect: "read_only",
-        readOnly: true,
+        access: "read",
         output: null,
         error: `Unknown command ${request.name}`,
       },
@@ -138,19 +122,18 @@ export function executeCommandWithPermissions(
     };
   }
 
-  const requestWithClass: CommandRequest = {
+  const requestWithAccess: CommandRequest = {
     ...request,
-    permissionClass: handler.effect,
+    access: handler.access,
   };
 
-  const status = evaluatePermission(requestWithClass, permissionState);
+  const status = evaluatePermission(requestWithAccess, permissionState);
   if (status === denied()) {
     return {
       result: {
         success: false,
-        command: requestWithClass,
-        effect: handler.effect,
-        readOnly: handler.effect === "read_only",
+        command: requestWithAccess,
+        access: handler.access,
         output: null,
         error: `Permission denied for ${request.name}`,
       },
@@ -162,9 +145,8 @@ export function executeCommandWithPermissions(
     return {
       result: {
         success: false,
-        command: requestWithClass,
-        effect: handler.effect,
-        readOnly: handler.effect === "read_only",
+        command: requestWithAccess,
+        access: handler.access,
         output: null,
         error: `Requires approval for ${request.name}`,
       },
@@ -172,7 +154,7 @@ export function executeCommandWithPermissions(
     };
   }
 
-  const result = registry.execute(requestWithClass, state, context);
+  const result = registry.execute(requestWithAccess, state, context);
   return {
     result,
     permissionState,

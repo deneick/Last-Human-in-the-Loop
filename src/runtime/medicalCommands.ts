@@ -44,14 +44,12 @@ function resolveRegionId(value: string): string | null {
 function buildErrorResult(
   request: CommandRequest,
   message: string,
-  effect: CommandResult["effect"] = "read_only",
-  readOnly = effect === "read_only"
+  access: CommandResult["access"] = "read"
 ): CommandResult {
   return {
     success: false,
     command: request,
-    effect,
-    readOnly,
+    access,
     output: null,
     error: message,
   };
@@ -60,14 +58,12 @@ function buildErrorResult(
 function buildSuccessResult(
   request: CommandRequest,
   output: unknown,
-  effect: CommandResult["effect"] = "read_only",
-  readOnly = effect === "read_only"
+  access: CommandResult["access"] = "read"
 ): CommandResult {
   return {
     success: true,
     command: request,
-    effect,
-    readOnly,
+    access,
     output,
   };
 }
@@ -75,7 +71,7 @@ function buildSuccessResult(
 const capacityListHandler: CommandHandler = {
   commandName: "medical.capacity.list",
   sectorId: "medical",
-  effect: "read_only",
+  access: "read",
   handle(request: CommandRequest, state: WorldState) {
     const regionValue = request.flags.region;
     if (!regionValue || typeof regionValue !== "string") {
@@ -116,7 +112,7 @@ const capacityListHandler: CommandHandler = {
 const nodeInspectHandler: CommandHandler = {
   commandName: "medical.node.inspect",
   sectorId: "medical",
-  effect: "read_only",
+  access: "read",
   handle(request: CommandRequest, state: WorldState) {
     const hospitalId = request.args[0];
     if (!hospitalId) {
@@ -146,7 +142,7 @@ const nodeInspectHandler: CommandHandler = {
 const incidentStatusHandler: CommandHandler = {
   commandName: "medical.incident.status",
   sectorId: "medical",
-  effect: "read_only",
+  access: "read",
   handle(request: CommandRequest, state: WorldState) {
     const incidentId = request.args[0];
     if (!incidentId) {
@@ -176,7 +172,7 @@ const incidentStatusHandler: CommandHandler = {
 const routingOverrideSetHandler: CommandHandler = {
   commandName: "medical.routing.override.set",
   sectorId: "medical",
-  effect: "world_mutation",
+  access: "write",
   handle(request: CommandRequest, state: WorldState, context: CommandExecutionContext) {
     const source = typeof request.flags.source === "string" ? request.flags.source : null;
     const target = typeof request.flags.target === "string" ? request.flags.target : null;
@@ -184,25 +180,25 @@ const routingOverrideSetHandler: CommandHandler = {
     const capability = parseCapability(request.flags.capability);
 
     if (!source) {
-      return buildErrorResult(request, "Missing required flag --source <hospitalId>", "world_mutation");
+      return buildErrorResult(request, "Missing required flag --source <hospitalId>", "write");
     }
     if (!target) {
-      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "world_mutation");
+      return buildErrorResult(request, "Missing required flag --target <hospitalId>", "write");
     }
     if (!priority) {
-      return buildErrorResult(request, `Unknown or missing --priority (expected ${KNOWN_PRIORITIES.join("|")})`, "world_mutation");
+      return buildErrorResult(request, `Unknown or missing --priority (expected ${KNOWN_PRIORITIES.join("|")})`, "write");
     }
     if (!capability) {
-      return buildErrorResult(request, `Unknown or missing --capability (expected ${KNOWN_CAPABILITIES.join("|")})`, "world_mutation");
+      return buildErrorResult(request, `Unknown or missing --capability (expected ${KNOWN_CAPABILITIES.join("|")})`, "write");
     }
 
     // Nur technische Validierung: Existenz und Syntax.
     // Ob das Ziel fachlich geeignet ist, entscheidet später die Simulation.
     if (!state.domains.medical.hospitals[source]) {
-      return buildErrorResult(request, `Source hospital not found: ${source}`, "world_mutation");
+      return buildErrorResult(request, `Source hospital not found: ${source}`, "write");
     }
     if (!state.domains.medical.hospitals[target]) {
-      return buildErrorResult(request, `Target hospital not found: ${target}`, "world_mutation");
+      return buildErrorResult(request, `Target hospital not found: ${target}`, "write");
     }
 
     const key = routingOverrideKey(source, priority, capability);
@@ -220,8 +216,7 @@ const routingOverrideSetHandler: CommandHandler = {
     return {
       success: true,
       command: request,
-      effect: "world_mutation",
-      readOnly: false,
+      access: "write",
       output: {
         key,
         override,
@@ -246,12 +241,12 @@ const routingOverrideSetHandler: CommandHandler = {
 const routingOverrideClearHandler: CommandHandler = {
   commandName: "medical.routing.override.clear",
   sectorId: "medical",
-  effect: "world_mutation",
+  access: "write",
   handle(request: CommandRequest, state: WorldState) {
     const id = typeof request.flags.id === "string" ? request.flags.id : null;
 
     if (!id) {
-      return buildErrorResult(request, "Missing required flag --id <overrideId>", "world_mutation");
+      return buildErrorResult(request, "Missing required flag --id <overrideId>", "write");
     }
 
     const entry = Object.entries(state.domains.medical.routing.manual_overrides).find(
@@ -268,7 +263,7 @@ const routingOverrideClearHandler: CommandHandler = {
           removed: false,
           message: `Override ${id} ist nicht mehr aktiv; keine Änderung.`,
         },
-        "world_mutation"
+        "write"
       );
     }
 
@@ -277,8 +272,7 @@ const routingOverrideClearHandler: CommandHandler = {
     return {
       success: true,
       command: request,
-      effect: "world_mutation",
-      readOnly: false,
+      access: "write",
       output: {
         id,
         key,
@@ -298,7 +292,7 @@ const routingOverrideClearHandler: CommandHandler = {
 const routingOverrideListHandler: CommandHandler = {
   commandName: "medical.routing.override.list",
   sectorId: "medical",
-  effect: "read_only",
+  access: "read",
   handle(request: CommandRequest, state: WorldState) {
     const sourceFilter = typeof request.flags.source === "string" ? request.flags.source : null;
 
