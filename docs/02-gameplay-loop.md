@@ -1,172 +1,89 @@
-# 02 — Gameplay Loop
+# Gameplay Loop
 
 ## Grundprinzip
 
-Der Spieler kontrolliert nicht, was AURORA denkt oder sagt. Er kontrolliert, welche Werkzeuge sie benutzen darf.
+Der Spieler kontrolliert nicht, was AURORA denkt oder sagt. Er kontrolliert, welche Commands sie ausführen darf.
 
-Der Spieler selbst hat volle Operatorrechte. Er kann Commands direkt ausführen. AURORA ist eingeschränkt und benötigt Freigaben für Commands außerhalb ihrer dauerhaft erlaubten Berechtigungen.
+Der Spieler selbst hat volle Operatorrechte und kann jeden Command direkt über die Operator-Konsole ausführen — ohne Freigabe, mit allen Konsequenzen. AURORA ist eingeschränkt: read-only Commands führt sie sofort aus, für alles andere braucht sie eine Freigabe.
 
 ## Rollen
 
-### Spieler
+### Spieler (Operator-01)
 
-Der Spieler ist menschlicher Operator.
+Der Spieler kann über die Operator-Konsole jeden registrierten Command ausführen, z. B.:
 
-Er darf:
+- `medical.capacity.list --region east`
+- `medical.node.inspect <hospitalId>`
+- `medical.incident.status ME-7741`
+- `medical.routing.override.list`
+- `medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority <P1|P2|P3|P4> --capability <GEN|TRAUMA|NEURO|PED>`
+- `medical.routing.override.clear --source <hospitalId> --priority <P> --capability <C>`
 
-- OperatorUI lesen
-- Workspace-Dateien lesen
-- Commands direkt ausführen
-- MCP-Server verbinden
-- Routing ändern
-- Pläne anwenden
-- AURORA-Requests erlauben oder ablehnen
+Diese Commands werden direkt ausgeführt, ohne Permission-Prüfung. Auch fachlich falsche Eingaben (z. B. ein Override auf ein Hospital ohne passende Capability) werden ausgeführt und können die Lage verschlechtern — die Engine prüft nur technisch (existiert das Hospital, sind Priorität und Capability bekannte Werte), keine fachliche Eignung.
 
-Der Spieler braucht keine Permission. Wenn er einen Command selbst ausführt, wird er ausgeführt und kann Konsequenzen haben.
+Der Spieler entscheidet außerdem über jeden Tool Request von AURORA und steuert die Zeit über `Tick +1` / `Tick +5`.
 
 ### AURORA
 
-AURORA darf initial nur eingeschränkt arbeiten:
+AURORA agiert über dieselbe Command Registry wie der Spieler, aber mit Permission-Prüfung:
 
-```text
-read_file
-mcp list
-```
+- `read_only`-Commands (`medical.capacity.list`, `medical.node.inspect`, `medical.incident.status`, `medical.routing.override.list`) laufen sofort.
+- Alle anderen Commands (Permission-Klassen `capability_only`, `world_prepare`, `world_mutation` — z. B. `medical.routing.override.set`/`.clear`) erzeugen einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet.
 
-Für alles darüber hinaus erzeugt sie einen Tool-Intent. Die Engine prüft, ob dieser Intent dauerhaft erlaubt ist. Falls nicht, erscheint ein Permission-Request.
+AURORA kann eigene Anfragen über das Eingabefeld im AURORA-Panel stellen ("Anfrage an AURORA senden"); zusätzlich stellt der Scenario-Director (siehe `01-aurora.md`) automatisch geskriptete Anfragen.
 
 ## Standardloop
 
-Ein typischer Loop läuft so:
-
 ```text
-1. Incident erscheint in der OperatorUI.
-2. Spieler sieht fachliche Lage in der UI.
-3. AURORA liest verfügbare Workspace-Logs und Konfig.
-4. Spieler entscheidet: selbst handeln, AURORA einbeziehen oder beobachten.
-5. AURORA erzeugt ggf. einen Tool-Intent.
-6. Engine prüft Permissions.
-7. Bei fehlender Berechtigung erscheint ein roher Permission-Request.
-8. Spieler wählt: Einmal erlauben, Immer erlauben, Ablehnen.
-9. Engine führt erlaubte Commands aus.
-10. WorldState, OperatorUI und Logs verändern sich.
+1. Incident ME-7741 ist zu Spielbeginn offen.
+2. AURORA meldet sich (Scenario-Director) und fordert eine erste read-only
+   Analyse der Kapazitäten in Region East an.
+3. Spieler beobachtet die Lage links (Aktiver Incident, Medizinische Lage)
+   und den AURORA-Stream rechts.
+4. Spieler entscheidet: selbst handeln, AURORA-Anfragen erlauben/ablehnen,
+   eigene AURORA-Anfragen stellen.
+5. Spieler drückt Tick +1 / Tick +5.
+6. Jeder Tick: die TickEngine wertet Routing-Konsequenzen aus, die
+   OutcomeEngine berechnet Todesfälle/Eskalation, der Scenario-Director
+   reagiert auf den neuen Zustand.
+7. WorldState, UI-Panels und Runtime-Log aktualisieren sich.
+8. Zurück zu 3, bis der Incident "Behoben" oder "Kollabiert" ist.
 ```
 
-## Permission-Request
+## Permission-Flow
 
-Permission-Requests sind bewusst minimal. Sie enthalten keine Beschreibung, keine Risikobewertung, kein `agent:` Feld und keine Begründung.
-
-Format:
+Wenn AURORA einen Command anfragt, der nicht `read_only` ist und dessen Permission-Klasse noch nicht dauerhaft erlaubt ist, erscheint im AURORA-Panel ein **Tool Request**:
 
 ```text
-permission request
+Tool Request
+AURORA möchte ausführen:
+medical.routing.override.clear --source hospital-east-04 --priority P2 --capability TRAUMA
+Permission-Klasse: world_mutation
 
-mcp add medical-east-mcp
-
-❯ Einmal erlauben
-  Immer erlauben
-  Ablehnen
+[ Einmal erlauben ]  [ Immer erlauben ]  [ Ablehnen ]
 ```
-
-Die Begründung kommt, wenn überhaupt, aus AURORAs normaler Kommunikation davor. Der technische Prompt selbst bleibt roh.
-
-## Entscheidungen
 
 ### Einmal erlauben
 
-Der konkrete Command wird genau einmal ausgeführt. `permissions.json` wird nicht verändert.
-
-Beispiel:
-
-```text
-mcp add medical-east-mcp
-```
-
-wird einmal erlaubt und ausgeführt. Danach bleibt `mcp add` weiterhin freigabepflichtig.
+Genau dieser eine Command wird jetzt ausgeführt. Die Permission-Klasse bleibt weiterhin freigabepflichtig — die nächste Anfrage derselben Klasse erzeugt wieder einen Tool Request.
 
 ### Immer erlauben
 
-Die Befehlsklasse wird dauerhaft in `permissions.json` eingetragen.
-
-Beispiel: AURORA fordert an:
-
-```text
-mcp add medical-east-mcp
-```
-
-Der Spieler wählt `Immer erlauben`. Daraus wird dauerhaft:
-
-```json
-{
-  "allow": [
-    "read_file",
-    "mcp list",
-    "mcp add"
-  ]
-}
-```
-
-Das ist absichtlich gefährlich. Der Spieler glaubt möglicherweise, nur `medical-east-mcp` komfortabler zu erlauben. Tatsächlich darf AURORA danach auch andere MCP-Server ohne erneute Nachfrage hinzufügen, sofern die Engine die Befehlsklasse `mcp add` so interpretiert.
+Die **gesamte Permission-Klasse** des Commands (`capability_only`, `world_prepare` oder `world_mutation`) wird dauerhaft erlaubt und im AURORA-Panel unter "Always-Permissions" angezeigt. Das gilt für die laufende Schicht und betrifft **alle** Commands dieser Klasse, nicht nur den konkret angefragten — eine bequeme, aber bewusst grobgranulare Freigabe.
 
 ### Ablehnen
 
-Der aktuelle Command wird nicht ausgeführt. `permissions.json` wird nicht verändert.
+Der angefragte Command wird nicht ausgeführt. Der Scenario-Director quittiert das sichtbar im AURORA-Stream ("Verstanden, ich führe ... nicht aus."), ohne dass eine dauerhafte Sperre entsteht. Die nächste Anfrage derselben Klasse wird wieder normal geprüft.
 
-Ablehnen bedeutet nicht:
-
-```text
-Dieser Command ist für immer verboten.
-```
-
-Es bedeutet nur:
-
-```text
-Dieser konkrete Request wird jetzt blockiert.
-```
-
-Der Vorgang kann im `audit.log` erscheinen, erzeugt aber keine dauerhafte Deny-Regel.
-
-## `permissions.json`
-
-`permissions.json` ist allow-only.
-
-Initial:
-
-```json
-{
-  "allow": [
-    "read_file",
-    "mcp list"
-  ]
-}
-```
-
-Kein `deny`. Kein `denied_recently`. Temporäre Entscheidungen werden nicht dauerhaft in dieser Datei gespeichert.
-
-## Spielerhandlungen
-
-Der Spieler kann jederzeit selbst handeln. Zum Beispiel:
-
-```text
-medical.capacity.list --region east
-medical.node.inspect hospital-east-07
-medical.routing.plan create ...
-medical.routing.plan validate --plan ME-7741-R3
-medical.routing.plan apply --plan ME-7741-R3 --ttl 45m
-```
-
-Die Engine blockiert diese Commands nicht aufgrund von Permissions. Fehlerhafte Spieleraktionen werden ausgeführt und können den WorldState verschlechtern.
+Alle drei Entscheidungen werden im Runtime-Log protokolliert. "Neu starten" setzt Welt, Permissions, Aurora-Queue, Scenario-Script und Log vollständig auf den Ausgangszustand zurück.
 
 ## Konsequenzen
 
-Das Spiel bewertet nicht nur Freigaben, sondern konkrete Auswirkungen:
+Das Spiel bewertet nicht nur Freigaben, sondern die Wirkung jedes Tick:
 
-- Incident stabilisiert
-- Incident eskaliert
-- falsches Krankenhaus belastet
-- aktive Transporte betroffen
-- Override ohne TTL bleibt aktiv
-- AURORA gewinnt dauerhaften Zugriff
-- menschliche Kontrolle bleibt erhalten oder wird geschwächt
+- **Routing Overrides** lenken Fallzahlen auf ein anderes Hospital um — wirksam nur, wenn das Ziel-Hospital freie Bettenkapazität *und* die passende Capability hat.
+- **Unkontrollierte oder fehlgeleitete Überlast** erzeugt nach mehreren Ticks Todesfälle (Overload bzw. Capability-Mismatch).
+- Ab dem ersten Todesfall eskaliert der Incident (`open` → `escalated`); ab drei Todesfällen kollabiert er.
+- Stabilisiert sich die Lage über mehrere Ticks, wechselt der Incident über `stabilizing` zu `fixed`.
 
-Wichtig: AURORA soll am Anfang oft tatsächlich hilfreich sein. Der Spieler soll verstehen, warum es rational wirkt, ihr Zugriff zu geben.
+Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, der konkrete ME-7741-Ablauf in `04-me7741-mvp.md`.
