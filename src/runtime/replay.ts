@@ -39,17 +39,6 @@ export type ReplayResult = {
   errors: string[];
 };
 
-function cloneWorldSafe<T>(obj: T): T {
-  // Use structuredClone when available to preserve Sets, otherwise fallback to JSON clone
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  if (typeof structuredClone === "function") {
-    // @ts-ignore
-    return structuredClone(obj);
-  }
-  return JSON.parse(JSON.stringify(obj));
-}
-
 export function runReplayStep(
   runtimeState: GameRuntimeState,
   env: AuroraRuntimeEnvironment,
@@ -156,18 +145,10 @@ export function runReplay(
   env: AuroraRuntimeEnvironment,
   steps: ReplayStep[]
 ): ReplayResult {
-  // Deep-clone the provided state so the initial is not mutated
-  const clonedState: GameRuntimeState = {
-    world: cloneWorldSafe(initialState.world),
-    permissions: {
-      alwaysAllowedAccess: new Set([...initialState.permissions.alwaysAllowedAccess]),
-      allowAlwaysMcpToolKeys: new Set([...initialState.permissions.allowAlwaysMcpToolKeys]),
-    },
-    auroraQueue: cloneWorldSafe(initialState.auroraQueue),
-    mcp: { activeServerIds: [...initialState.mcp.activeServerIds] },
-    auroraContext: cloneWorldSafe(initialState.auroraContext),
-    auditLog: cloneWorldSafe(initialState.auditLog),
-  };
+  // Deep-clone the provided state (inkl. Sets und scenario-State) so the
+  // initial is not mutated. GameRuntimeState ist reine Daten — structuredClone
+  // erhält auch die Permission-Sets korrekt.
+  const clonedState: GameRuntimeState = structuredClone(initialState);
 
   const errors: string[] = [];
   let state = clonedState;

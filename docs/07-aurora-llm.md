@@ -261,7 +261,11 @@ Im laufenden LLM-Modus:
   Schichtbeginn.“), das als `[SYSTEM EVENT]`-`user`-Message serialisiert
   wird — ohne dieses Event wüsste AURORA nicht, dass zwischen ihren Zügen
   Zeit vergangen ist. Im Stream erscheint es als „System“-Eintrag, nicht
-  als Operator- oder AURORA-Text.
+  als Operator- oder AURORA-Text. Solange ein Tool-Request auf eine
+  Entscheidung wartet, sind „Tick +1/+5“ im LLM-Modus gesperrt: ein
+  `system_event` ZWISCHEN einer assistant-Message mit Tool-Call und ihrem
+  `tool_result` wäre eine für Chat Completions ungültige Reihenfolge —
+  erst entscheiden, dann ticken.
 - Während eine Modell-Antwort aussteht, zeigt der Header
   „AURORA denkt nach…“ und die Operator-Konsole sowie die
   AURORA-Eingabe/-Entscheidungen sind gesperrt. **„Neu starten“**, der

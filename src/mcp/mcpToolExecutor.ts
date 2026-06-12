@@ -40,10 +40,18 @@ export type McpToolCallResult = {
 /** Kanonische Textdarstellung eines Tool-Calls für Logs und UI. */
 export function formatMcpToolCall(call: McpToolCall): string {
   const flags = Object.entries(call.input)
-    .map(([key, value]) => `--${key} ${String(value)}`)
+    .map(([key, value]) => `--${key} ${formatFlagValue(value)}`)
     .join(" ");
 
   return `mcp call ${call.serverId} ${call.toolName}${flags ? ` ${flags}` : ""}`;
+}
+
+/**
+ * Permission-Prompt und Logs sind die Sicherheits-Oberfläche des Spielers —
+ * Nicht-Skalare dürfen dort nie als "[object Object]" erscheinen.
+ */
+function formatFlagValue(value: unknown): string {
+  return typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
 }
 
 function buildFailure(

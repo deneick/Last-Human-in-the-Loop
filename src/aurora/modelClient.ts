@@ -21,6 +21,13 @@ export type ModelToolCall = {
   /** "bash" oder "mcp__<server>__<tool>" (siehe toolSchema.ts). */
   name: string;
   arguments: Record<string, unknown>;
+  /**
+   * Gesetzt, wenn die rohen Tool-Argumente des Modells nicht als
+   * JSON-Objekt lesbar waren. Der Agent führt solche Calls nicht aus,
+   * sondern meldet den Fehler als fehlgeschlagenes Tool-Result zurück —
+   * das Modell bekommt damit präzises Feedback statt eines stillen `{}`.
+   */
+  argumentsError?: string;
 };
 
 export type ModelMessage =

@@ -64,13 +64,37 @@ export function toolCallToAuroraRequest(toolCall: ModelToolCall): AuroraRequest 
 }
 
 /**
+ * Präziser Grund, warum ein Modell-Tool-Call nicht ausführbar ist — oder
+ * `null`, wenn er übersetzbar ist. Unausführbare Calls werden nicht
+ * enqueued; sie erhalten sofort ein fehlgeschlagenes `tool_result` mit
+ * GENAU diesem Grund, damit das Modell zwischen "Tool existiert nicht"
+ * und "Argumente waren kaputt" unterscheiden kann.
+ */
+export function describeUnexecutableToolCall(toolCall: ModelToolCall): string | null {
+  if (toolCall.argumentsError) {
+    return toolCall.argumentsError;
+  }
+
+  if (toolCall.name === BASH_TOOL_NAME) {
+    return typeof toolCall.arguments.command === "string"
+      ? null
+      : 'Invalid arguments for tool "bash": missing string field "command"';
+  }
+
+  return parseMcpToolFunctionName(toolCall.name)
+    ? null
+    : `Unknown tool: ${toolCall.name}`;
+}
+
+/**
  * Wendet eine Modell-Antwort auf den Runtime-State an:
  *
  * - GENAU EIN `aurora_response`-Event mit Text und allen Tool-Calls.
  *   Übersetzbare Tool-Calls bekommen als kanonische Id die Id ihres
  *   AuroraQueue-Items, damit `tool_result`-Events eindeutig verlinken.
- * - Unbekannte Tool-Namen werden nicht enqueued; sie erhalten sofort ein
- *   fehlgeschlagenes `tool_result`-Event.
+ * - Unausführbare Tool-Calls (unbekannter Tool-Name, kaputte JSON-Argumente,
+ *   bash ohne "command") werden nicht enqueued; sie erhalten sofort ein
+ *   fehlgeschlagenes `tool_result`-Event mit dem präzisen Grund.
  * - Alle übersetzten Tool-Calls werden sequenziell enqueued und die Queue
  *   über den bestehenden Permission-Flow verarbeitet.
  */
@@ -83,22 +107,25 @@ export function applyAuroraModelResponse(
 
   const contextToolCalls: AuroraContextToolCall[] = [];
   const requests: AuroraRequest[] = [];
-  const unknownToolCalls: AuroraContextToolCall[] = [];
+  const failedToolCalls: Array<{ call: AuroraContextToolCall; error: string }> = [];
 
   let nextQueueItemId = state.auroraQueue.nextId;
   for (const toolCall of response.toolCalls) {
-    const auroraRequest = toolCallToAuroraRequest(toolCall);
+    const failureReason = describeUnexecutableToolCall(toolCall);
 
-    if (!auroraRequest) {
-      const unknown: AuroraContextToolCall = {
+    if (failureReason) {
+      const failed: AuroraContextToolCall = {
         id: toolCall.id,
         name: toolCall.name,
         arguments: toolCall.arguments,
       };
-      contextToolCalls.push(unknown);
-      unknownToolCalls.push(unknown);
+      contextToolCalls.push(failed);
+      failedToolCalls.push({ call: failed, error: failureReason });
       continue;
     }
+
+    // Nach describeUnexecutableToolCall === null ist der Call übersetzbar.
+    const auroraRequest = toolCallToAuroraRequest(toolCall)!;
 
     contextToolCalls.push({
       id: `aurora-${nextQueueItemId}`,
@@ -114,12 +141,12 @@ export function applyAuroraModelResponse(
     auroraResponseEvent(tick, response.message, contextToolCalls)
   );
 
-  for (const unknown of unknownToolCalls) {
+  for (const failed of failedToolCalls) {
     nextState = appendContextEvent(
       nextState,
-      toolResultEvent(tick, unknown.id, unknown.name, {
+      toolResultEvent(tick, failed.call.id, failed.call.name, {
         success: false,
-        error: `Unknown tool: ${unknown.name}`,
+        error: failed.error,
       })
     );
   }
