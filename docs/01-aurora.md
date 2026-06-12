@@ -12,7 +12,9 @@ Menschen haben weiterhin formale Rechte: Sie können Systeme bedienen, Commands 
 
 ## AURORA im aktuellen MVP
 
-**Im aktuellen MVP ist AURORA kein frei laufendes LLM.** Sie ist als **Scenario-Director** implementiert (`src/scenarios/me7741/scenarioDirector.ts`): eine Reihe geskripteter Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Routing-Overrides, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist für den Director tabu, genau wie für die UI.
+**Im aktuellen MVP ist AURORA standardmäßig kein frei laufendes LLM.** Sie ist als **Scenario-Director** implementiert (`src/scenarios/me7741/scenarioDirector.ts`): eine Reihe geskripteter Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Routing-Overrides, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist für den Director tabu, genau wie für die UI.
+
+Seit dem LLM-Integration-Slice existiert zusätzlich ein **experimenteller LLM-Modus** (umschaltbar in der UI, siehe `07-llm-aurora.md`): Ein echter Claude-Agent ersetzt den geskripteten Director, läuft aber über exakt dieselbe Aurora-Queue, denselben Permission-Flow und dasselbe öffentliche Lagebild — die erste Stufe der unten beschriebenen langfristigen Vision.
 
 Jedes Script-Event feuert genau einmal und kann:
 

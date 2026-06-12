@@ -13,6 +13,8 @@ Zwei spielbare Runden, umschaltbar oben rechts in der UI:
 
 Tests und Build sind grün.
 
+**Experimentell:** AURORA kann pro Runde vom geskripteten Script auf einen echten LLM-Agenten (Claude) umgeschaltet werden — gleicher Permission-Flow, gleiche Engine. Setup und Architektur: [`docs/07-llm-aurora.md`](docs/07-llm-aurora.md).
+
 ## Setup & Entwicklung
 
 ```bash
@@ -66,6 +68,7 @@ Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole (s
 - [`docs/04-me7741-mvp.md`](docs/04-me7741-mvp.md) — ME-7741 im Detail, UI, Beispielablauf, manueller Testpfad
 - [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — Reduzierter MVP für Incident 2: Energy Grid (GRID-1182)
 - [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
+- [`docs/07-llm-aurora.md`](docs/07-llm-aurora.md) — AURORA als LLM-Agent (experimentell): Setup, Agent-Loop, API-Key-Handling
 
 ## Sprache
 

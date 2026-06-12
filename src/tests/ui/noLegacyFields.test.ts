@@ -15,12 +15,17 @@ const PROJECT_ROOT = process.cwd();
 function uiSourceFiles(): string[] {
   const uiDir = join(SRC_ROOT, "ui");
   const uiFiles = readdirSync(uiDir).map((name) => join(uiDir, name));
+  // Der LLM-Agent (Prompts, Lagebild, Agent-Loop) erzeugt spielersichtbare
+  // Aurora-Texte und unterliegt denselben Leak-Regeln wie die UI-Schicht.
+  const auroraDir = join(SRC_ROOT, "aurora");
+  const auroraFiles = readdirSync(auroraDir).map((name) => join(auroraDir, name));
   return [
     join(SRC_ROOT, "App.tsx"),
     // Die Scenario-Directors erzeugen spielersichtbare Aurora-Texte und
     // unterliegen deshalb denselben Leak-Regeln wie die UI-Schicht.
     join(SRC_ROOT, "scenarios", "me7741", "scenarioDirector.ts"),
     join(SRC_ROOT, "scenarios", "grid1182", "scenarioDirector.ts"),
+    ...auroraFiles,
     ...uiFiles,
   ];
 }
