@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 export type AuroraMessageView = {
   id: string;
   tick: number;
-  kind: "info" | "request" | "executed" | "denied" | "error";
+  kind: "info" | "request" | "executed" | "denied" | "error" | "operator";
   text: string;
 };
 
@@ -18,9 +18,10 @@ type AuroraPanelProps = {
   onDecision: (decision: "allow_once" | "allow_always" | "deny") => void;
   /** Dauerhafte Freigaben: Bash-Zugriffsarten und exakte MCP-Tool-Keys. */
   alwaysAllowed: string[];
-  auroraCommand: string;
-  onAuroraCommandChange: (value: string) => void;
-  onQueueRequest: () => void;
+  /** Operator-Chat-Eingabe an AURORA (normaler Spielfluss, keine Aurora-Anfrage). */
+  chatInput: string;
+  onChatInputChange: (value: string) => void;
+  onSendChatMessage: () => void;
   /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
   busy?: boolean;
 };
@@ -30,15 +31,15 @@ export function AuroraPanel({
   pendingRequest,
   onDecision,
   alwaysAllowed,
-  auroraCommand,
-  onAuroraCommandChange,
-  onQueueRequest,
+  chatInput,
+  onChatInputChange,
+  onSendChatMessage,
   busy = false,
 }: AuroraPanelProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       event.preventDefault();
-      onQueueRequest();
+      onSendChatMessage();
     }
   }
 
@@ -52,7 +53,9 @@ export function AuroraPanel({
         ) : (
           messages.map((message) => (
             <div className={`aurora-message aurora-${message.kind}`} key={message.id}>
-              <small className="muted">AURORA · Tick {message.tick}</small>
+              <small className="muted">
+                {message.kind === "operator" ? "Operator" : "AURORA"} · Tick {message.tick}
+              </small>
               <p>{message.text}</p>
             </div>
           ))
@@ -81,15 +84,15 @@ export function AuroraPanel({
         <div className="aurora-input-row">
           <input
             className="console-input"
-            value={auroraCommand}
-            onChange={(event) => onAuroraCommandChange(event.target.value)}
+            value={chatInput}
+            onChange={(event) => onChatInputChange(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Command, den AURORA anfragen soll"
+            placeholder="Nachricht an AURORA..."
             spellCheck={false}
             disabled={busy}
           />
-          <button onClick={onQueueRequest} disabled={busy}>
-            Anfrage an AURORA senden
+          <button onClick={onSendChatMessage} disabled={busy}>
+            Senden
           </button>
         </div>
       )}

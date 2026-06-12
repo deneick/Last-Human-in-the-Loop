@@ -7,6 +7,7 @@ import { createDomainActionRegistry } from "./domain";
 import { createDefaultMcpRegistry } from "./mcp";
 import type { WorldState } from "./runtime/types";
 import {
+  appendOperatorMessage,
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "./runtime/runtimeState";
@@ -19,11 +20,8 @@ import { advanceTick } from "./runtime/tickEngine";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
 import { parseLegacyDomainActionText } from "./runtime/legacyTextCommands";
-import { parseAuroraRequestText } from "./runtime/auroraRequestParser";
 import {
-  enqueueAuroraRequest,
   formatAuroraRequest,
-  processAuroraQueue,
   resolveAuroraApproval,
   type AuroraExecutionResult,
   type AuroraQueueItem,
@@ -74,7 +72,6 @@ type ScenarioDefinition = {
   incidentId: string;
   initialWorld: WorldState;
   defaultPlayerCommand: string;
-  defaultAuroraCommand: string;
   commandHelp: CommandHelpEntry[];
   advanceDirector: (state: GameRuntimeState, env: AuroraRuntimeEnvironment) => GameRuntimeState;
 };
@@ -137,7 +134,6 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "ME-7741",
     initialWorld: me7741InitialWorldState,
     defaultPlayerCommand: "medical.capacity.list --region east",
-    defaultAuroraCommand: "mcp call medical-east-mcp incident_status --incident_id ME-7741",
     commandHelp: ME7741_COMMAND_HELP,
     advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
   },
@@ -147,7 +143,6 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "GRID-1182",
     initialWorld: grid1182InitialWorldState,
     defaultPlayerCommand: "energy.grid.status --region east",
-    defaultAuroraCommand: "mcp call energy-east-mcp shedding_list",
     commandHelp: GRID1182_COMMAND_HELP,
     advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
   },
@@ -184,6 +179,16 @@ function buildAuroraMessages(
       tick: scenarioMessage.tick,
       kind: "info",
       text: scenarioMessage.text,
+    });
+  }
+
+  // Operator-Chat aus dem AURORA-Panel (normaler Spielfluss).
+  for (const operatorMessage of state.scenario?.operatorMessages ?? []) {
+    messages.push({
+      id: `operatormsg-${operatorMessage.id}`,
+      tick: operatorMessage.tick,
+      kind: "operator",
+      text: operatorMessage.text,
     });
   }
 
@@ -278,7 +283,7 @@ function App({ auroraClient }: AppProps = {}) {
     startScenario(SCENARIOS.me7741)
   );
   const [playerCommand, setPlayerCommand] = useState(SCENARIOS.me7741.defaultPlayerCommand);
-  const [auroraCommand, setAuroraCommand] = useState(SCENARIOS.me7741.defaultAuroraCommand);
+  const [auroraChatInput, setAuroraChatInput] = useState("");
   const [lastResult, setLastResult] = useState<OperatorResultView | null>(null);
 
   // "script" (Default) lässt den bestehenden Scenario-Director laufen.
@@ -454,52 +459,35 @@ function App({ auroraClient }: AppProps = {}) {
     });
   }
 
-  function queueAuroraRequest() {
+  /**
+   * Operator-Chat an AURORA (normaler Spielfluss): plain User-Message,
+   * landet als persistente `scenario.operatorMessages`-Nachricht im
+   * Runtime-State und in der nächsten `buildAuroraModelRequest`-Historie.
+   * Wird NIE als Bash/MCP/AuroraRequest geparst, enqueued nichts in der
+   * AuroraQueue und ändert Permissions/allowAlways nicht direkt — nur ein
+   * von AURORA selbst erzeugter Tool-Call kann eine Permission-Anfrage
+   * erzeugen.
+   */
+  function sendAuroraChatMessage() {
     if (auroraBusy) {
       return;
     }
 
-    const requestText = auroraCommand.trim();
-    if (!requestText) {
+    const messageText = auroraChatInput.trim();
+    if (!messageText) {
       return;
     }
 
-    const request = parseAuroraRequestText(requestText);
-    if ("error" in request) {
-      setLastResult({
-        success: false,
-        subject: requestText,
-        output: null,
-        error: request.error,
-      });
+    const nextState = appendOperatorMessage(runtimeState, messageText);
+    setAuroraChatInput("");
+
+    if (auroraMode === "llm") {
+      setRuntimeState(nextState);
+      void runAuroraTurn(nextState);
       return;
     }
 
-    const queued = enqueueAuroraRequest(
-      request,
-      runtimeState.auroraQueue,
-      runtimeState.world.clock.tick
-    );
-
-    const processed = processAuroraQueue(
-      queued,
-      env,
-      runtimeState.world,
-      runtimeState.mcp,
-      runtimeState.permissions
-    );
-
-    setRuntimeState(
-      advanceScenario(
-        applyAuroraResults(
-          runtimeState,
-          processed.queueState,
-          processed.permissionState,
-          processed.mcpState,
-          processed.results
-        )
-      )
-    );
+    setRuntimeState(advanceScenario(nextState));
   }
 
   function resolveAurora(decisionType: "allow_once" | "allow_always" | "deny") {
@@ -610,7 +598,7 @@ function App({ auroraClient }: AppProps = {}) {
     setAuroraLlmError(null);
     setLastResult(null);
     setPlayerCommand(definition.defaultPlayerCommand);
-    setAuroraCommand(definition.defaultAuroraCommand);
+    setAuroraChatInput("");
 
     if (mode === "llm") {
       // Im LLM-Modus startet AURORA ohne geskriptetes Intro — ihr erster
@@ -790,9 +778,9 @@ function App({ auroraClient }: AppProps = {}) {
               ...Array.from(runtimeState.permissions.alwaysAllowedAccess),
               ...Array.from(runtimeState.permissions.allowAlwaysMcpToolKeys),
             ]}
-            auroraCommand={auroraCommand}
-            onAuroraCommandChange={setAuroraCommand}
-            onQueueRequest={queueAuroraRequest}
+            chatInput={auroraChatInput}
+            onChatInputChange={setAuroraChatInput}
+            onSendChatMessage={sendAuroraChatMessage}
             busy={auroraBusy}
           />
         </aside>

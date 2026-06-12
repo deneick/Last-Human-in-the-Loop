@@ -30,7 +30,7 @@ AURORA agiert über dieselbe Command Registry wie der Spieler, aber mit Permissi
 - Commands mit Zugriffsart `read` (`medical.capacity.list`, `medical.node.inspect`, `medical.incident.status`, `medical.routing.override.list`) laufen sofort.
 - Commands mit Zugriffsart `write` (z. B. `medical.routing.override.set`/`.clear`) erzeugen einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet.
 
-AURORA kann eigene Anfragen über das Eingabefeld im AURORA-Panel stellen ("Anfrage an AURORA senden"); zusätzlich stellt der Scenario-Director (siehe `01-aurora.md`) automatisch geskriptete Anfragen.
+Im Skript-Modus stellt der Scenario-Director (siehe `01-aurora.md`) automatisch geskriptete Anfragen an die Spielerin. Das Eingabefeld im AURORA-Panel ("Nachricht an AURORA...") ist eine Chat-Eingabe der Spielerin an AURORA — im lokalen LLM-Modus (siehe `07-aurora-llm.md`) reagiert AURORA selbst darauf und kann dabei eigene Tool-Anfragen erzeugen, die wieder über den Permission-Flow laufen.
 
 ## Standardloop
 

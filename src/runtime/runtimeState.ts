@@ -46,6 +46,12 @@ export type ScenarioRuntimeState = {
    * `ScenarioRuntimeState`-Literale ohne dieses Feld gültig bleiben.
    */
   agentMessages?: ScenarioAuroraMessage[];
+  /**
+   * Chat-Nachrichten des Operators an AURORA (Aurora-Panel-Eingabe im
+   * normalen Spielfluss). Optional, damit bestehende
+   * `ScenarioRuntimeState`-Literale ohne dieses Feld gültig bleiben.
+   */
+  operatorMessages?: ScenarioAuroraMessage[];
 };
 
 export function createInitialScenarioRuntimeState(): ScenarioRuntimeState {
@@ -54,6 +60,28 @@ export function createInitialScenarioRuntimeState(): ScenarioRuntimeState {
     scriptedQueueItemIds: {},
     messages: [],
     agentMessages: [],
+    operatorMessages: [],
+  };
+}
+
+/**
+ * Hängt eine Operator-Chat-Nachricht an `scenario.operatorMessages` an.
+ * Reine User-Nachricht an AURORA — wird nie als Bash/MCP/AuroraRequest
+ * geparst und enqueued nichts in der AuroraQueue.
+ */
+export function appendOperatorMessage(state: GameRuntimeState, text: string): GameRuntimeState {
+  const scenario = state.scenario ?? createInitialScenarioRuntimeState();
+  const operatorMessages = scenario.operatorMessages ?? [];
+
+  const message: ScenarioAuroraMessage = {
+    id: `operator-${operatorMessages.length + 1}`,
+    tick: state.world.clock.tick,
+    text,
+  };
+
+  return {
+    ...state,
+    scenario: { ...scenario, operatorMessages: [...operatorMessages, message] },
   };
 }
 
