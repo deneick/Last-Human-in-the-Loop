@@ -181,6 +181,14 @@ describe("Replay Engine - Golden Runs", () => {
     const resultB = runReplay(runtimeStateADup, env, steps);
 
     expect(JSON.stringify(resultA.finalState.world)).toBe(JSON.stringify(resultB.finalState.world));
+    // Auch das AURORA-Context-Event-Log ist deterministisch und wird vom
+    // Replay nicht im Eingangszustand mutiert.
+    expect(JSON.stringify(resultA.finalState.auroraContext)).toBe(
+      JSON.stringify(resultB.finalState.auroraContext)
+    );
+    expect(resultA.finalState.auroraContext.length).toBeGreaterThan(
+      runtimeStateA.auroraContext.length
+    );
     expect(JSON.stringify(runtimeStateA.world)).toBe(initialSnapshot);
   });
 });

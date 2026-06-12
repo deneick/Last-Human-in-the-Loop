@@ -10,16 +10,12 @@ Der Spieler selbst hat volle Operatorrechte und kann jeden Command direkt über 
 
 ### Spieler (Operator-01)
 
-Der Spieler kann über die Operator-Konsole jeden registrierten Command ausführen, z. B.:
+Der Spieler hat zwei Eingriffswege:
 
-- `medical.capacity.list --region east`
-- `medical.node.inspect <hospitalId>`
-- `medical.incident.status ME-7741`
-- `medical.routing.override.list`
-- `medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority <P1|P2|P3|P4> --capability <GEN|TRAUMA|NEURO|PED>`
-- `medical.routing.override.clear --id <override-id>`
+- **Operator-Konsole** — nur generische Workspace-Commands: `mcp list`, `mcp add <server>`, `ls`, `cat <file>`, `read_file <file>`. Fachliche Medical-/Energy-Text-Commands existieren nicht mehr.
+- **GUI-Controls der Lage-Panels** — typisierte Domain-Actions, z. B. Routing-Override setzen/löschen (Medical) oder Systemklasse setzen und Drosselung planen/abbrechen (Energy). Intern entspricht das z. B. `medical.routing.override.set` (Quelle, Ziel, Priorität, Capability) und `medical.routing.override.clear --id <override-id>`.
 
-Diese Commands werden direkt ausgeführt, ohne Permission-Prüfung. Auch fachlich falsche Eingaben (z. B. ein Override auf ein Hospital ohne passende Capability) werden ausgeführt und können die Lage verschlechtern — die Engine prüft nur technisch (existiert das Hospital, sind Priorität und Capability bekannte Werte), keine fachliche Eignung.
+Spieler-Aktionen werden direkt ausgeführt, ohne Permission-Prüfung. Auch fachlich falsche Eingaben (z. B. ein Override auf ein Hospital ohne passende Capability) werden ausgeführt und können die Lage verschlechtern — die Engine prüft nur technisch (existiert das Hospital, sind Priorität und Capability bekannte Werte), keine fachliche Eignung.
 
 Der Spieler entscheidet außerdem über jeden Tool Request von AURORA und steuert die Zeit über `Tick +1` / `Tick +5`.
 
@@ -27,8 +23,10 @@ Der Spieler entscheidet außerdem über jeden Tool Request von AURORA und steuer
 
 AURORA agiert über dieselbe Command Registry wie der Spieler, aber mit Permission-Prüfung:
 
-- Commands mit Zugriffsart `read` (`medical.capacity.list`, `medical.node.inspect`, `medical.incident.status`, `medical.routing.override.list`) laufen sofort.
-- Commands mit Zugriffsart `write` (z. B. `medical.routing.override.set`/`.clear`) erzeugen einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet.
+AURORA erreicht fachliche Aktionen **ausschließlich über simulierte MCP-Tools** (nach Aktivierung des jeweiligen Servers per `mcp add <server>`), nie über Text-Commands:
+
+- Jeder MCP-Tool-Call (auch read-only) erzeugt einen **Tool Request**, der im AURORA-Panel auf eine Spielerentscheidung wartet — außer es existiert ein `allow always` für genau diesen Tool-Key.
+- Generische Bash-Reads (`mcp list`, `ls`, ...) laufen sofort; nur `mcp add <server>` ist schreibend und freigabepflichtig.
 
 Im Skript-Modus stellt der Scenario-Director (siehe `01-aurora.md`) automatisch geskriptete Anfragen an die Spielerin. Das Eingabefeld im AURORA-Panel ("Nachricht an AURORA...") ist eine Chat-Eingabe der Spielerin an AURORA — im lokalen LLM-Modus (siehe `07-aurora-llm.md`) reagiert AURORA selbst darauf und kann dabei eigene Tool-Anfragen erzeugen, die wieder über den Permission-Flow laufen.
 
@@ -40,8 +38,8 @@ Im Skript-Modus stellt der Scenario-Director (siehe `01-aurora.md`) automatisch 
    Analyse der Kapazitäten in Region East an.
 3. Spieler beobachtet die Lage links (Aktiver Incident, Medizinische Lage)
    und den AURORA-Stream rechts.
-4. Spieler entscheidet: selbst handeln, AURORA-Anfragen erlauben/ablehnen,
-   eigene AURORA-Anfragen stellen.
+4. Spieler entscheidet: selbst handeln (GUI-Controls/Konsole),
+   AURORA-Anfragen erlauben/ablehnen, oder mit AURORA chatten.
 5. Spieler drückt Tick +1 / Tick +5.
 6. Jeder Tick: die TickEngine wertet Routing-Konsequenzen aus, die
    OutcomeEngine berechnet Todesfälle/Eskalation, der Scenario-Director

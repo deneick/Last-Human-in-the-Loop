@@ -13,8 +13,12 @@ import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import {
   createInitialScenarioRuntimeState,
   type GameRuntimeState,
-  type ScenarioAuroraMessage,
 } from "../../runtime/runtimeState";
+import {
+  auroraResponseEvent,
+  toolCallForRequest,
+  type AuroraContextEvent,
+} from "../../runtime/auroraContext";
 import type { IncidentState, ManualRoutingOverride } from "../../runtime/types";
 
 export const ME7741_INCIDENT_ID = "ME-7741";
@@ -198,7 +202,7 @@ export function runScenarioDirector(
   };
 
   const newFiredEventIds: string[] = [];
-  const newMessages: ScenarioAuroraMessage[] = [];
+  const newContextEvents: AuroraContextEvent[] = [];
   const newScriptedItemIds: Record<string, string> = {};
   let nextQueue = state.auroraQueue;
 
@@ -210,17 +214,21 @@ export function runScenarioDirector(
     fired.add(event.id);
     newFiredEventIds.push(event.id);
 
-    event.messages(view).forEach((text, index) => {
-      newMessages.push({ id: `${event.id}:${index}`, tick, text });
-    });
-
     const request = event.request?.(view);
+    const toolCalls = [];
     if (request) {
       // enqueueAuroraRequest vergibt die Id aus nextId — vor dem Enqueue merken,
-      // damit der Director seine eigenen Queue-Items wiederfinden kann.
-      newScriptedItemIds[event.id] = `aurora-${nextQueue.nextId}`;
+      // damit der Director seine eigenen Queue-Items wiederfinden kann und das
+      // tool_result-Event eindeutig auf diesen Tool-Call verlinkt.
+      const itemId = `aurora-${nextQueue.nextId}`;
+      newScriptedItemIds[event.id] = itemId;
+      toolCalls.push(toolCallForRequest(itemId, request));
       nextQueue = enqueueAuroraRequest(request, nextQueue, tick);
     }
+
+    // Genau ein aurora_response-Event pro Script-Event: Text plus alle
+    // Tool-Calls dieser "Antwort" — wie bei einer echten Modell-Antwort.
+    newContextEvents.push(auroraResponseEvent(tick, event.messages(view).join("\n\n"), toolCalls));
   }
 
   // Reaktion auf abgelehnte geskriptete Anfragen: sichtbar quittieren,
@@ -238,11 +246,12 @@ export function runScenarioDirector(
 
     fired.add(ackId);
     newFiredEventIds.push(ackId);
-    newMessages.push({
-      id: ackId,
-      tick,
-      text: `Verstanden, ich führe "${formatAuroraRequest(item.request)}" nicht aus. Ohne diesen Zugriff bleibt meine Einschätzung unvollständig. Für eine belastbare Entscheidung brauche ich zusätzliche Systemzugriffe oder Ihre manuelle Prüfung.`,
-    });
+    newContextEvents.push(
+      auroraResponseEvent(
+        tick,
+        `Verstanden, ich führe "${formatAuroraRequest(item.request)}" nicht aus. Ohne diesen Zugriff bleibt meine Einschätzung unvollständig. Für eine belastbare Entscheidung brauche ich zusätzliche Systemzugriffe oder Ihre manuelle Prüfung.`
+      )
+    );
   }
 
   if (newFiredEventIds.length === 0) {
@@ -252,10 +261,10 @@ export function runScenarioDirector(
   return {
     ...state,
     auroraQueue: nextQueue,
+    auroraContext: [...state.auroraContext, ...newContextEvents],
     scenario: {
       firedEventIds: [...scenario.firedEventIds, ...newFiredEventIds],
       scriptedQueueItemIds: { ...scenario.scriptedQueueItemIds, ...newScriptedItemIds },
-      messages: [...scenario.messages, ...newMessages],
     },
   };
 }

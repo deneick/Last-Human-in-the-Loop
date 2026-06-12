@@ -46,9 +46,13 @@ export function formatAuroraRequest(request: AuroraRequest): string {
 
 export type AuroraExecutionResult = {
   success: boolean;
+  /** Id des AuroraQueue-Items — zugleich die kanonische Tool-Call-Id im Context-Log. */
+  itemId: string;
   request: AuroraRequest;
   description: string;
   access: DomainActionAccess;
+  /** Der Operator hat den Tool-Call abgelehnt — er wurde NICHT ausgeführt. */
+  denied?: boolean;
   /** Bei MCP-Tool-Calls: die typisierte Domain-Action, auf die gemappt wurde. */
   action?: DomainAction;
   output: unknown;
@@ -168,6 +172,7 @@ function isMcpToolAvailable(
 }
 
 function executeAuroraRequest(
+  itemId: string,
   request: AuroraRequest,
   env: AuroraRuntimeEnvironment,
   world: WorldState,
@@ -184,6 +189,7 @@ function executeAuroraRequest(
 
     return {
       success: result.success,
+      itemId,
       request,
       description,
       access: result.access,
@@ -204,6 +210,7 @@ function executeAuroraRequest(
 
   return {
     success: result.success,
+    itemId,
     request,
     description,
     access: result.access,
@@ -249,7 +256,7 @@ export function processAuroraQueue(
 
     // Nicht verfügbare MCP-Tools scheitern technisch, ohne Permission-Request.
     if (item.request.kind === "mcp_tool" && !isMcpToolAvailable(item.request.call, env, currentMcpState)) {
-      const result = executeAuroraRequest(item.request, env, currentWorldState, currentMcpState);
+      const result = executeAuroraRequest(item.id, item.request, env, currentWorldState, currentMcpState);
       nextQueueState = updateQueueItem(nextQueueState, item.id, {
         status: "executed",
         access,
@@ -268,7 +275,7 @@ export function processAuroraQueue(
       break;
     }
 
-    const result = executeAuroraRequest(item.request, env, currentWorldState, currentMcpState);
+    const result = executeAuroraRequest(item.id, item.request, env, currentWorldState, currentMcpState);
     nextQueueState = updateQueueItem(nextQueueState, item.id, {
       status: "executed",
       access,
@@ -317,9 +324,11 @@ export function resolveAuroraApproval(
   if (decision.type === "deny") {
     approvalResult = {
       success: false,
+      itemId: awaitingItem.id,
       request: awaitingItem.request,
       description: formatAuroraRequest(awaitingItem.request),
       access,
+      denied: true,
       output: null,
       error: `Permission denied for ${formatAuroraRequest(awaitingItem.request)}`,
     };
@@ -335,7 +344,7 @@ export function resolveAuroraApproval(
       nextPermissionState = applyPermissionDecision(subject, decision, nextPermissionState);
     }
 
-    approvalResult = executeAuroraRequest(awaitingItem.request, env, nextWorldState, nextMcpState);
+    approvalResult = executeAuroraRequest(awaitingItem.id, awaitingItem.request, env, nextWorldState, nextMcpState);
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "executed",
       access,

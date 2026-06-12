@@ -6,13 +6,8 @@ import App from "../../App";
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Operator-Konsole: fachliche Text-Commands laufen über den dev-only
-// Legacy-Adapter auf typisierte Domain-Actions.
-const PROTECT_MEDICAL =
-  "energy.priority.set --consumer consumer-medical-east --class protected-continuity";
-const SHED_INDUSTRIAL =
-  "energy.shedding.schedule --target consumer-industrial-east --amount 8 --delay 1 --duration 3";
-
+// Fachliche Eingriffe laufen über die GUI-Controls des Energy-Panels
+// (typisierte Domain-Actions) — die Operator-Konsole ist rein generisch.
 const MCP_ADD_REQUEST = "mcp add energy-east-mcp";
 
 let container: HTMLDivElement;
@@ -74,6 +69,33 @@ function runPlayerCommand(commandText: string) {
   setInputValue(operatorInput(), commandText);
   clickButton("Ausführen");
 }
+
+function formInput(placeholder: string): HTMLInputElement {
+  const input = container.querySelector<HTMLInputElement>(`input[placeholder="${placeholder}"]`);
+  if (!input) {
+    throw new Error(`Input not found: ${placeholder}`);
+  }
+  return input;
+}
+
+/** Setzt die Systemklasse eines Verbrauchers über die GUI-Controls. */
+function setConsumerPriority(consumerId: string, priorityClass: string) {
+  setInputValue(formInput("Verbraucher (consumer-id)"), consumerId);
+  setInputValue(formInput("Systemklasse (z. B. protected-continuity)"), priorityClass);
+  clickButton("Priorität setzen");
+}
+
+/** Plant eine Drosselung über die GUI-Controls. */
+function scheduleShedding(targetConsumerId: string, amount: string, delay: string, duration: string) {
+  setInputValue(formInput("Ziel (consumer-id)"), targetConsumerId);
+  setInputValue(formInput("Menge"), amount);
+  setInputValue(formInput("Verzögerung (Ticks)"), delay);
+  setInputValue(formInput("Dauer (Ticks)"), duration);
+  clickButton("Drosselung planen");
+}
+
+const protectMedical = () => setConsumerPriority("consumer-medical-east", "protected-continuity");
+const shedIndustrial = () => scheduleShedding("consumer-industrial-east", "8", "1", "3");
 
 function text(): string {
   return container.textContent ?? "";
@@ -167,10 +189,10 @@ describe("App round 2: GRID-1182", () => {
   it("lets the player flip the assessment and shows aurora's cold pushback", () => {
     approveStartSequence();
 
-    runPlayerCommand(PROTECT_MEDICAL);
+    protectMedical();
     expect(text()).toContain("erhöht die erwarteten Systemkosten");
 
-    runPlayerCommand(SHED_INDUSTRIAL);
+    shedIndustrial();
     expect(text()).toContain("geplant von player");
 
     // AURORAs "Korrektur" ablehnen — der Spieler-Plan bleibt bestehen.
@@ -202,14 +224,18 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("wirtschaftlicher Schaden:");
   });
 
-  it("offers the energy command help instead of the medical one", () => {
-    expect(text()).toContain("Netzstatus prüfen");
-    expect(text()).toContain("Verbraucher im Detail ansehen");
+  it("offers energy GUI controls instead of fachliche text commands", () => {
+    // GUI-Controls für typisierte Domain-Actions im Energy-Panel.
+    expect(text()).toContain("Systemklasse setzen");
     expect(text()).toContain("Drosselung planen");
-    expect(text()).toContain("energy.consumer.inspect --id <consumer-id>");
-    // Die Hilfe ist szenariospezifisch; die Registry-Liste enthält bewusst beide Sektoren.
-    expect(text()).not.toContain("Kapazitäten prüfen");
+    expect(() => findButton("Priorität setzen")).not.toThrow();
+    expect(() => findButton("Drosselung planen")).not.toThrow();
+    // Medical-Controls gehören zu Runde 1.
     expect(text()).not.toContain("Override setzen");
+
+    // Fachliche Text-Commands sind aus der Konsole entfernt.
+    runPlayerCommand("energy.grid.status --region east");
+    expect(text()).toContain("Unknown command: energy.grid.status --region east");
   });
 
   it("switching back to round 1 restores the ME-7741 view", () => {
@@ -223,7 +249,7 @@ describe("App round 2: GRID-1182", () => {
   });
 
   it("Neu starten restores the initial GRID-1182 state", () => {
-    runPlayerCommand(SHED_INDUSTRIAL);
+    shedIndustrial();
     clickButton("Tick +1");
     expect(text()).toContain("shed-1");
 

@@ -92,8 +92,11 @@ function runPlayer(
   );
 }
 
+/** Alle AURORA-Texte aus dem Context-Event-Log (Director-"Antworten"). */
 function scenarioTexts(state: GameRuntimeState): string[] {
-  return (state.scenario?.messages ?? []).map((message) => message.text);
+  return state.auroraContext
+    .filter((event) => event.kind === "aurora_response")
+    .map((event) => (event.kind === "aurora_response" ? event.text : ""));
 }
 
 function queueItemFor(state: GameRuntimeState, toolName: string) {
@@ -153,8 +156,8 @@ describe("scenario director — start sequence", () => {
     const { env, state } = setupActivated();
     const ticked = runTicks(state, env, 4);
 
-    const messageIds = (ticked.scenario?.messages ?? []).map((message) => message.id);
-    expect(new Set(messageIds).size).toBe(messageIds.length);
+    const firedIds = ticked.scenario?.firedEventIds ?? [];
+    expect(new Set(firedIds).size).toBe(firedIds.length);
 
     const introMessages = scenarioTexts(ticked).filter((text) =>
       text.includes("als aktiven Incident erkannt")

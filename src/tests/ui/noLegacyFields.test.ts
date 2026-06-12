@@ -96,6 +96,41 @@ describe("ui layer does not use legacy or internal fields", () => {
   });
 });
 
+describe("legacy manual-aurora-request and fachliche text command paths are removed", () => {
+  function allSourceFiles(dir = SRC_ROOT): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        return allSourceFiles(fullPath);
+      }
+      return /\.(ts|tsx)$/.test(entry.name) ? [fullPath] : [];
+    });
+  }
+
+  // Die verbotenen Bezeichner werden zusammengesetzt, damit dieser Test
+  // sich nicht selbst findet.
+  const REMOVED_MODULES = [
+    "parseAurora" + "RequestText",
+    "aurora" + "RequestParser",
+    "legacy" + "TextCommands",
+    "parseLegacy" + "DomainActionText",
+  ];
+
+  it("no src file references the removed request parser or legacy text command adapter", () => {
+    const testFileSuffix = join("tests", "ui", "noLegacyFields.test.ts");
+
+    for (const file of allSourceFiles()) {
+      if (file.endsWith(testFileSuffix)) {
+        continue;
+      }
+      const content = readFileSync(file, "utf8");
+      for (const removed of REMOVED_MODULES) {
+        expect(content, `${file} must not reference ${removed}`).not.toContain(removed);
+      }
+    }
+  });
+});
+
 describe("medical.routing.override.clear uses only the id-based form", () => {
   const allSources = [
     ...uiSourceFiles().map((file) => ({ file, content: readFileSync(file, "utf8") })),

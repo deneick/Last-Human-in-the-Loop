@@ -6,6 +6,7 @@ export * from "./modelClient";
 export * from "./toolSchema";
 export * from "./systemPrompt";
 export * from "./contextBuilder";
+export * from "./contextSerializer";
 export * from "./config";
 export * from "./fakeModelClient";
 export * from "./ollamaModelClient";

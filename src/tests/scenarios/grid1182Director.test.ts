@@ -109,8 +109,11 @@ function runPlayer(
   );
 }
 
+/** Alle AURORA-Texte aus dem Context-Event-Log (Director-"Antworten"). */
 function scenarioTexts(state: GameRuntimeState): string[] {
-  return (state.scenario?.messages ?? []).map((message) => message.text);
+  return state.auroraContext
+    .filter((event) => event.kind === "aurora_response")
+    .map((event) => (event.kind === "aurora_response" ? event.text : ""));
 }
 
 function awaitingItem(state: GameRuntimeState) {

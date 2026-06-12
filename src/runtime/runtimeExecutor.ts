@@ -2,15 +2,38 @@ import type { DomainAction, DomainActionRegistry, DomainActionResult } from "../
 import type { McpRegistry } from "../mcp/mcpRegistry";
 import { activateServer } from "../mcp/mcpRegistry";
 import type { GameRuntimeState } from "./runtimeState";
-import { appendAuditLog } from "./runtimeState";
+import { appendAuditLog, appendContextEvent } from "./runtimeState";
 import { applyWorldStatePatch } from "./patch";
 import type { AuroraExecutionResult } from "./auroraQueue";
+import type { AuroraToolResultPayload } from "./auroraContext";
+import { toolNameForRequest, toolResultEvent } from "./auroraContext";
 import type { BashCommandResult, BashWorkspace } from "./bashCommands";
 import { executeBashCommand } from "./bashCommands";
 
 /**
+ * Modell-sichtbare Zusammenfassung eines Tool-Ergebnisses.
+ *
+ * Bewusst NICHT enthalten: `result.patch` (interner WorldState-Diff),
+ * `result.action` (interne typisierte Domain-Action) und
+ * `result.activatesServerId` — AURORA sieht nur, was ein echtes MCP-Tool
+ * als Ergebnis zurückgeben würde.
+ */
+export function summarizeExecutionResult(result: AuroraExecutionResult): AuroraToolResultPayload {
+  if (result.denied) {
+    return { success: false, denied: true, error: result.error };
+  }
+
+  return {
+    success: result.success,
+    output: result.output,
+    ...(result.error ? { error: result.error } : {}),
+  };
+}
+
+/**
  * Wendet das Ergebnis einer ausgeführten Aurora-Anfrage auf den Runtime-State
- * an: WorldState-Patch (immutable), MCP-Aktivierung und Audit-Log.
+ * an: WorldState-Patch (immutable), MCP-Aktivierung, genau ein
+ * `tool_result`-Event im AURORA-Context-Log und Audit-Log.
  */
 export function applyAuroraExecutionResult(
   runtimeState: GameRuntimeState,
@@ -31,6 +54,16 @@ export function applyAuroraExecutionResult(
       mcp: activateServer(nextState.mcp, executionResult.activatesServerId),
     };
   }
+
+  nextState = appendContextEvent(
+    nextState,
+    toolResultEvent(
+      nextState.world.clock.tick,
+      executionResult.itemId,
+      toolNameForRequest(executionResult.request),
+      summarizeExecutionResult(executionResult)
+    )
+  );
 
   const message = executionResult.error ?? (executionResult.success ? "Success" : "Failed");
   return appendAuditLog(
