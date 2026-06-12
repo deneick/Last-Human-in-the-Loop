@@ -14,8 +14,9 @@ import { BASH_TOOL_NAME, buildAvailableToolSchemas, mcpToolFunctionName } from "
  *   Beobachtungen). `world.simulation` wird NIE gelesen.
  * - `mcpRegistry` + `mcpState`: für die aktuell sichtbaren Tool-Schemas.
  * - `auroraQueue`: bereits bearbeitete Aurora-Anfragen (Tool-Call-History).
- * - `scenario`: skriptierte Operator-Nachrichten (`messages`) und AURORAs
- *   eigene bisherige Freitext-Antworten (`agentMessages`).
+ * - `scenario`: skriptierte Operator-Nachrichten (`messages`), Operator-Chat
+ *   aus dem AURORA-Panel (`operatorMessages`) und AURORAs eigene bisherige
+ *   Freitext-Antworten (`agentMessages`).
  */
 export type AuroraContextInput = {
   world: WorldState;
@@ -45,12 +46,13 @@ type HistoryEntry = {
 };
 
 /**
- * Rekonstruiert die für AURORA sichtbare Konversation aus vier Quellen:
+ * Rekonstruiert die für AURORA sichtbare Konversation aus fünf Quellen:
  *
  * 1. Öffentliche Incident-Signale (`world.incidents[*].public_signals`).
  * 2. Skriptierte Operator-/Lage-Nachrichten (`scenario.messages`).
- * 3. Bereits bearbeitete Aurora-Anfragen (Tool-Call + Tool-Result-Paare).
- * 4. AURORAs eigene bisherige Freitext-Antworten (`scenario.agentMessages`).
+ * 3. Operator-Chat aus dem AURORA-Panel (`scenario.operatorMessages`).
+ * 4. Bereits bearbeitete Aurora-Anfragen (Tool-Call + Tool-Result-Paare).
+ * 5. AURORAs eigene bisherige Freitext-Antworten (`scenario.agentMessages`).
  *
  * Alle Einträge werden stabil nach (tick, sequence) sortiert und zu einer
  * flachen Nachrichtenliste zusammengefügt.
@@ -74,6 +76,14 @@ export function buildVisibleHistory(input: AuroraContextInput): ModelMessage[] {
       tick: scenarioMessage.tick,
       sequence: sequence++,
       messages: [{ role: "user", content: scenarioMessage.text }],
+    });
+  }
+
+  for (const operatorMessage of input.scenario?.operatorMessages ?? []) {
+    entries.push({
+      tick: operatorMessage.tick,
+      sequence: sequence++,
+      messages: [{ role: "user", content: operatorMessage.text }],
     });
   }
 

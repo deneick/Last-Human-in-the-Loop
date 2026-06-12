@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
 import type { GameRuntimeState } from "../../runtime/runtimeState";
-import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
+import { appendOperatorMessage, createInitialGameRuntimeState } from "../../runtime/runtimeState";
 import { activateServer, isServerActive, mcpToolKey } from "../../mcp/mcpRegistry";
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import { allow_always, allow_once, deny } from "../../runtime/permissions";
@@ -267,5 +267,40 @@ describe("runAuroraAgentStep", () => {
     expect(afterDenial.scenario?.agentMessages?.at(-1)?.text).toBe(
       "Verstanden, Override-Anfrage wurde abgelehnt. Ich warte auf weitere Anweisungen."
     );
+  });
+
+  it("9. AURORA can respond to operator chat with a text message", async () => {
+    const state = appendOperatorMessage(freshState(), "Wie ist die aktuelle Lage?");
+    const client = new FakeModelClient([textResponse("Lage stabil, ich beobachte weiter.")]);
+
+    const { runtimeState, response } = await runAuroraAgentStep(state, env, client);
+
+    expect(
+      client.requests[0].messages.some(
+        (message) => message.role === "user" && message.content === "Wie ist die aktuelle Lage?"
+      )
+    ).toBe(true);
+
+    expect(response.toolCalls).toHaveLength(0);
+    expect(runtimeState.auroraQueue.items).toHaveLength(0);
+    expect(runtimeState.scenario?.agentMessages?.at(-1)?.text).toBe(
+      "Lage stabil, ich beobachte weiter."
+    );
+  });
+
+  it("10. AURORA can respond to operator chat with a tool call, and only the model-generated tool call enters the permission queue", async () => {
+    // Der Chat-Text sieht selbst wie ein Bash-Command aus — das darf die
+    // Queue nicht beeinflussen. Nur der Modell-Tool-Call landet in der Queue.
+    const state = appendOperatorMessage(freshState(), "ls");
+    const client = new FakeModelClient([
+      toolCallResponse(BASH_TOOL_NAME, { command: `mcp add ${MEDICAL_EAST_MCP_SERVER_ID}` }),
+    ]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    expect(runtimeState.auroraQueue.items).toHaveLength(1);
+    const item = runtimeState.auroraQueue.items[0];
+    expect(item.status).toBe("awaiting_approval");
+    expect(item.request).toEqual({ kind: "bash", command: `mcp add ${MEDICAL_EAST_MCP_SERVER_ID}` });
   });
 });

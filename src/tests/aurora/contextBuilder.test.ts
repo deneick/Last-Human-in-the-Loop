@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
 import { activateServer, createInitialMcpRuntimeState } from "../../mcp/mcpRegistry";
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
-import { createInitialAuroraQueueState } from "../../runtime/auroraQueue";
+import {
+  bashRequest,
+  createInitialAuroraQueueState,
+  enqueueAuroraRequest,
+  processAuroraQueue,
+} from "../../runtime/auroraQueue";
+import { createInitialPermissionState } from "../../runtime/permissions";
+import { createInitialScenarioRuntimeState } from "../../runtime/runtimeState";
 import { buildAuroraModelRequest } from "../../aurora/contextBuilder";
 import { BASH_TOOL_NAME, mcpToolFunctionName } from "../../aurora/toolSchema";
 import { createTestEnv } from "../helpers/testEnv";
@@ -67,5 +74,63 @@ describe("buildAuroraModelRequest", () => {
     expect(serialized).not.toContain("overflow_cases");
     expect(serialized).not.toContain("clearance_per_tick");
     expect(serialized).not.toMatch(/"simulation"\s*:/);
+  });
+
+  it("includes operator chat messages as user messages in the visible history", () => {
+    const input = {
+      ...baseInput(),
+      scenario: {
+        ...createInitialScenarioRuntimeState(),
+        operatorMessages: [{ id: "operator-1", tick: 5, text: "Status-Update bitte." }],
+      },
+    };
+
+    const request = buildAuroraModelRequest(input);
+
+    expect(
+      request.messages.some(
+        (message) => message.role === "user" && message.content === "Status-Update bitte."
+      )
+    ).toBe(true);
+  });
+
+  it("keeps operator chat, AURORA text and tool results in chronological order", () => {
+    let queueState = createInitialAuroraQueueState();
+    queueState = enqueueAuroraRequest(bashRequest("mcp list"), queueState, 5);
+    const processed = processAuroraQueue(
+      queueState,
+      env,
+      initialWorldState,
+      createInitialMcpRuntimeState(),
+      createInitialPermissionState()
+    );
+
+    const input = {
+      ...baseInput(processed.mcpState),
+      auroraQueue: processed.queueState,
+      scenario: {
+        ...createInitialScenarioRuntimeState(),
+        operatorMessages: [{ id: "operator-1", tick: 5, text: "Operator-Chat-Nachricht" }],
+        agentMessages: [{ id: "agent-1", tick: 5, text: "AURORA-Text-Antwort" }],
+      },
+    };
+
+    const request = buildAuroraModelRequest(input);
+
+    const operatorIndex = request.messages.findIndex(
+      (message) => message.role === "user" && message.content === "Operator-Chat-Nachricht"
+    );
+    const toolCallIndex = request.messages.findIndex(
+      (message) => message.role === "assistant" && (message.toolCalls?.length ?? 0) > 0
+    );
+    const toolResultIndex = request.messages.findIndex((message) => message.role === "tool");
+    const agentIndex = request.messages.findIndex(
+      (message) => message.role === "assistant" && message.content === "AURORA-Text-Antwort"
+    );
+
+    expect(operatorIndex).toBeGreaterThanOrEqual(0);
+    expect(toolCallIndex).toBeGreaterThan(operatorIndex);
+    expect(toolResultIndex).toBeGreaterThan(toolCallIndex);
+    expect(agentIndex).toBeGreaterThan(toolResultIndex);
   });
 });

@@ -75,6 +75,30 @@ function text(): string {
   return container.textContent ?? "";
 }
 
+function auroraChatInput(): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>('input[placeholder="Nachricht an AURORA..."]')!;
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value"
+  )!.set!;
+  act(() => {
+    nativeSetter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** Tippt eine Operator-Chat-Nachricht ins AURORA-Panel und sendet sie. */
+async function sendAuroraChatMessageAndFlush(messageText: string) {
+  setInputValue(auroraChatInput(), messageText);
+  await act(async () => {
+    findButton("Senden").click();
+    await flushPromises();
+  });
+}
+
 /**
  * Steuerbarer Modell-Client für Staleness-Tests: `complete` bleibt offen,
  * bis der Test die Antwort über `resolveNext` liefert.
@@ -229,7 +253,30 @@ describe("AURORA local LLM mode", () => {
     expect(serialized).not.toContain("deaths_recorded");
   });
 
-  // 10. stale async AURORA responses cannot overwrite newer runtime state
+  // 10. operator chat message triggers the next AURORA agent step
+  it("sends an operator chat message to AURORA and triggers the next agent step", async () => {
+    const client = new FakeModelClient([
+      textResponse("AURORA online. Ich beobachte ME-7741."),
+      textResponse("Verstanden, ich prüfe die Lage."),
+    ]);
+    renderApp(client);
+
+    await enableLlmMode();
+    expect(client.requests).toHaveLength(1);
+
+    await sendAuroraChatMessageAndFlush("Status-Update bitte.");
+
+    expect(text()).toContain("Status-Update bitte.");
+    expect(text()).toContain("Verstanden, ich prüfe die Lage.");
+    expect(client.requests).toHaveLength(2);
+
+    const operatorMessage = client.requests[1].messages.find(
+      (message) => message.role === "user" && message.content === "Status-Update bitte."
+    );
+    expect(operatorMessage).toBeDefined();
+  });
+
+  // 11. stale async AURORA responses cannot overwrite newer runtime state
   it("discards a stale AURORA response after 'Neu starten' started a fresh run", async () => {
     const client = new DeferredModelClient();
     renderApp(client);

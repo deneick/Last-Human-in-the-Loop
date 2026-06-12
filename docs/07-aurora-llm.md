@@ -46,9 +46,14 @@ ausschließlich in Tests verwendet.
 
 1. öffentlichen Incident-Signalen (`world.incidents[*].public_signals`),
 2. skriptierten Operator-/Lage-Nachrichten (`scenario.messages`),
-3. bereits bearbeiteten Aurora-Anfragen — als Tool-Call + Tool-Result-Paar,
+3. Operator-Chat aus dem AURORA-Panel (`scenario.operatorMessages`) — die
+   normale Spieler-Kommunikation an AURORA, als `user`-Nachrichten,
+4. bereits bearbeiteten Aurora-Anfragen — als Tool-Call + Tool-Result-Paar,
    ohne den internen WorldState-Patch,
-4. AURORAs eigenen vorherigen Freitext-Antworten (`scenario.agentMessages`).
+5. AURORAs eigenen vorherigen Freitext-Antworten (`scenario.agentMessages`).
+
+Alle Quellen werden nach `(tick, sequence)` sortiert zu einer einzigen
+chronologischen `messages`-Liste zusammengeführt.
 
 **Niemals enthalten**: `world.simulation` (z. B. `routing_failures`,
 `deaths_recorded`, `stable_ticks`), interne typisierte Domain-Actions oder
@@ -136,6 +141,34 @@ anderen Modus (Welt, Aurora-Queue, MCP-Aktivierung, Permissions und Logs
 werden zurückgesetzt — wie bei „Neu starten“). Im LLM-Modus läuft dabei
 sofort AURORAs erster Zug an, ohne geskriptetes Intro.
 
+### AURORA-Chat (Operator-Eingabe)
+
+Das Eingabefeld im AURORA-Panel (Placeholder „Nachricht an AURORA...“,
+Button „Senden“) ist eine normale Chat-Eingabe des Operators an AURORA —
+**kein** Debug-/Anfrage-Feld:
+
+- Abgeschickter Text wird unverändert als persistente
+  `scenario.operatorMessages`-Nachricht im Runtime-State gespeichert und im
+  AURORA-Stream als „Operator“-Eintrag angezeigt.
+- Operator-Chat wird **niemals** über `parseAuroraRequestText` geparst,
+  enqueued nichts in der `AuroraQueue` und ändert Permissions/Always-Allow
+  nicht direkt — auch wenn der Text wie ein Bash- oder MCP-Command aussieht
+  (z. B. „mcp add medical-east-mcp“) bleibt er reiner Chat-Text.
+- Im LLM-Modus löst das Absenden einer Chat-Nachricht sofort den nächsten
+  `runAuroraAgentStep` aus (außer AURORA „denkt“ noch — dann ist die Eingabe
+  gesperrt). AURORA sieht die Nachricht als `user`-Message in ihrer
+  Historie (siehe `contextBuilder.ts` oben) und kann frei mit Freitext
+  und/oder einem Tool-Call antworten. Nur ein **von AURORA selbst erzeugter**
+  Tool-Call kann eine neue Permission-Anfrage erzeugen — der Chat-Text selbst
+  nie.
+- Im Skript-Modus wird die Nachricht ebenfalls gespeichert und im Stream
+  angezeigt; der geskriptete Scenario-Director reagiert darauf nicht
+  gesondert.
+
+Die bestehenden Permission-Buttons (`Einmal erlauben` / `Immer erlauben` /
+`Ablehnen`) bleiben unverändert und ersetzen das Chat-Eingabefeld, solange
+eine Aurora-Anfrage auf Entscheidung wartet.
+
 Im laufenden LLM-Modus:
 
 - **Freitext-Antworten** von AURORA erscheinen im bestehenden AURORA-Stream
@@ -179,10 +212,15 @@ Im laufenden LLM-Modus:
 ohne laufenden Ollama-Server:
 
 - `contextBuilder.test.ts`: System-Prompt, sichtbare Historie, Tool-Schemas
-  nur für aktive MCP-Server, kein hidden WorldState im `ModelRequest`.
+  nur für aktive MCP-Server, kein hidden WorldState im `ModelRequest`,
+  Operator-Chat (`scenario.operatorMessages`) als `user`-Nachrichten in der
+  sichtbaren Historie, sowie die chronologische Reihenfolge von
+  Operator-Chat, Tool-Call/Tool-Result und AURORAs Freitext-Antworten.
 - `agent.test.ts`: Text-Antworten, `mcp add`-Aktivierung, Permission-Flow
   für MCP-Tool-Calls (`allow_once`, `allow_always`, `deny`) und Fortsetzung
-  nach einer Ablehnung.
+  nach einer Ablehnung, sowie AURORAs Reaktion auf Operator-Chat — sowohl mit
+  Freitext als auch mit einem Tool-Call, wobei nur der von AURORA erzeugte
+  Tool-Call die Permission-Queue erreicht.
 
 `src/tests/ui/app.llm.test.tsx` testet die Verdrahtung mit der laufenden
 `App.tsx`-Spielschleife — ebenfalls mit `FakeModelClient`, ohne laufenden
@@ -196,8 +234,19 @@ Ollama-Server:
 - `allow_once`/`allow_always`/`deny` setzen AURORAs nächsten Zug korrekt
   fort, inklusive eines `denied: true`-Tool-Results in der Historie.
 - Hidden WorldState/`world.simulation` taucht in keinem `ModelRequest` auf.
+- Eine über das AURORA-Panel gesendete Operator-Chat-Nachricht erscheint im
+  Stream und löst sofort den nächsten `runAuroraAgentStep` aus, inklusive
+  der Nachricht als `user`-Message im nächsten `ModelRequest`.
 - Ein zu einem Zeitpunkt noch laufender Modell-Aufruf wird verworfen, wenn
   „Neu starten“ zwischenzeitlich einen neuen Lauf gestartet hat (run-id).
+
+`src/tests/ui/app.test.tsx` deckt das AURORA-Panel im Skript-Modus ab: das
+Eingabefeld zeigt den Placeholder „Nachricht an AURORA...“ und den Button
+„Senden“, abgeschickte Nachrichten landen als persistente
+Operator-Nachricht im Stream, Texte wie „mcp add medical-east-mcp“ erzeugen
+**keinen** „Tool Request“, und Operator-Chat wird nicht über
+`parseAuroraRequestText` geparst (kein „FEHLER:“/„Unknown request format“,
+keine Weltänderung).
 
 ## Scope dieses Slices
 

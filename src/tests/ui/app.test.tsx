@@ -13,13 +13,6 @@ const WRONG_OVERRIDE =
 const GOOD_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
 
-// Aurora-Anfragen: ausschließlich MCP-Tool-Calls bzw. generische Bash.
-const MCP_GOOD_OVERRIDE_CALL =
-  "mcp call medical-east-mcp routing_override_set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-const MCP_OTHER_OVERRIDE_CALL =
-  "mcp call medical-east-mcp routing_override_set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
-const MCP_INCIDENT_STATUS_CALL = "mcp call medical-east-mcp incident_status --incident_id ME-7741";
-
 const SCRIPTED_CLEAR = "mcp call medical-east-mcp routing_override_clear --override_id override-1";
 const MCP_ADD_REQUEST = "mcp add medical-east-mcp";
 
@@ -76,10 +69,8 @@ function operatorInput(): HTMLInputElement {
   )!;
 }
 
-function auroraInput(): HTMLInputElement {
-  return container.querySelector<HTMLInputElement>(
-    'input[placeholder="Command, den AURORA anfragen soll"]'
-  )!;
+function auroraChatInput(): HTMLInputElement {
+  return container.querySelector<HTMLInputElement>('input[placeholder="Nachricht an AURORA..."]')!;
 }
 
 function runPlayerCommand(commandText: string) {
@@ -87,9 +78,9 @@ function runPlayerCommand(commandText: string) {
   clickButton("Ausführen");
 }
 
-function queueAuroraRequest(commandText: string) {
-  setInputValue(auroraInput(), commandText);
-  clickButton("Anfrage an AURORA senden");
+function sendAuroraChatMessage(messageText: string) {
+  setInputValue(auroraChatInput(), messageText);
+  clickButton("Senden");
 }
 
 function text(): string {
@@ -180,68 +171,41 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Kollabiert");
   });
 
-  it("runs the aurora approval flow with allow once", () => {
+  it("shows the operator chat placeholder and send button", () => {
     approveStartSequence();
-    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
 
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain(`Ich möchte ausführen: ${MCP_GOOD_OVERRIDE_CALL}`);
-    expect(text()).toContain("Zugriffsart: write");
+    expect(auroraChatInput().placeholder).toBe("Nachricht an AURORA...");
+    expect(() => findButton("Senden")).not.toThrow();
+  });
 
-    clickButton("Einmal erlauben");
+  it("stores a submitted chat message as a persistent operator message in the stream", () => {
+    approveStartSequence();
+    sendAuroraChatMessage("Status-Update bitte.");
 
+    expect(text()).toContain("Status-Update bitte.");
+    expect(auroraChatInput().value).toBe("");
+  });
+
+  it('"mcp add medical-east-mcp" typed into the Aurora chat does not create a permission request', () => {
+    approveStartSequence();
+    sendAuroraChatMessage("mcp add medical-east-mcp");
+
+    // Erscheint nur als Chat-Text, nicht als neue Aurora-Anfrage.
+    expect(text()).toContain("mcp add medical-east-mcp");
     expect(text()).not.toContain("Tool Request");
-    expect(text()).toContain("hospital-east-04 → hospital-east-09");
-    expect(text()).toContain("gesetzt von aurora");
-    expect(text()).toContain(`Ausgeführt: ${MCP_GOOD_OVERRIDE_CALL}`);
-    // allow_once erteilt keine dauerhafte Freigabe
-    expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
+    expect(text()).not.toContain("Ich möchte ausführen: mcp add medical-east-mcp");
   });
 
-  it("allow always persists the exact MCP tool key and skips future approvals for it", () => {
+  it("operator chat is not parsed through parseAuroraRequestText", () => {
     approveStartSequence();
-    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
-    clickButton("Immer erlauben");
+    sendAuroraChatMessage(GOOD_OVERRIDE);
 
-    expect(text()).toContain("mcp:medical-east-mcp:routing_override_set");
-    expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
-
-    // Derselbe Tool-Key läuft ohne neuen Tool Request durch.
-    queueAuroraRequest(MCP_OTHER_OVERRIDE_CALL);
+    // Wird als reiner Chat-Text angezeigt statt als FEHLER/Unknown request format.
+    expect(text()).toContain(GOOD_OVERRIDE);
+    expect(text()).not.toContain("FEHLER:");
+    expect(text()).not.toContain("Unknown request format");
     expect(text()).not.toContain("Tool Request");
-    expect(text()).toContain(`Ausgeführt: ${MCP_OTHER_OVERRIDE_CALL}`);
-
-    // Ein anderes Tool desselben Servers braucht weiterhin eine Freigabe.
-    queueAuroraRequest(MCP_INCIDENT_STATUS_CALL);
-    expect(text()).toContain("Tool Request");
-  });
-
-  it("deny rejects the aurora request without touching the world", () => {
-    approveStartSequence();
-    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
-    clickButton("Ablehnen");
-
-    expect(text()).toContain(`Anfrage abgelehnt: ${MCP_GOOD_OVERRIDE_CALL}`);
-    expect(text()).toContain("Keine aktiven Overrides.");
-  });
-
-  it("read-only MCP tool calls also require approval", () => {
-    approveStartSequence();
-    queueAuroraRequest(MCP_INCIDENT_STATUS_CALL);
-
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("Zugriffsart: read");
-
-    clickButton("Einmal erlauben");
-    expect(text()).toContain(`Ausgeführt: ${MCP_INCIDENT_STATUS_CALL}`);
-  });
-
-  it("rejects fachliche text commands as aurora requests", () => {
-    approveStartSequence();
-    queueAuroraRequest(GOOD_OVERRIDE);
-
-    expect(text()).toContain("FEHLER:");
-    expect(text()).toContain("Unknown request format");
+    // Die Welt bleibt unverändert — der Chat-Text führt keine Domain-Action aus.
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 });
