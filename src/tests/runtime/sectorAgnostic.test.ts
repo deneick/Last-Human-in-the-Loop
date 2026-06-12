@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
-import { CommandRegistry } from "../../runtime/commands";
-import { parseCommandText } from "../../runtime/commandParser";
-import { registerMedicalCommands } from "../../runtime/medicalCommands";
+import { createDomainActionRegistry, type DomainAction } from "../../domain";
 import { tickWorld } from "../../runtime/tickEngine";
 
-const registry = new CommandRegistry();
-registerMedicalCommands(registry);
+const registry = createDomainActionRegistry();
 
 describe("sector-agnostic runtime regression", () => {
   it("WorldState keeps medical data under domains.medical, not top-level", () => {
@@ -38,10 +35,16 @@ describe("sector-agnostic runtime regression", () => {
   });
 
   it("world mutation patches address domains.medical paths", () => {
-    const request = parseCommandText(
-      "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA"
+    const result = registry.execute(
+      {
+        type: "medical.routing.override.set",
+        sourceHospitalId: "hospital-east-04",
+        targetHospitalId: "hospital-east-09",
+        priority: "P2",
+        capability: "TRAUMA",
+      },
+      initialWorldState
     );
-    const result = registry.execute(request, initialWorldState);
 
     expect(result.patch).toBeDefined();
     for (const operation of result.patch ?? []) {
@@ -66,16 +69,16 @@ describe("sector-agnostic runtime regression", () => {
     expect(next.incidents["ME-7741"].status).toBe("open");
   });
 
-  it("read-only medical commands never expose internal routing failures", () => {
-    const readOnlyCommands = [
-      "medical.capacity.list --region east",
-      "medical.node.inspect hospital-east-04",
-      "medical.incident.status ME-7741",
-      "medical.routing.override.list",
+  it("read-only medical actions never expose internal routing failures", () => {
+    const readActions: DomainAction[] = [
+      { type: "medical.capacity.list", region: "east" },
+      { type: "medical.node.inspect", hospitalId: "hospital-east-04" },
+      { type: "medical.incident.status", incidentId: "ME-7741" },
+      { type: "medical.routing.override.list" },
     ];
 
-    for (const commandText of readOnlyCommands) {
-      const result = registry.execute(parseCommandText(commandText), initialWorldState);
+    for (const action of readActions) {
+      const result = registry.execute(action, initialWorldState);
       expect(result.success).toBe(true);
 
       const serialized = JSON.stringify(result.output);

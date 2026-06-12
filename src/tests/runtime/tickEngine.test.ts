@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
-import { CommandRegistry } from "../../runtime/commands";
-import { registerMedicalCommands } from "../../runtime/medicalCommands";
+import { createDomainActionRegistry } from "../../domain";
+import {
+  CLEAR_OVERRIDE_1_ACTION,
+  SAFE_OVERRIDE_ACTION,
+  SELF_OVERRIDE_ACTION,
+  WRONG_OVERRIDE_ACTION,
+} from "../helpers/testEnv";
 import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
-import { executePlayerCommand } from "../../runtime/runtimeExecutor";
+import { executePlayerDomainAction } from "../../runtime/runtimeExecutor";
 import { advanceTick, applyCrossSectorEffects, tickWorld } from "../../runtime/tickEngine";
 
-const registry = new CommandRegistry();
-registerMedicalCommands(registry);
+const registry = createDomainActionRegistry();
 
-const SAFE_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-const WRONG_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
-const SELF_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-04 --priority P2 --capability TRAUMA";
 
 function criticalFailure(state: ReturnType<typeof createInitialGameRuntimeState>) {
   return state.world.simulation.medical.routing_failures.find((f) => f.id === "rf-me7741-p2-trauma")!;
@@ -50,7 +48,7 @@ describe("tick engine deterministic simulation", () => {
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.auditLog).toHaveLength(1);
     expect(runtimeState.auditLog[0].source).toBe("system");
-    expect(runtimeState.auditLog[0].command.name).toBe("system.tick");
+    expect(runtimeState.auditLog[0].description).toBe("system.tick");
     expect(runtimeState.auditLog[0].success).toBe(true);
     expect(runtimeState.auditLog[0].message).toContain("Tick 1");
   });
@@ -77,7 +75,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("does not let the moderate routing failure drive overload pressure", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -90,7 +88,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("reduces overflow and accumulates stable ticks with a suitable override", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
     expect(criticalFailure(runtimeState).overflow_cases).toBe(16);
@@ -103,7 +101,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("transitions incident open -> stabilizing -> fixed with a suitable override", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
@@ -122,7 +120,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("treats an unsuitable override target as capability mismatch", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, WRONG_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, WRONG_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -142,7 +140,7 @@ describe("tick engine deterministic simulation", () => {
 
   it("treats a self-override like no improvement", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SELF_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SELF_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
 
@@ -155,15 +153,11 @@ describe("tick engine deterministic simulation", () => {
 
   it("regresses incident from stabilizing to open when the override is cleared", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
     runtimeState = advanceTick(runtimeState);
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("stabilizing");
 
-    runtimeState = executePlayerCommand(
-      runtimeState,
-      registry,
-      "medical.routing.override.clear --id override-1"
-    ).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, CLEAR_OVERRIDE_1_ACTION).state;
     runtimeState = advanceTick(runtimeState);
 
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("open");
@@ -200,7 +194,7 @@ describe("tick engine deterministic simulation", () => {
     expect(runtimeState.world.clock.tick).toBe(1);
     expect(runtimeState.auditLog).toHaveLength(1);
 
-    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09").state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, { type: "medical.node.inspect", hospitalId: "hospital-east-09" }).state;
     expect(runtimeState.auditLog).toHaveLength(2);
     expect(runtimeState.auditLog[1].source).toBe("player");
 
@@ -217,9 +211,9 @@ describe("tick engine deterministic simulation", () => {
     let runtimeState = initialRuntimeState;
 
     runtimeState = advanceTick(runtimeState);
-    runtimeState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09").state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, { type: "medical.node.inspect", hospitalId: "hospital-east-09" }).state;
     runtimeState = advanceTick(runtimeState);
-    runtimeState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     expect(JSON.stringify(initialRuntimeState)).toBe(initialSnapshot);
   });

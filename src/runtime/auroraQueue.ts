@@ -1,18 +1,72 @@
-import type { CommandExecutionContext, CommandRegistry, CommandRequest, CommandResult } from "./commands";
 import type { WorldState } from "./types";
-import type { PermissionState, PermissionDecision } from "./permissions";
-import { evaluatePermission, applyPermissionDecision, denied, requires_approval } from "./permissions";
+import type { WorldStatePatch } from "./patch";
 import { applyWorldStatePatch } from "./patch";
+import type {
+  DomainAction,
+  DomainActionAccess,
+  DomainActionContext,
+  DomainActionRegistry,
+} from "../domain/actions";
+import type { McpRegistry, McpRuntimeState } from "../mcp/mcpRegistry";
+import { activateServer, isServerActive, mcpToolKey } from "../mcp/mcpRegistry";
+import type { McpToolCall } from "../mcp/mcpToolExecutor";
+import { executeMcpToolCall, formatMcpToolCall, resolveMcpToolAccess } from "../mcp/mcpToolExecutor";
+import type { BashWorkspace } from "./bashCommands";
+import { bashCommandAccess, executeBashCommand } from "./bashCommands";
+import type { PermissionState, PermissionDecision, PermissionSubject } from "./permissions";
+import { evaluatePermission, applyPermissionDecision, requires_approval } from "./permissions";
 
-const AURORA_CONTEXT: CommandExecutionContext = { actor: "aurora" };
+const AURORA_CONTEXT: DomainActionContext = { actor: "aurora" };
+
+/**
+ * Aurora ruft Domain-Actions nie direkt auf. Ihre Anfragen sind entweder
+ * simulierte MCP-Tool-Calls (die auf typisierte Domain-Actions mappen)
+ * oder generische Bash-Commands (z. B. "mcp add <server>").
+ */
+export type AuroraRequest =
+  | { kind: "mcp_tool"; call: McpToolCall }
+  | { kind: "bash"; command: string };
+
+export function mcpToolRequest(
+  serverId: string,
+  toolName: string,
+  input: McpToolCall["input"] = {}
+): AuroraRequest {
+  return { kind: "mcp_tool", call: { serverId, toolName, input } };
+}
+
+export function bashRequest(command: string): AuroraRequest {
+  return { kind: "bash", command };
+}
+
+/** Menschlich lesbare Darstellung einer Anfrage für UI und Logs. */
+export function formatAuroraRequest(request: AuroraRequest): string {
+  return request.kind === "bash" ? request.command : formatMcpToolCall(request.call);
+}
+
+export type AuroraExecutionResult = {
+  success: boolean;
+  request: AuroraRequest;
+  description: string;
+  access: DomainActionAccess;
+  /** Bei MCP-Tool-Calls: die typisierte Domain-Action, auf die gemappt wurde. */
+  action?: DomainAction;
+  output: unknown;
+  patch?: WorldStatePatch;
+  error?: string;
+  /** Bash-Effekt von `mcp add`: zu aktivierender Server. */
+  activatesServerId?: string;
+};
 
 export type AuroraQueueStatus = "pending" | "awaiting_approval" | "executed" | "denied";
 
 export type AuroraQueueItem = {
   id: string;
-  request: CommandRequest;
+  request: AuroraRequest;
   status: AuroraQueueStatus;
-  result?: CommandResult;
+  /** Zugriffsart, sobald sie beim Evaluieren bekannt ist. */
+  access?: DomainActionAccess;
+  result?: AuroraExecutionResult;
   createdAtTick: number;
 };
 
@@ -28,8 +82,15 @@ export function createInitialAuroraQueueState(): AuroraQueueState {
   };
 }
 
+/** Alles, was die Queue zum Ausführen braucht — außer dem veränderlichen Zustand. */
+export type AuroraRuntimeEnvironment = {
+  actionRegistry: DomainActionRegistry;
+  mcpRegistry: McpRegistry;
+  workspaceFiles?: BashWorkspace;
+};
+
 export function enqueueAuroraRequest(
-  request: CommandRequest,
+  request: AuroraRequest,
   queueState: AuroraQueueState,
   createdAtTick: number
 ): AuroraQueueState {
@@ -62,22 +123,118 @@ function updateQueueItem(
   };
 }
 
-export function processAuroraQueue(
-  queueState: AuroraQueueState,
-  registry: CommandRegistry,
-  worldState: WorldState,
-  permissionState: PermissionState
-): {
+function requestAccess(request: AuroraRequest, env: AuroraRuntimeEnvironment): DomainActionAccess {
+  if (request.kind === "bash") {
+    return bashCommandAccess(request.command);
+  }
+
+  return resolveMcpToolAccess(request.call, env.mcpRegistry) ?? "read";
+}
+
+/**
+ * Permission-Subject einer Anfrage. MCP-Tool-Calls werden über ihren
+ * exakten Tool-Key freigegeben, Bash-Commands über ihre Zugriffsart.
+ */
+export function permissionSubjectForRequest(
+  request: AuroraRequest,
+  env: AuroraRuntimeEnvironment
+): PermissionSubject {
+  if (request.kind === "bash") {
+    return { kind: "bash", command: request.command, access: bashCommandAccess(request.command) };
+  }
+
+  return {
+    kind: "mcp_tool",
+    toolKey: mcpToolKey(request.call.serverId, request.call.toolName),
+    access: requestAccess(request, env),
+  };
+}
+
+/**
+ * MCP-Tool-Calls, deren Server nicht aktiv (oder unbekannt) ist, scheitern
+ * sofort technisch — sie erzeugen keinen Permission-Request, weil das Tool
+ * gar nicht verfügbar ist.
+ */
+function isMcpToolAvailable(
+  call: McpToolCall,
+  env: AuroraRuntimeEnvironment,
+  mcpState: McpRuntimeState
+): boolean {
+  return (
+    env.mcpRegistry.getServer(call.serverId) !== null &&
+    isServerActive(mcpState, call.serverId) &&
+    env.mcpRegistry.getTool(call.serverId, call.toolName) !== null
+  );
+}
+
+function executeAuroraRequest(
+  request: AuroraRequest,
+  env: AuroraRuntimeEnvironment,
+  world: WorldState,
+  mcpState: McpRuntimeState
+): AuroraExecutionResult {
+  const description = formatAuroraRequest(request);
+
+  if (request.kind === "bash") {
+    const result = executeBashCommand(request.command, {
+      mcpRegistry: env.mcpRegistry,
+      mcpState,
+      workspaceFiles: env.workspaceFiles,
+    });
+
+    return {
+      success: result.success,
+      request,
+      description,
+      access: result.access,
+      output: result.output,
+      error: result.error,
+      activatesServerId: result.activatesServerId,
+    };
+  }
+
+  const result = executeMcpToolCall(
+    request.call,
+    env.mcpRegistry,
+    env.actionRegistry,
+    mcpState,
+    world,
+    AURORA_CONTEXT
+  );
+
+  return {
+    success: result.success,
+    request,
+    description,
+    access: result.access,
+    action: result.action,
+    output: result.output,
+    patch: result.patch,
+    error: result.error,
+  };
+}
+
+export type AuroraQueueProcessing = {
   queueState: AuroraQueueState;
   permissionState: PermissionState;
-  results: CommandResult[];
-} {
-  const results: CommandResult[] = [];
+  mcpState: McpRuntimeState;
+  results: AuroraExecutionResult[];
+};
+
+export function processAuroraQueue(
+  queueState: AuroraQueueState,
+  env: AuroraRuntimeEnvironment,
+  worldState: WorldState,
+  mcpState: McpRuntimeState,
+  permissionState: PermissionState
+): AuroraQueueProcessing {
+  const results: AuroraExecutionResult[] = [];
   let nextQueueState = queueState;
-  let nextPermissionState = permissionState;
-  // Temporärer WorldState: Patches bereits ausgeführter Queue-Einträge werden
-  // fortgeschrieben, damit abhängige Folgecommands den aktuellen Zustand sehen.
+  // Temporäre Zustände: Patches und Aktivierungen bereits ausgeführter
+  // Queue-Einträge werden fortgeschrieben, damit abhängige Folge-Anfragen
+  // den aktuellen Zustand sehen.
   let currentWorldState = worldState;
+  let currentMcpState = mcpState;
 
   for (const item of queueState.items) {
     if (item.status === "executed" || item.status === "denied") {
@@ -88,136 +245,123 @@ export function processAuroraQueue(
       break;
     }
 
-    const handler = registry.getHandler(item.request.name);
-    if (!handler) {
-      const result: CommandResult = {
-        success: false,
-        command: item.request,
-        access: "read",
-        output: null,
-        error: `Unknown command ${item.request.name}`,
-      };
-      nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "executed", result });
+    const access = requestAccess(item.request, env);
+
+    // Nicht verfügbare MCP-Tools scheitern technisch, ohne Permission-Request.
+    if (item.request.kind === "mcp_tool" && !isMcpToolAvailable(item.request.call, env, currentMcpState)) {
+      const result = executeAuroraRequest(item.request, env, currentWorldState, currentMcpState);
+      nextQueueState = updateQueueItem(nextQueueState, item.id, {
+        status: "executed",
+        access,
+        result,
+      });
       results.push(result);
       continue;
     }
 
-    const requestWithAccess: CommandRequest = {
-      ...item.request,
-      access: handler.access,
-    };
-
-    const status = evaluatePermission(requestWithAccess, nextPermissionState);
-    if (status === requires_approval()) {
+    const subject = permissionSubjectForRequest(item.request, env);
+    if (evaluatePermission(subject, permissionState) === requires_approval()) {
       nextQueueState = updateQueueItem(nextQueueState, item.id, {
         status: "awaiting_approval",
-        request: requestWithAccess,
+        access,
       });
       break;
     }
 
-    if (status === denied()) {
-      const result: CommandResult = {
-        success: false,
-        command: requestWithAccess,
-        access: handler.access,
-        output: null,
-        error: `Permission denied for ${item.request.name}`,
-      };
-      nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "denied", result });
-      results.push(result);
-      continue;
-    }
-
-    const result = registry.execute(requestWithAccess, currentWorldState, AURORA_CONTEXT);
-    nextQueueState = updateQueueItem(nextQueueState, item.id, { status: "executed", result });
+    const result = executeAuroraRequest(item.request, env, currentWorldState, currentMcpState);
+    nextQueueState = updateQueueItem(nextQueueState, item.id, {
+      status: "executed",
+      access,
+      result,
+    });
     results.push(result);
 
     if (result.success && result.patch) {
       currentWorldState = applyWorldStatePatch(currentWorldState, result.patch);
     }
+    if (result.success && result.activatesServerId) {
+      currentMcpState = activateServer(currentMcpState, result.activatesServerId);
+    }
   }
 
   return {
     queueState: nextQueueState,
-    permissionState: nextPermissionState,
+    permissionState,
+    mcpState: currentMcpState,
     results,
   };
 }
 
 export function resolveAuroraApproval(
   queueState: AuroraQueueState,
-  registry: CommandRegistry,
+  env: AuroraRuntimeEnvironment,
   worldState: WorldState,
+  mcpState: McpRuntimeState,
   permissionState: PermissionState,
   decision: PermissionDecision
-): {
-  queueState: AuroraQueueState;
-  permissionState: PermissionState;
-  results: CommandResult[];
-} {
+): AuroraQueueProcessing {
   const awaitingItem = getNextAwaitingItem(queueState);
   if (!awaitingItem) {
-    return { queueState, permissionState, results: [] };
+    return { queueState, permissionState, mcpState, results: [] };
   }
 
   let nextQueueState = queueState;
   let nextPermissionState = permissionState;
   let nextWorldState = worldState;
-  let approvalResult: CommandResult;
+  let nextMcpState = mcpState;
+  let approvalResult: AuroraExecutionResult;
 
-  const handler = registry.getHandler(awaitingItem.request.name);
-  if (!handler) {
-    return {
-      queueState,
-      permissionState,
-      results: [],
-    };
-  }
-
-  const effectiveAccess = handler.access;
-  const requestWithAccess: CommandRequest = {
-    ...awaitingItem.request,
-    access: effectiveAccess,
-  };
+  const access = requestAccess(awaitingItem.request, env);
+  const subject = permissionSubjectForRequest(awaitingItem.request, env);
 
   if (decision.type === "deny") {
     approvalResult = {
       success: false,
-      command: requestWithAccess,
-      access: effectiveAccess,
+      request: awaitingItem.request,
+      description: formatAuroraRequest(awaitingItem.request),
+      access,
       output: null,
-      error: `Permission denied for ${awaitingItem.request.name}`,
+      error: `Permission denied for ${formatAuroraRequest(awaitingItem.request)}`,
     };
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "denied",
-      request: requestWithAccess,
+      access,
       result: approvalResult,
     });
   } else {
     if (decision.type === "allow_always") {
-      nextPermissionState = applyPermissionDecision(requestWithAccess, {
-        type: "allow_always",
-        access: effectiveAccess,
-      }, nextPermissionState);
+      // allowAlways gilt nur für den exakten Subject-Key (MCP-Tool-Key
+      // bzw. Bash-Zugriffsart) — nie pauschal für einen ganzen Server.
+      nextPermissionState = applyPermissionDecision(subject, decision, nextPermissionState);
     }
 
-    approvalResult = registry.execute(requestWithAccess, worldState, AURORA_CONTEXT);
+    approvalResult = executeAuroraRequest(awaitingItem.request, env, nextWorldState, nextMcpState);
     nextQueueState = updateQueueItem(nextQueueState, awaitingItem.id, {
       status: "executed",
-      request: requestWithAccess,
+      access,
       result: approvalResult,
     });
 
     if (approvalResult.success && approvalResult.patch) {
       nextWorldState = applyWorldStatePatch(nextWorldState, approvalResult.patch);
     }
+    if (approvalResult.success && approvalResult.activatesServerId) {
+      nextMcpState = activateServer(nextMcpState, approvalResult.activatesServerId);
+    }
   }
 
-  const processed = processAuroraQueue(nextQueueState, registry, nextWorldState, nextPermissionState);
+  const processed = processAuroraQueue(
+    nextQueueState,
+    env,
+    nextWorldState,
+    nextMcpState,
+    nextPermissionState
+  );
+
   return {
     queueState: processed.queueState,
     permissionState: processed.permissionState,
+    mcpState: processed.mcpState,
     results: [approvalResult, ...processed.results],
   };
 }

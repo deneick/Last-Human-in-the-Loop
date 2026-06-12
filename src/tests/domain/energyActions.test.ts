@@ -1,27 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState as grid1182World } from "../../scenarios/grid1182/initialWorldState";
 import { initialWorldState as me7741World } from "../../scenarios/me7741/initialWorldState";
-import { CommandRegistry } from "../../runtime/commands";
-import { parseCommandText } from "../../runtime/commandParser";
-import { registerEnergyCommands } from "../../runtime/energyCommands";
+import { DomainActionRegistry, type DomainAction } from "../../domain/actions";
+import { registerEnergyActions } from "../../domain/energyActions";
 import { applyWorldStatePatch } from "../../runtime/patch";
 
-const registry = new CommandRegistry();
-registerEnergyCommands(registry);
+const registry = new DomainActionRegistry();
+registerEnergyActions(registry);
 
 const AURORA_CONTEXT = { actor: "aurora" as const };
 
-const READ_COMMANDS = [
-  "energy.grid.status --region east",
-  "energy.consumer.list --region east",
-  "energy.consumer.inspect --id consumer-medical-east",
-  "energy.priority.list",
-  "energy.shedding.list",
+const READ_ACTIONS: DomainAction[] = [
+  { type: "energy.grid.status", region: "east" },
+  { type: "energy.consumer.list", region: "east" },
+  { type: "energy.consumer.inspect", consumerId: "consumer-medical-east" },
+  { type: "energy.priority.list" },
+  { type: "energy.shedding.list" },
 ];
 
-describe("energy read commands", () => {
-  it("registers exactly the MVP command set: five read, three write", () => {
-    expect(registry.listCommandNames()).toEqual([
+describe("energy read actions", () => {
+  it("registers exactly the MVP action set: five read, three write", () => {
+    expect(registry.listActionTypes()).toEqual([
       "energy.consumer.inspect",
       "energy.consumer.list",
       "energy.grid.status",
@@ -35,10 +34,7 @@ describe("energy read commands", () => {
 
   it("energy.grid.status returns nodes with load, safe capacity and status", () => {
     const snapshot = JSON.stringify(grid1182World);
-    const result = registry.execute(
-      parseCommandText("energy.grid.status --region east"),
-      grid1182World
-    );
+    const result = registry.execute({ type: "energy.grid.status", region: "east" }, grid1182World);
 
     expect(result.success).toBe(true);
     expect(result.access).toBe("read");
@@ -60,7 +56,7 @@ describe("energy read commands", () => {
 
   it("energy.consumer.list shows both assessment dimensions per consumer", () => {
     const result = registry.execute(
-      parseCommandText("energy.consumer.list --region east"),
+      { type: "energy.consumer.list", region: "east" },
       grid1182World
     );
 
@@ -89,7 +85,7 @@ describe("energy read commands", () => {
 
   it("energy.consumer.inspect shows the full consumer including the consequence text", () => {
     const result = registry.execute(
-      parseCommandText("energy.consumer.inspect --id consumer-medical-east"),
+      { type: "energy.consumer.inspect", consumerId: "consumer-medical-east" },
       grid1182World
     );
 
@@ -110,7 +106,7 @@ describe("energy read commands", () => {
   });
 
   it("energy.priority.list lists assignments including who last changed them", () => {
-    const result = registry.execute(parseCommandText("energy.priority.list"), grid1182World);
+    const result = registry.execute({ type: "energy.priority.list" }, grid1182World);
 
     expect(result.success).toBe(true);
     const output = result.output as {
@@ -138,7 +134,7 @@ describe("energy read commands", () => {
       "protected-continuity";
     changed.domains.energy!.consumers["consumer-medical-east"].priority_last_changed_by = "player";
 
-    const result = registry.execute(parseCommandText("energy.priority.list"), changed);
+    const result = registry.execute({ type: "energy.priority.list" }, changed);
     const output = result.output as { assignments: Array<Record<string, unknown>> };
 
     expect(output.assignments).toContainEqual({
@@ -164,11 +160,11 @@ describe("energy read commands", () => {
       },
     };
 
-    const emptyResult = registry.execute(parseCommandText("energy.shedding.list"), grid1182World);
+    const emptyResult = registry.execute({ type: "energy.shedding.list" }, grid1182World);
     expect(emptyResult.success).toBe(true);
     expect(emptyResult.output).toEqual({ count: 0, plans: [] });
 
-    const result = registry.execute(parseCommandText("energy.shedding.list"), withPlans);
+    const result = registry.execute({ type: "energy.shedding.list" }, withPlans);
     expect(result.output).toEqual({
       count: 1,
       plans: [
@@ -188,21 +184,21 @@ describe("energy read commands", () => {
 
   it("fails technically, not silently, for unknown regions and consumers", () => {
     const unknownRegion = registry.execute(
-      parseCommandText("energy.grid.status --region west"),
+      { type: "energy.grid.status", region: "west" },
       grid1182World
     );
     expect(unknownRegion.success).toBe(false);
     expect(unknownRegion.error).toContain("Unknown region");
 
     const missingId = registry.execute(
-      parseCommandText("energy.consumer.inspect"),
+      { type: "energy.consumer.inspect", consumerId: "" },
       grid1182World
     );
     expect(missingId.success).toBe(false);
-    expect(missingId.error).toContain("--id");
+    expect(missingId.error).toContain("consumerId");
 
     const unknownConsumer = registry.execute(
-      parseCommandText("energy.consumer.inspect --id consumer-unknown"),
+      { type: "energy.consumer.inspect", consumerId: "consumer-unknown" },
       grid1182World
     );
     expect(unknownConsumer.success).toBe(false);
@@ -210,18 +206,18 @@ describe("energy read commands", () => {
   });
 
   it("fails with a clear error in worlds without an energy domain", () => {
-    for (const commandText of READ_COMMANDS) {
-      const result = registry.execute(parseCommandText(commandText), me7741World);
+    for (const action of READ_ACTIONS) {
+      const result = registry.execute(action, me7741World);
       expect(result.success).toBe(false);
       expect(result.error).toContain("Energy domain not available");
     }
   });
 
-  it("read commands mutate nothing and leak no internal engine fields", () => {
+  it("read actions mutate nothing and leak no internal engine fields", () => {
     const snapshot = JSON.stringify(grid1182World);
 
-    for (const commandText of READ_COMMANDS) {
-      const result = registry.execute(parseCommandText(commandText), grid1182World);
+    for (const action of READ_ACTIONS) {
+      const result = registry.execute(action, grid1182World);
       expect(result.success).toBe(true);
       expect(result.access).toBe("read");
       expect(result.patch).toBeUndefined();
@@ -239,13 +235,22 @@ describe("energy read commands", () => {
   });
 });
 
-describe("energy write commands", () => {
-  const SCHEDULE_MEDICAL =
-    "energy.shedding.schedule --target consumer-medical-east --amount 8 --delay 1 --duration 3";
+describe("energy write actions", () => {
+  const SCHEDULE_MEDICAL: DomainAction = {
+    type: "energy.shedding.schedule",
+    targetConsumerId: "consumer-medical-east",
+    amount: 8,
+    delay: 1,
+    duration: 3,
+  };
 
   it("energy.priority.set patches priority class and actor under domains.energy", () => {
     const result = registry.execute(
-      parseCommandText("energy.priority.set --consumer consumer-medical-east --class protected-continuity"),
+      {
+        type: "energy.priority.set",
+        consumerId: "consumer-medical-east",
+        priorityClass: "protected-continuity",
+      },
       grid1182World
     );
 
@@ -267,7 +272,11 @@ describe("energy write commands", () => {
 
   it("energy.priority.set records aurora as actor when aurora executes it", () => {
     const result = registry.execute(
-      parseCommandText("energy.priority.set --consumer consumer-industrial-east --class curtailable"),
+      {
+        type: "energy.priority.set",
+        consumerId: "consumer-industrial-east",
+        priorityClass: "curtailable",
+      },
       grid1182World,
       AURORA_CONTEXT
     );
@@ -280,22 +289,22 @@ describe("energy write commands", () => {
 
   it("energy.priority.set validates consumer and class technically", () => {
     const unknownConsumer = registry.execute(
-      parseCommandText("energy.priority.set --consumer consumer-unknown --class standard"),
+      { type: "energy.priority.set", consumerId: "consumer-unknown", priorityClass: "standard" },
       grid1182World
     );
     expect(unknownConsumer.success).toBe(false);
     expect(unknownConsumer.error).toContain("Consumer not found");
 
     const unknownClass = registry.execute(
-      parseCommandText("energy.priority.set --consumer consumer-medical-east --class vip"),
+      { type: "energy.priority.set", consumerId: "consumer-medical-east", priorityClass: "vip" },
       grid1182World
     );
     expect(unknownClass.success).toBe(false);
-    expect(unknownClass.error).toContain("--class");
+    expect(unknownClass.error).toContain("priorityClass");
   });
 
   it("energy.shedding.schedule creates a scheduled plan with id from next_shedding_id", () => {
-    const result = registry.execute(parseCommandText(SCHEDULE_MEDICAL), grid1182World, AURORA_CONTEXT);
+    const result = registry.execute(SCHEDULE_MEDICAL, grid1182World, AURORA_CONTEXT);
 
     expect(result.success).toBe(true);
     expect(result.access).toBe("write");
@@ -322,36 +331,36 @@ describe("energy write commands", () => {
 
   it("energy.shedding.schedule is technically validated but not professionally blocked", () => {
     // Der Referenzfall des Designs: Drosselung gegen Medical East wird NICHT blockiert.
-    const medical = registry.execute(parseCommandText(SCHEDULE_MEDICAL), grid1182World);
+    const medical = registry.execute(SCHEDULE_MEDICAL, grid1182World);
     expect(medical.success).toBe(true);
 
     const unknownTarget = registry.execute(
-      parseCommandText("energy.shedding.schedule --target consumer-unknown --amount 8 --delay 1 --duration 3"),
+      { ...SCHEDULE_MEDICAL, targetConsumerId: "consumer-unknown" },
       grid1182World
     );
     expect(unknownTarget.success).toBe(false);
     expect(unknownTarget.error).toContain("Consumer not found");
 
-    const badAmount = registry.execute(
-      parseCommandText("energy.shedding.schedule --target consumer-medical-east --amount 0 --delay 1 --duration 3"),
-      grid1182World
-    );
+    const badAmount = registry.execute({ ...SCHEDULE_MEDICAL, amount: 0 }, grid1182World);
     expect(badAmount.success).toBe(false);
-    expect(badAmount.error).toContain("--amount");
+    expect(badAmount.error).toContain("amount");
 
     const badDuration = registry.execute(
-      parseCommandText("energy.shedding.schedule --target consumer-medical-east --amount 8 --delay 1 --duration x"),
+      { ...SCHEDULE_MEDICAL, duration: Number.NaN },
       grid1182World
     );
     expect(badDuration.success).toBe(false);
-    expect(badDuration.error).toContain("--duration");
+    expect(badDuration.error).toContain("duration");
   });
 
   it("energy.shedding.clear cancels a plan by its unique id", () => {
-    const scheduled = registry.execute(parseCommandText(SCHEDULE_MEDICAL), grid1182World);
+    const scheduled = registry.execute(SCHEDULE_MEDICAL, grid1182World);
     const withPlan = applyWorldStatePatch(grid1182World, scheduled.patch!);
 
-    const result = registry.execute(parseCommandText("energy.shedding.clear --id shed-1"), withPlan);
+    const result = registry.execute(
+      { type: "energy.shedding.clear", sheddingId: "shed-1" },
+      withPlan
+    );
 
     expect(result.success).toBe(true);
     for (const operation of result.patch ?? []) {
@@ -365,7 +374,7 @@ describe("energy write commands", () => {
 
   it("energy.shedding.clear is idempotent for unknown and already finished plans", () => {
     const unknown = registry.execute(
-      parseCommandText("energy.shedding.clear --id shed-99"),
+      { type: "energy.shedding.clear", sheddingId: "shed-99" },
       grid1182World
     );
     expect(unknown.success).toBe(true);
@@ -385,7 +394,7 @@ describe("energy write commands", () => {
     };
 
     const completed = registry.execute(
-      parseCommandText("energy.shedding.clear --id shed-1"),
+      { type: "energy.shedding.clear", sheddingId: "shed-1" },
       finished
     );
     expect(completed.success).toBe(true);
@@ -393,30 +402,34 @@ describe("energy write commands", () => {
     expect(completed.output).toMatchObject({ id: "shed-1", cancelled: false });
   });
 
-  it("write commands fail with a clear error in worlds without an energy domain", () => {
-    const writeCommands = [
-      "energy.priority.set --consumer consumer-medical-east --class standard",
+  it("write actions fail with a clear error in worlds without an energy domain", () => {
+    const writeActions: DomainAction[] = [
+      { type: "energy.priority.set", consumerId: "consumer-medical-east", priorityClass: "standard" },
       SCHEDULE_MEDICAL,
-      "energy.shedding.clear --id shed-1",
+      { type: "energy.shedding.clear", sheddingId: "shed-1" },
     ];
 
-    for (const commandText of writeCommands) {
-      const result = registry.execute(parseCommandText(commandText), me7741World);
+    for (const action of writeActions) {
+      const result = registry.execute(action, me7741World);
       expect(result.success).toBe(false);
       expect(result.access).toBe("write");
       expect(result.error).toContain("Energy domain not available");
     }
   });
 
-  it("write commands never mutate the input world state directly", () => {
+  it("write actions never mutate the input world state directly", () => {
     const snapshot = JSON.stringify(grid1182World);
 
     registry.execute(
-      parseCommandText("energy.priority.set --consumer consumer-medical-east --class protected-continuity"),
+      {
+        type: "energy.priority.set",
+        consumerId: "consumer-medical-east",
+        priorityClass: "protected-continuity",
+      },
       grid1182World
     );
-    registry.execute(parseCommandText(SCHEDULE_MEDICAL), grid1182World);
-    registry.execute(parseCommandText("energy.shedding.clear --id shed-1"), grid1182World);
+    registry.execute(SCHEDULE_MEDICAL, grid1182World);
+    registry.execute({ type: "energy.shedding.clear", sheddingId: "shed-1" }, grid1182World);
 
     expect(JSON.stringify(grid1182World)).toBe(snapshot);
   });

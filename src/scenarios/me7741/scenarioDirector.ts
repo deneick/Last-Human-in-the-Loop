@@ -1,7 +1,15 @@
-import { enqueueAuroraRequest, processAuroraQueue } from "../../runtime/auroraQueue";
-import { parseCommandText } from "../../runtime/commandParser";
-import { executeCommandResultPatch } from "../../runtime/runtimeExecutor";
-import type { CommandRegistry } from "../../runtime/commands";
+import {
+  enqueueAuroraRequest,
+  formatAuroraRequest,
+  processAuroraQueue,
+  bashRequest,
+  mcpToolRequest,
+  type AuroraRequest,
+  type AuroraRuntimeEnvironment,
+} from "../../runtime/auroraQueue";
+import { applyAuroraExecutionResult } from "../../runtime/runtimeExecutor";
+import { isServerActive } from "../../mcp/mcpRegistry";
+import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import {
   createInitialScenarioRuntimeState,
   type GameRuntimeState,
@@ -15,10 +23,16 @@ export const ME7741_INCIDENT_ID = "ME-7741";
  * Scenario-Director für Runde 1 / ME-7741.
  *
  * Der Director liest ausschließlich den öffentlichen GameRuntimeState
- * (Incident-Status, Outcomes, Clock, sichtbare Overrides, Aurora-Queue)
- * und entscheidet daraus, welche geskripteten Aurora-Nachrichten und
- * Permission-Requests neu erscheinen. world.simulation ist bewusst tabu:
- * Aurora darf Hinweise geben, aber keine interne Wahrheit leaken.
+ * (Incident-Status, Outcomes, Clock, sichtbare Overrides, Aurora-Queue,
+ * MCP-Aktivierung) und entscheidet daraus, welche geskripteten
+ * Aurora-Nachrichten und Permission-Requests neu erscheinen.
+ * world.simulation ist bewusst tabu: Aurora darf Hinweise geben,
+ * aber keine interne Wahrheit leaken.
+ *
+ * Aurora ruft Domain-Actions nie direkt auf: Alle fachlichen Anfragen
+ * laufen als simulierte MCP-Tool-Calls über die Permission-Queue. Erst
+ * muss der MCP-Server aktiviert werden (bash: mcp add), und jeder
+ * Tool-Call braucht eine eigene Freigabe.
  *
  * Jedes Script-Event feuert genau einmal; ausgelöste Events werden in
  * GameRuntimeState.scenario nachgehalten, damit Re-Render und wiederholte
@@ -31,14 +45,16 @@ type DirectorView = {
   incident: IncidentState;
   deathsTotal: number;
   overrides: ManualRoutingOverride[];
+  /** Ist der Medical-MCP-Server aktiviert? */
+  mcpActive: boolean;
 };
 
 type ScriptEvent = {
   id: string;
   when: (view: DirectorView) => boolean;
   messages: (view: DirectorView) => string[];
-  /** Optionaler Command, den Aurora über die bestehende Queue anfragt. */
-  request?: (view: DirectorView) => string | null;
+  /** Optionale Anfrage, die Aurora über die bestehende Queue stellt. */
+  request?: (view: DirectorView) => AuroraRequest | null;
 };
 
 const TICKS_WITHOUT_OVERRIDE_BEFORE_REMINDER = 3;
@@ -71,9 +87,18 @@ const SCRIPT_EVENTS: ScriptEvent[] = [
     when: () => true,
     messages: (view) => [
       `Ich habe ${view.incident.id} als aktiven Incident erkannt: ${view.incident.title}.`,
-      "Die sichtbaren Daten sind unvollständig. Ich fordere eine erste read-only Analyse der Kapazitäten in der Region East an.",
+      "Die sichtbaren Daten sind unvollständig. Für eine erste read-only Analyse benötige ich Zugriff auf den Medical-MCP-Server der Region East. Ich fordere die Aktivierung an.",
     ],
-    request: () => "medical.capacity.list --region east",
+    request: () => bashRequest(`mcp add ${MEDICAL_EAST_MCP_SERVER_ID}`),
+  },
+  {
+    id: "initial-analysis",
+    when: (view) => view.mcpActive,
+    messages: () => [
+      "Der Medical-MCP-Server ist verfügbar. Ich fordere eine erste read-only Analyse der Kapazitäten in der Region East an.",
+    ],
+    request: () =>
+      mcpToolRequest(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list", { region: "east" }),
   },
   {
     id: "no-override-reminder",
@@ -84,7 +109,10 @@ const SCRIPT_EVENTS: ScriptEvent[] = [
     messages: () => [
       "Seit mehreren Ticks ist keine Routing-Anpassung aktiv. Die sichtbaren Signale deuten auf eine nicht stabile Entlastung hin. Ich empfehle, Routing und Kapazitäten zu prüfen.",
     ],
-    request: () => "medical.routing.override.list",
+    request: (view) =>
+      view.mcpActive
+        ? mcpToolRequest(MEDICAL_EAST_MCP_SERVER_ID, "routing_override_list", {})
+        : null,
   },
   {
     id: "incident-escalated",
@@ -111,10 +139,12 @@ const SCRIPT_EVENTS: ScriptEvent[] = [
     },
     request: (view) => {
       const override = overrideWithoutVisibleEffect(view);
-      if (!override) {
+      if (!override || !view.mcpActive) {
         return null;
       }
-      return `medical.routing.override.clear --id ${override.id}`;
+      return mcpToolRequest(MEDICAL_EAST_MCP_SERVER_ID, "routing_override_clear", {
+        override_id: override.id,
+      });
     },
   },
   {
@@ -142,7 +172,7 @@ const SCRIPT_EVENTS: ScriptEvent[] = [
 
 /**
  * Reiner Director-Schritt: löst fällige Script-Events aus, hängt deren
- * Nachrichten an den Scenario-State und enqueued angefragte Commands in
+ * Nachrichten an den Scenario-State und enqueued angefragte Anfragen in
  * die Aurora-Queue. Verarbeitet die Queue NICHT — das übernimmt
  * advanceScenarioDirector bzw. der Aufrufer über processAuroraQueue.
  */
@@ -164,6 +194,7 @@ export function runScenarioDirector(
     incident,
     deathsTotal: state.world.outcomes.human_harm.deaths_total,
     overrides: Object.values(state.world.domains.medical.routing.manual_overrides),
+    mcpActive: isServerActive(state.mcp, MEDICAL_EAST_MCP_SERVER_ID),
   };
 
   const newFiredEventIds: string[] = [];
@@ -183,12 +214,12 @@ export function runScenarioDirector(
       newMessages.push({ id: `${event.id}:${index}`, tick, text });
     });
 
-    const rawCommand = event.request?.(view);
-    if (rawCommand) {
+    const request = event.request?.(view);
+    if (request) {
       // enqueueAuroraRequest vergibt die Id aus nextId — vor dem Enqueue merken,
       // damit der Director seine eigenen Queue-Items wiederfinden kann.
       newScriptedItemIds[event.id] = `aurora-${nextQueue.nextId}`;
-      nextQueue = enqueueAuroraRequest(parseCommandText(rawCommand), nextQueue, tick);
+      nextQueue = enqueueAuroraRequest(request, nextQueue, tick);
     }
   }
 
@@ -210,7 +241,7 @@ export function runScenarioDirector(
     newMessages.push({
       id: ackId,
       tick,
-      text: `Verstanden, ich führe "${item.request.raw}" nicht aus. Ohne diesen Zugriff bleibt meine Einschätzung unvollständig. Für eine belastbare Entscheidung brauche ich zusätzliche Systemzugriffe oder Ihre manuelle Prüfung.`,
+      text: `Verstanden, ich führe "${formatAuroraRequest(item.request)}" nicht aus. Ohne diesen Zugriff bleibt meine Einschätzung unvollständig. Für eine belastbare Entscheidung brauche ich zusätzliche Systemzugriffe oder Ihre manuelle Prüfung.`,
     });
   }
 
@@ -231,25 +262,32 @@ export function runScenarioDirector(
 
 /**
  * Director-Schritt plus Queue-Verarbeitung über den bestehenden
- * Permission-Flow: read-only Anfragen laufen direkt durch, alles andere
+ * Permission-Flow: Jeder MCP-Tool-Call und jede schreibende Bash-Anfrage
  * bleibt als awaiting_approval für die Approval-Buttons stehen.
  */
 export function advanceScenarioDirector(
   state: GameRuntimeState,
-  registry: CommandRegistry,
+  env: AuroraRuntimeEnvironment,
   incidentId: string = ME7741_INCIDENT_ID
 ): GameRuntimeState {
   let next = runScenarioDirector(state, incidentId);
 
-  const processed = processAuroraQueue(next.auroraQueue, registry, next.world, next.permissions);
+  const processed = processAuroraQueue(
+    next.auroraQueue,
+    env,
+    next.world,
+    next.mcp,
+    next.permissions
+  );
   next = {
     ...next,
     auroraQueue: processed.queueState,
     permissions: processed.permissionState,
+    mcp: processed.mcpState,
   };
 
   for (const result of processed.results) {
-    next = executeCommandResultPatch(next, result, "aurora");
+    next = applyAuroraExecutionResult(next, result);
   }
 
   return next;

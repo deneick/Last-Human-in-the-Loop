@@ -1,10 +1,20 @@
-import type { CommandRequest } from "./commands";
+/**
+ * Generischer Text-Tokenizer für Konsoleneingaben (Name, Args, --Flags).
+ * Er kennt keine fachlichen Commands — er zerlegt nur Text.
+ */
 
-export function parseCommandText(raw: string): CommandRequest {
+export type ParsedCommandText = {
+  raw: string;
+  name: string;
+  args: string[];
+  flags: Record<string, string | boolean>;
+};
+
+export function parseCommandText(raw: string): ParsedCommandText {
   const trimmed = raw.trim();
   const tokens = trimmed.split(/\s+/).filter(Boolean);
 
-  const request: CommandRequest = {
+  const request: ParsedCommandText = {
     raw,
     name: "",
     args: [],

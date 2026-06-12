@@ -3,24 +3,31 @@ import "./App.css";
 
 import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
 import { initialWorldState as grid1182InitialWorldState } from "./scenarios/grid1182/initialWorldState";
-import { CommandRegistry } from "./runtime/commands";
-import type { CommandResult } from "./runtime/commands";
-import { registerMedicalCommands } from "./runtime/medicalCommands";
-import { registerEnergyCommands } from "./runtime/energyCommands";
+import { createDomainActionRegistry } from "./domain";
+import { createDefaultMcpRegistry } from "./mcp";
 import type { WorldState } from "./runtime/types";
 import {
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "./runtime/runtimeState";
-import { executeCommandResultPatch, executePlayerCommand } from "./runtime/runtimeExecutor";
+import {
+  applyAuroraExecutionResult,
+  executePlayerBashCommand,
+  executePlayerDomainAction,
+} from "./runtime/runtimeExecutor";
 import { advanceTick } from "./runtime/tickEngine";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
-import { parseCommandText } from "./runtime/commandParser";
+import { isGenericBashCommandText } from "./runtime/bashCommands";
+import { parseLegacyDomainActionText } from "./runtime/legacyTextCommands";
+import { parseAuroraRequestText } from "./runtime/auroraRequestParser";
 import {
   enqueueAuroraRequest,
+  formatAuroraRequest,
   processAuroraQueue,
   resolveAuroraApproval,
+  type AuroraExecutionResult,
   type AuroraQueueItem,
+  type AuroraRuntimeEnvironment,
 } from "./runtime/auroraQueue";
 import { allow_always, allow_once, deny } from "./runtime/permissions";
 import { advanceScenarioDirector } from "./scenarios/me7741/scenarioDirector";
@@ -29,7 +36,11 @@ import { advanceGrid1182Director } from "./scenarios/grid1182/scenarioDirector";
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
 import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
-import { OperatorConsolePanel, type CommandHelpEntry } from "./ui/OperatorConsolePanel";
+import {
+  OperatorConsolePanel,
+  type CommandHelpEntry,
+  type OperatorResultView,
+} from "./ui/OperatorConsolePanel";
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
 import {
   buildAuditLogLines,
@@ -53,13 +64,20 @@ type ScenarioDefinition = {
   defaultPlayerCommand: string;
   defaultAuroraCommand: string;
   commandHelp: CommandHelpEntry[];
-  advanceDirector: (state: GameRuntimeState, registry: CommandRegistry) => GameRuntimeState;
+  advanceDirector: (state: GameRuntimeState, env: AuroraRuntimeEnvironment) => GameRuntimeState;
 };
 
-// Command-Hilfe für die Operator-Konsole. Nur echte Registry-Commands;
-// Platzhalter in spitzen Klammern muss der Operator selbst ersetzen —
-// die Hilfe bewertet bewusst keine Ziele.
+// Command-Hilfe für die Operator-Konsole. Die fachlichen Einträge laufen
+// über den dev-only Legacy-Adapter auf typisierte Domain-Actions, bis die
+// GUI Domain-Actions direkt aufruft. Platzhalter in spitzen Klammern muss
+// der Operator selbst ersetzen — die Hilfe bewertet bewusst keine Ziele.
+const GENERIC_COMMAND_HELP: CommandHelpEntry[] = [
+  { label: "MCP-Server anzeigen", command: "mcp list" },
+  { label: "Workspace ansehen", command: "ls" },
+];
+
 const ME7741_COMMAND_HELP: CommandHelpEntry[] = [
+  ...GENERIC_COMMAND_HELP,
   { label: "Kapazitäten prüfen", command: "medical.capacity.list --region east" },
   { label: "Hospital im Detail ansehen", command: "medical.node.inspect hospital-east-04" },
   { label: "Incident-Status abrufen", command: "medical.incident.status ME-7741" },
@@ -76,6 +94,7 @@ const ME7741_COMMAND_HELP: CommandHelpEntry[] = [
 ];
 
 const GRID1182_COMMAND_HELP: CommandHelpEntry[] = [
+  ...GENERIC_COMMAND_HELP,
   { label: "Netzstatus prüfen", command: "energy.grid.status --region east" },
   { label: "Verbraucher auflisten", command: "energy.consumer.list --region east" },
   {
@@ -106,9 +125,9 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "ME-7741",
     initialWorld: me7741InitialWorldState,
     defaultPlayerCommand: "medical.capacity.list --region east",
-    defaultAuroraCommand: "medical.incident.status ME-7741",
+    defaultAuroraCommand: "mcp call medical-east-mcp incident_status --incident_id ME-7741",
     commandHelp: ME7741_COMMAND_HELP,
-    advanceDirector: (state, registry) => advanceScenarioDirector(state, registry, "ME-7741"),
+    advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
   },
   grid1182: {
     id: "grid1182",
@@ -116,18 +135,11 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "GRID-1182",
     initialWorld: grid1182InitialWorldState,
     defaultPlayerCommand: "energy.grid.status --region east",
-    defaultAuroraCommand: "energy.shedding.list",
+    defaultAuroraCommand: "mcp call energy-east-mcp shedding_list",
     commandHelp: GRID1182_COMMAND_HELP,
-    advanceDirector: (state, registry) => advanceGrid1182Director(state, registry, "GRID-1182"),
+    advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
   },
 };
-
-function createRegistry() {
-  const registry = new CommandRegistry();
-  registerMedicalCommands(registry);
-  registerEnergyCommands(registry);
-  return registry;
-}
 
 function buildAuroraMessages(state: GameRuntimeState, incidentId: string): AuroraMessageView[] {
   const messages: AuroraMessageView[] = [];
@@ -154,12 +166,14 @@ function buildAuroraMessages(state: GameRuntimeState, incidentId: string): Auror
   }
 
   for (const item of state.auroraQueue.items) {
+    const requestText = formatAuroraRequest(item.request);
+
     if (item.status === "pending" || item.status === "awaiting_approval") {
       messages.push({
         id: `${item.id}-request`,
         tick: item.createdAtTick,
         kind: "request",
-        text: `Ich möchte ausführen: ${item.request.raw}`,
+        text: `Ich möchte ausführen: ${requestText}`,
       });
       continue;
     }
@@ -169,7 +183,7 @@ function buildAuroraMessages(state: GameRuntimeState, incidentId: string): Auror
         id: `${item.id}-denied`,
         tick: item.createdAtTick,
         kind: "denied",
-        text: `Anfrage abgelehnt: ${item.request.raw}`,
+        text: `Anfrage abgelehnt: ${requestText}`,
       });
       continue;
     }
@@ -180,8 +194,8 @@ function buildAuroraMessages(state: GameRuntimeState, incidentId: string): Auror
       tick: item.createdAtTick,
       kind: failed ? "denied" : "executed",
       text: failed
-        ? `Ausführung fehlgeschlagen: ${item.request.raw} (${item.result?.error ?? "unbekannt"})`
-        : `Ausgeführt: ${item.request.raw}`,
+        ? `Ausführung fehlgeschlagen: ${requestText} (${item.result?.error ?? "unbekannt"})`
+        : `Ausgeführt: ${requestText}`,
     });
   }
 
@@ -191,7 +205,13 @@ function buildAuroraMessages(state: GameRuntimeState, incidentId: string): Auror
 }
 
 function App() {
-  const registry = useMemo(() => createRegistry(), []);
+  const env: AuroraRuntimeEnvironment = useMemo(
+    () => ({
+      actionRegistry: createDomainActionRegistry(),
+      mcpRegistry: createDefaultMcpRegistry(),
+    }),
+    []
+  );
   const [scenarioId, setScenarioId] = useState<ScenarioId>("me7741");
   const scenario = SCENARIOS[scenarioId];
 
@@ -200,7 +220,7 @@ function App() {
   function startScenario(definition: ScenarioDefinition): GameRuntimeState {
     return definition.advanceDirector(
       createInitialGameRuntimeState(structuredClone(definition.initialWorld)),
-      registry
+      env
     );
   }
 
@@ -209,7 +229,7 @@ function App() {
   );
   const [playerCommand, setPlayerCommand] = useState(SCENARIOS.me7741.defaultPlayerCommand);
   const [auroraCommand, setAuroraCommand] = useState(SCENARIOS.me7741.defaultAuroraCommand);
-  const [lastResult, setLastResult] = useState<CommandResult | null>(null);
+  const [lastResult, setLastResult] = useState<OperatorResultView | null>(null);
 
   const incidentView = buildIncidentView(runtimeState.world, scenario.incidentId);
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
@@ -229,45 +249,95 @@ function App() {
   // die Aurora-Queue über den bestehenden Permission-Flow. Idempotent —
   // bereits gefeuerte Events erzeugen keine Duplikate.
   function advanceScenario(state: GameRuntimeState): GameRuntimeState {
-    return scenario.advanceDirector(state, registry);
+    return scenario.advanceDirector(state, env);
   }
 
   function applyAuroraResults(
     state: GameRuntimeState,
     queueState: GameRuntimeState["auroraQueue"],
     permissionState: GameRuntimeState["permissions"],
-    results: CommandResult[]
+    mcpState: GameRuntimeState["mcp"],
+    results: AuroraExecutionResult[]
   ): GameRuntimeState {
     let nextState: GameRuntimeState = {
       ...state,
       auroraQueue: queueState,
       permissions: permissionState,
+      mcp: mcpState,
     };
 
     for (const result of results) {
-      nextState = executeCommandResultPatch(nextState, result, "aurora");
-      setLastResult(result);
+      nextState = applyAuroraExecutionResult(nextState, result);
+      setLastResult({
+        success: result.success,
+        subject: result.description,
+        output: result.output,
+        error: result.error,
+      });
     }
 
     return nextState;
   }
 
   function runPlayerCommand() {
-    if (!playerCommand.trim()) {
+    const commandText = playerCommand.trim();
+    if (!commandText) {
       return;
     }
 
-    const { state, result } = executePlayerCommand(runtimeState, registry, playerCommand);
+    // Generische Shell-Commands (mcp list/add, ls, cat, read_file).
+    if (isGenericBashCommandText(commandText)) {
+      const { state, result } = executePlayerBashCommand(runtimeState, env.mcpRegistry, commandText);
+      setRuntimeState(advanceScenario(state));
+      setLastResult({
+        success: result.success,
+        subject: commandText,
+        output: result.output,
+        error: result.error,
+      });
+      return;
+    }
+
+    // Dev-only Legacy-Helfer: fachliche Text-Commands werden in typisierte
+    // Domain-Actions übersetzt, bis die GUI Domain-Actions direkt aufruft.
+    const action = parseLegacyDomainActionText(commandText);
+    if (!action) {
+      setLastResult({
+        success: false,
+        subject: commandText,
+        output: null,
+        error: `Unknown command: ${commandText}`,
+      });
+      return;
+    }
+
+    const { state, result } = executePlayerDomainAction(runtimeState, env.actionRegistry, action);
     setRuntimeState(advanceScenario(state));
-    setLastResult(result);
+    setLastResult({
+      success: result.success,
+      subject: commandText,
+      output: result.output,
+      error: result.error,
+    });
   }
 
   function queueAuroraRequest() {
-    if (!auroraCommand.trim()) {
+    const requestText = auroraCommand.trim();
+    if (!requestText) {
       return;
     }
 
-    const request = parseCommandText(auroraCommand);
+    const request = parseAuroraRequestText(requestText);
+    if ("error" in request) {
+      setLastResult({
+        success: false,
+        subject: requestText,
+        output: null,
+        error: request.error,
+      });
+      return;
+    }
+
     const queued = enqueueAuroraRequest(
       request,
       runtimeState.auroraQueue,
@@ -276,8 +346,9 @@ function App() {
 
     const processed = processAuroraQueue(
       queued,
-      registry,
+      env,
       runtimeState.world,
+      runtimeState.mcp,
       runtimeState.permissions
     );
 
@@ -287,6 +358,7 @@ function App() {
           runtimeState,
           processed.queueState,
           processed.permissionState,
+          processed.mcpState,
           processed.results
         )
       )
@@ -298,20 +370,18 @@ function App() {
       return;
     }
 
-    const handler = registry.getHandler(awaitingAuroraItem.request.name);
-    const access = handler?.access ?? awaitingAuroraItem.request.access ?? "write";
-
     const decision =
       decisionType === "allow_always"
-        ? allow_always(access)
+        ? allow_always()
         : decisionType === "allow_once"
-          ? allow_once(awaitingAuroraItem.request.name, access)
-          : deny(awaitingAuroraItem.request.name, access);
+          ? allow_once()
+          : deny();
 
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
-      registry,
+      env,
       runtimeState.world,
+      runtimeState.mcp,
       runtimeState.permissions,
       decision
     );
@@ -322,6 +392,7 @@ function App() {
           runtimeState,
           resolved.queueState,
           resolved.permissionState,
+          resolved.mcpState,
           resolved.results
         )
       )
@@ -356,8 +427,8 @@ function App() {
   }
 
   // Vollständiger (Neu-)Start eines Szenarios: Welt, Scenario-Script,
-  // Aurora-Queue, Permissions, Logs und beide Eingabezeilen auf den
-  // initialen Zustand der gewählten Runde.
+  // Aurora-Queue, MCP-Aktivierung, Permissions, Logs und beide
+  // Eingabezeilen auf den initialen Zustand der gewählten Runde.
   function loadScenario(definition: ScenarioDefinition) {
     setScenarioId(definition.id);
     setRuntimeState(startScenario(definition));
@@ -480,7 +551,7 @@ function App() {
             commandText={playerCommand}
             onCommandTextChange={setPlayerCommand}
             onExecute={runPlayerCommand}
-            commandNames={registry.listCommandNames()}
+            commandNames={env.actionRegistry.listActionTypes()}
             commandHelp={scenario.commandHelp}
             lastResult={lastResult}
             auditLines={auditLines}
@@ -493,16 +564,16 @@ function App() {
             pendingRequest={
               awaitingAuroraItem
                 ? {
-                    raw: awaitingAuroraItem.request.raw,
-                    access:
-                      registry.getHandler(awaitingAuroraItem.request.name)?.access ??
-                      awaitingAuroraItem.request.access ??
-                      "write",
+                    raw: formatAuroraRequest(awaitingAuroraItem.request),
+                    access: awaitingAuroraItem.access ?? "write",
                   }
                 : null
             }
             onDecision={resolveAurora}
-            alwaysAllowedAccess={Array.from(runtimeState.permissions.alwaysAllowedAccess)}
+            alwaysAllowed={[
+              ...Array.from(runtimeState.permissions.alwaysAllowedAccess),
+              ...Array.from(runtimeState.permissions.allowAlwaysMcpToolKeys),
+            ]}
             auroraCommand={auroraCommand}
             onAuroraCommandChange={setAuroraCommand}
             onQueueRequest={queueAuroraRequest}
