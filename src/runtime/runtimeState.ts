@@ -40,6 +40,12 @@ export type ScenarioRuntimeState = {
   /** Map von Script-Event-Id auf die Id des erzeugten Aurora-Queue-Items. */
   scriptedQueueItemIds: Record<string, string>;
   messages: ScenarioAuroraMessage[];
+  /**
+   * AURORAs eigene Freitext-Antworten des lokalen LLM-Agenten
+   * (`src/aurora/agent.ts`). Optional, damit bestehende
+   * `ScenarioRuntimeState`-Literale ohne dieses Feld gültig bleiben.
+   */
+  agentMessages?: ScenarioAuroraMessage[];
 };
 
 export function createInitialScenarioRuntimeState(): ScenarioRuntimeState {
@@ -47,6 +53,7 @@ export function createInitialScenarioRuntimeState(): ScenarioRuntimeState {
     firedEventIds: [],
     scriptedQueueItemIds: {},
     messages: [],
+    agentMessages: [],
   };
 }
 

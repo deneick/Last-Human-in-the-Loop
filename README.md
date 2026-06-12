@@ -22,6 +22,21 @@ npm test         # Testsuite ausführen (Vitest)
 npm run build    # Typecheck (tsc) + Production-Build
 ```
 
+## AURORA lokal mit Ollama
+
+Das `src/aurora/`-Modul bindet AURORA an einen lokalen, OpenAI-kompatiblen
+Modell-Server (Ollama) an — provider-neutral, ohne Cloud-Anbieter.
+
+```bash
+ollama pull llama3.1   # einmalig: Tool-fähiges Modell laden
+```
+
+Optional `.env.example` nach `.env.local` kopieren, um Modellname
+(`VITE_AURORA_MODEL`) oder Server-URL (`VITE_OLLAMA_BASE_URL`) anzupassen —
+ohne Konfiguration gelten die Defaults `llama3.1` auf `http://localhost:11434`.
+Details, Architektur und Test-Strategie (`FakeModelClient`, ohne laufenden
+Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
+
 ## Spielen
 
 Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
@@ -66,6 +81,7 @@ Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole (s
 - [`docs/04-me7741-mvp.md`](docs/04-me7741-mvp.md) — ME-7741 im Detail, UI, Beispielablauf, manueller Testpfad
 - [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — Reduzierter MVP für Incident 2: Energy Grid (GRID-1182)
 - [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
+- [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md) — AURORA als lokaler LLM-Agent (Ollama): Architektur, sichtbarer Kontext, Setup, Tests
 
 ## Sprache
 
