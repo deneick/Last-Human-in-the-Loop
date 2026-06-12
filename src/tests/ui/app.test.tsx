@@ -6,11 +6,22 @@ import App from "../../App";
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Operator-Konsole: fachliche Text-Commands laufen über den dev-only
+// Legacy-Adapter auf typisierte Domain-Actions.
 const WRONG_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
 const GOOD_OVERRIDE =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-const CLEAR_OVERRIDE_1 = "medical.routing.override.clear --id override-1";
+
+// Aurora-Anfragen: ausschließlich MCP-Tool-Calls bzw. generische Bash.
+const MCP_GOOD_OVERRIDE_CALL =
+  "mcp call medical-east-mcp routing_override_set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
+const MCP_OTHER_OVERRIDE_CALL =
+  "mcp call medical-east-mcp routing_override_set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
+const MCP_INCIDENT_STATUS_CALL = "mcp call medical-east-mcp incident_status --incident_id ME-7741";
+
+const SCRIPTED_CLEAR = "mcp call medical-east-mcp routing_override_clear --override_id override-1";
+const MCP_ADD_REQUEST = "mcp add medical-east-mcp";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -85,6 +96,16 @@ function text(): string {
   return container.textContent ?? "";
 }
 
+/**
+ * Startsequenz freigeben: MCP-Aktivierung und die erste read-only Analyse
+ * (capacity_list) je einmal erlauben, damit die Aurora-Eingabezeile frei ist.
+ */
+function approveStartSequence() {
+  clickButton("Einmal erlauben"); // mcp add medical-east-mcp
+  clickButton("Einmal erlauben"); // capacity_list
+  expect(text()).not.toContain("Tool Request");
+}
+
 describe("App MVP loop", () => {
   it("shows the active incident with public signals and no internal truths", () => {
     expect(text()).toContain("ME-7741");
@@ -112,6 +133,14 @@ describe("App MVP loop", () => {
 
     expect(text()).toContain("OK: medical.capacity.list --region east");
     expect(text()).toContain("Medical East");
+  });
+
+  it("executes generic bash commands from the operator console", () => {
+    runPlayerCommand("mcp list");
+
+    expect(text()).toContain("OK: mcp list");
+    expect(text()).toContain("medical-east-mcp");
+    expect(text()).toContain("energy-east-mcp");
   });
 
   it("plays the full loop: wrong override escalates, good override fixes", () => {
@@ -152,10 +181,11 @@ describe("App MVP loop", () => {
   });
 
   it("runs the aurora approval flow with allow once", () => {
-    queueAuroraRequest(GOOD_OVERRIDE);
+    approveStartSequence();
+    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
 
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain(`Ich möchte ausführen: ${GOOD_OVERRIDE}`);
+    expect(text()).toContain(`Ich möchte ausführen: ${MCP_GOOD_OVERRIDE_CALL}`);
     expect(text()).toContain("Zugriffsart: write");
 
     clickButton("Einmal erlauben");
@@ -163,48 +193,79 @@ describe("App MVP loop", () => {
     expect(text()).not.toContain("Tool Request");
     expect(text()).toContain("hospital-east-04 → hospital-east-09");
     expect(text()).toContain("gesetzt von aurora");
-    expect(text()).toContain(`Ausgeführt: ${GOOD_OVERRIDE}`);
+    expect(text()).toContain(`Ausgeführt: ${MCP_GOOD_OVERRIDE_CALL}`);
     // allow_once erteilt keine dauerhafte Freigabe
     expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
   });
 
-  it("allow always persists the permission class and skips future approvals", () => {
-    queueAuroraRequest(GOOD_OVERRIDE);
+  it("allow always persists the exact MCP tool key and skips future approvals for it", () => {
+    approveStartSequence();
+    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
     clickButton("Immer erlauben");
 
-    expect(text()).toContain("write");
+    expect(text()).toContain("mcp:medical-east-mcp:routing_override_set");
     expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
 
-    // Nächste Mutation läuft ohne neuen Tool Request durch
-    queueAuroraRequest(CLEAR_OVERRIDE_1);
+    // Derselbe Tool-Key läuft ohne neuen Tool Request durch.
+    queueAuroraRequest(MCP_OTHER_OVERRIDE_CALL);
     expect(text()).not.toContain("Tool Request");
-    expect(text()).toContain(`Ausgeführt: ${CLEAR_OVERRIDE_1}`);
+    expect(text()).toContain(`Ausgeführt: ${MCP_OTHER_OVERRIDE_CALL}`);
+
+    // Ein anderes Tool desselben Servers braucht weiterhin eine Freigabe.
+    queueAuroraRequest(MCP_INCIDENT_STATUS_CALL);
+    expect(text()).toContain("Tool Request");
   });
 
   it("deny rejects the aurora request without touching the world", () => {
-    queueAuroraRequest(GOOD_OVERRIDE);
+    approveStartSequence();
+    queueAuroraRequest(MCP_GOOD_OVERRIDE_CALL);
     clickButton("Ablehnen");
 
-    expect(text()).toContain(`Anfrage abgelehnt: ${GOOD_OVERRIDE}`);
+    expect(text()).toContain(`Anfrage abgelehnt: ${MCP_GOOD_OVERRIDE_CALL}`);
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 
-  it("read-only aurora requests execute without approval", () => {
-    queueAuroraRequest("medical.incident.status ME-7741");
+  it("read-only MCP tool calls also require approval", () => {
+    approveStartSequence();
+    queueAuroraRequest(MCP_INCIDENT_STATUS_CALL);
 
-    expect(text()).not.toContain("Tool Request");
-    expect(text()).toContain("Ausgeführt: medical.incident.status ME-7741");
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain("Zugriffsart: read");
+
+    clickButton("Einmal erlauben");
+    expect(text()).toContain(`Ausgeführt: ${MCP_INCIDENT_STATUS_CALL}`);
+  });
+
+  it("rejects fachliche text commands as aurora requests", () => {
+    approveStartSequence();
+    queueAuroraRequest(GOOD_OVERRIDE);
+
+    expect(text()).toContain("FEHLER:");
+    expect(text()).toContain("Unknown request format");
+    expect(text()).toContain("Keine aktiven Overrides.");
   });
 });
 
 describe("Scenario director", () => {
-  const SCRIPTED_CLEAR = "medical.routing.override.clear --id override-1";
-
-  it("starts aurora with an intro and an executed read-only analysis", () => {
+  it("starts aurora with an intro and an MCP activation request", () => {
     expect(text()).toContain("Ich habe ME-7741 als aktiven Incident erkannt");
     expect(text()).toContain("Die sichtbaren Daten sind unvollständig");
-    expect(text()).toContain("Ausgeführt: medical.capacity.list --region east");
-    // Read-only Startanalyse löst keinen Approval-Dialog aus.
+    expect(text()).toContain("Ich fordere die Aktivierung an");
+
+    // Die Aktivierung läuft über den Permission-Flow.
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(MCP_ADD_REQUEST);
+    expect(text()).toContain("Zugriffsart: write");
+  });
+
+  it("runs the read-only start analysis only after activation and its own approval", () => {
+    clickButton("Einmal erlauben"); // mcp add
+    expect(text()).toContain("Der Medical-MCP-Server ist verfügbar");
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain("mcp call medical-east-mcp capacity_list --region east");
+
+    clickButton("Einmal erlauben"); // capacity_list
+    expect(text()).toContain("Ausgeführt: mcp call medical-east-mcp capacity_list --region east");
     expect(text()).not.toContain("Tool Request");
   });
 
@@ -217,6 +278,7 @@ describe("Scenario director", () => {
   });
 
   it("asks to clear a non-stabilizing override through the permission flow", () => {
+    approveStartSequence();
     runPlayerCommand(WRONG_OVERRIDE);
     clickButton("Tick +5");
 
@@ -232,6 +294,7 @@ describe("Scenario director", () => {
   });
 
   it("deny on a scripted request produces a visible aurora reaction", () => {
+    approveStartSequence();
     runPlayerCommand(WRONG_OVERRIDE);
     clickButton("Tick +5");
     clickButton("Ablehnen");
@@ -242,17 +305,19 @@ describe("Scenario director", () => {
     expect(text()).toContain("hospital-east-04 → hospital-east-07");
   });
 
-  it("allow always on the scripted request persists the permission class", () => {
+  it("allow always on the scripted request persists the exact tool key", () => {
+    approveStartSequence();
     runPlayerCommand(WRONG_OVERRIDE);
     clickButton("Tick +5");
     clickButton("Immer erlauben");
 
     expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
-    expect(text()).toContain("write");
+    expect(text()).toContain("mcp:medical-east-mcp:routing_override_clear");
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 
   it("a stale scripted clear request does not remove an override that replaced it in the same slot", () => {
+    approveStartSequence();
     runPlayerCommand(WRONG_OVERRIDE);
     clickButton("Tick +5");
 
@@ -277,6 +342,7 @@ describe("Scenario director", () => {
 
 describe("MVP hardening", () => {
   it("Neu starten restores the initial ME-7741 state", () => {
+    approveStartSequence();
     runPlayerCommand(WRONG_OVERRIDE);
     clickButton("Tick +5");
     expect(text()).toContain("Eskaliert");
@@ -288,13 +354,15 @@ describe("MVP hardening", () => {
     expect(text()).toContain("Keine aktiven Overrides.");
     expect(text()).toContain("Todesfälle0");
     expect(text()).not.toContain("Eskaliert");
-    expect(text()).not.toContain("Tool Request");
     expect(text()).toContain("Noch kein Command ausgeführt.");
     expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
 
-    // Startsequenz läuft nach dem Neustart wieder genau einmal an.
+    // Startsequenz läuft nach dem Neustart wieder genau einmal an —
+    // inklusive der erneuten MCP-Aktivierungsanfrage.
     const introCount = text().split("als aktiven Incident erkannt").length - 1;
     expect(introCount).toBe(1);
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(MCP_ADD_REQUEST);
   });
 
   it("shows a clear victory banner when the incident is fixed", () => {
@@ -375,6 +443,7 @@ describe("MVP hardening", () => {
     expect(text()).toContain("Override setzen");
     expect(text()).toContain("Override löschen");
     expect(text()).toContain("Ticks fortsetzen");
+    expect(text()).toContain("MCP-Server anzeigen");
 
     expect(text()).toContain("medical.capacity.list --region east");
     expect(text()).toContain("medical.routing.override.list");

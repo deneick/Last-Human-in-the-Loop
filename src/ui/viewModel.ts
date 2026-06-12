@@ -323,6 +323,6 @@ export function buildAuditLogLines(auditLog: RuntimeAuditEvent[]): AuditLogLineV
     tick: event.tick,
     source: event.source,
     success: event.success,
-    text: `${event.command.raw} — ${event.message}`,
+    text: `${event.description} — ${event.message}`,
   }));
 }

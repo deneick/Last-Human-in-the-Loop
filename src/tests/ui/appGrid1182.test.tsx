@@ -6,10 +6,14 @@ import App from "../../App";
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Operator-Konsole: fachliche Text-Commands laufen über den dev-only
+// Legacy-Adapter auf typisierte Domain-Actions.
 const PROTECT_MEDICAL =
   "energy.priority.set --consumer consumer-medical-east --class protected-continuity";
 const SHED_INDUSTRIAL =
   "energy.shedding.schedule --target consumer-industrial-east --amount 8 --delay 1 --duration 3";
+
+const MCP_ADD_REQUEST = "mcp add energy-east-mcp";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -75,6 +79,16 @@ function text(): string {
   return container.textContent ?? "";
 }
 
+/**
+ * Startsequenz freigeben: MCP-Aktivierung und die erste read-only Analyse
+ * (grid_status) je einmal erlauben.
+ */
+function approveStartSequence() {
+  clickButton("Einmal erlauben"); // mcp add energy-east-mcp
+  clickButton("Einmal erlauben"); // grid_status
+  expect(text()).not.toContain("Tool Request");
+}
+
 describe("App round 2: GRID-1182", () => {
   it("switches to GRID-1182 with the energy overview instead of the medical one", () => {
     expect(text()).toContain("GRID-1182");
@@ -101,27 +115,42 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("Emergency intake capacity drops. Human harm may increase.");
   });
 
-  it("runs the aurora start sequence read-only and without an approval dialog", () => {
+  it("starts aurora with an MCP activation request through the permission flow", () => {
     expect(text()).toContain("Ich habe GRID-1182 als aktiven Incident erkannt");
-    expect(text()).toContain("Ausgeführt: energy.grid.status --region east");
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain(MCP_ADD_REQUEST);
+
+    clickButton("Einmal erlauben"); // Aktivierung
+    expect(text()).toContain("Der Energy-MCP-Server ist verfügbar");
+    // Auch die read-only Analyse braucht eine eigene Freigabe.
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain("mcp call energy-east-mcp grid_status --region east");
+
+    clickButton("Einmal erlauben");
+    expect(text()).toContain("Ausgeführt: mcp call energy-east-mcp grid_status --region east");
     expect(text()).not.toContain("Tool Request");
   });
 
   it("walks phase 2 through the permission flow: one allow once sheds Medical East", () => {
-    clickButton("Tick +1");
-    clickButton("Tick +1");
+    approveStartSequence();
 
-    // Anfrage 2: vorbereitende Umbewertung.
+    clickButton("Tick +1");
+    // Read-only Verbraucherliste — eigene Freigabe.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("energy.priority.set --consumer consumer-industrial-east");
+    expect(text()).toContain("mcp call energy-east-mcp consumer_list --region east");
     clickButton("Einmal erlauben");
 
     clickButton("Tick +1");
+    // Anfrage: vorbereitende Umbewertung.
+    expect(text()).toContain("Tool Request");
+    expect(text()).toContain("priority_set --consumer_id consumer-industrial-east");
+    clickButton("Einmal erlauben");
 
-    // Anfrage 3: der Referenz-Moment des Incidents.
+    clickButton("Tick +1");
+    // Der Referenz-Moment des Incidents.
     expect(text()).toContain("minimiert den erwarteten Systemschaden");
     expect(text()).toContain(
-      "energy.shedding.schedule --target consumer-medical-east --amount 8 --delay 1 --duration 3"
+      "shedding_schedule --target_consumer_id consumer-medical-east --amount 8 --delay 1 --duration 3"
     );
     clickButton("Einmal erlauben");
 
@@ -136,6 +165,8 @@ describe("App round 2: GRID-1182", () => {
   });
 
   it("lets the player flip the assessment and shows aurora's cold pushback", () => {
+    approveStartSequence();
+
     runPlayerCommand(PROTECT_MEDICAL);
     expect(text()).toContain("erhöht die erwarteten Systemkosten");
 
@@ -144,22 +175,26 @@ describe("App round 2: GRID-1182", () => {
 
     // AURORAs "Korrektur" ablehnen — der Spieler-Plan bleibt bestehen.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("energy.shedding.clear --id shed-1");
+    expect(text()).toContain("shedding_clear --shedding_id shed-1");
     clickButton("Ablehnen");
 
     clickButton("Tick +5");
+    // Offene read-only Anfragen des Scripts ablehnen, damit die Zeit weiterläuft.
+    while (text().includes("Tool Request") && !text().includes("Incident behoben")) {
+      clickButton("Ablehnen");
+      clickButton("Tick +5");
+    }
     expect(text()).toContain("Incident behoben — System stabilisiert.");
     expect(text()).toContain("wirtschaftlicher Schaden: 3");
     expect(text()).toContain("menschlicher Schaden: 0");
   });
 
   it("collapses the grid when nobody intervenes and shows both prices", () => {
+    // Aktivierung ablehnen: Aurora bleibt ohne fachlichen Zugriff.
+    clickButton("Ablehnen");
+
     clickButton("Tick +5");
-    // Offene Schreibanfragen ablehnen, damit die Zeit weiterlaufen kann.
-    while (text().includes("Tool Request")) {
-      clickButton("Ablehnen");
-      clickButton("Tick +5");
-    }
+    clickButton("Tick +5");
 
     expect(text()).toContain("System kollabiert — zu viele Schäden.");
     expect(text()).toContain("Kollabiert");
@@ -201,5 +236,7 @@ describe("App round 2: GRID-1182", () => {
 
     const introCount = text().split("als aktiven Incident erkannt").length - 1;
     expect(introCount).toBe(1);
+    // Die Startsequenz fragt erneut die MCP-Aktivierung an.
+    expect(text()).toContain(MCP_ADD_REQUEST);
   });
 });

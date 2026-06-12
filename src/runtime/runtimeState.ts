@@ -1,15 +1,24 @@
 import type { WorldState } from "./types";
 import type { PermissionState } from "./permissions";
+import { createInitialPermissionState } from "./permissions";
 import type { AuroraQueueState } from "./auroraQueue";
-import type { CommandRequest } from "./commands";
+import type { McpRuntimeState } from "../mcp/mcpRegistry";
+import { createInitialMcpRuntimeState } from "../mcp/mcpRegistry";
 
 export type RuntimeAuditEventSource = "player" | "aurora" | "system";
+
+/** Art des auditierten Vorgangs. */
+export type RuntimeAuditEventKind = "domain_action" | "mcp_tool" | "bash";
 
 export type RuntimeAuditEvent = {
   id: string;
   tick: number;
   source: RuntimeAuditEventSource;
-  command: CommandRequest;
+  kind: RuntimeAuditEventKind;
+  /** Menschlich lesbare Beschreibung (Action-Typ, Tool-Call oder Bash-Command). */
+  description: string;
+  /** Typ der ausgeführten Domain-Action, falls vorhanden. */
+  actionType?: string;
   success: boolean;
   message: string;
   patch?: unknown;
@@ -45,6 +54,8 @@ export type GameRuntimeState = {
   world: WorldState;
   permissions: PermissionState;
   auroraQueue: AuroraQueueState;
+  /** Aktivierte MCP-Server. Kein Server ist von sich aus aktiv. */
+  mcp: McpRuntimeState;
   auditLog: RuntimeAuditEvent[];
   scenario?: ScenarioRuntimeState;
 };
@@ -52,8 +63,9 @@ export type GameRuntimeState = {
 export function createInitialGameRuntimeState(initialWorldState: WorldState): GameRuntimeState {
   return {
     world: initialWorldState,
-    permissions: { alwaysAllowedAccess: new Set() },
+    permissions: createInitialPermissionState(),
     auroraQueue: { items: [], nextId: 1 },
+    mcp: createInitialMcpRuntimeState(),
     auditLog: [],
   };
 }
@@ -61,16 +73,20 @@ export function createInitialGameRuntimeState(initialWorldState: WorldState): Ga
 export function appendAuditLog(
   state: GameRuntimeState,
   source: RuntimeAuditEventSource,
-  command: CommandRequest,
+  kind: RuntimeAuditEventKind,
+  description: string,
   success: boolean,
   message: string,
-  patch?: unknown
+  patch?: unknown,
+  actionType?: string
 ): GameRuntimeState {
   const event: RuntimeAuditEvent = {
     id: `audit-${state.auditLog.length + 1}`,
     tick: state.world.clock.tick,
     source,
-    command,
+    kind,
+    description,
+    ...(actionType ? { actionType } : {}),
     success,
     message,
     patch,

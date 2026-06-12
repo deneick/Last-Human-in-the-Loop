@@ -1,12 +1,16 @@
 import type { GameRuntimeState } from "./runtimeState";
-import type { CommandRegistry } from "./commands";
-import { parseCommandText } from "./commandParser";
+import type { DomainAction } from "../domain/actions";
+import type { AuroraRequest, AuroraRuntimeEnvironment } from "./auroraQueue";
 import {
   enqueueAuroraRequest,
   processAuroraQueue,
   resolveAuroraApproval,
 } from "./auroraQueue";
-import { executePlayerCommand, executeCommandResultPatch } from "./runtimeExecutor";
+import {
+  applyAuroraExecutionResult,
+  executePlayerBashCommand,
+  executePlayerDomainAction,
+} from "./runtimeExecutor";
 import { advanceTick } from "./tickEngine";
 import { evaluateOutcomes } from "./outcomeEngine";
 import { allow_once, allow_always, deny } from "./permissions";
@@ -15,7 +19,12 @@ export type ReplayActor = "player" | "aurora" | "system";
 
 export type ReplayStep = {
   actor: ReplayActor;
-  command?: string;
+  /** Spieler: typisierte Domain-Action (direkter fachlicher Zugriff). */
+  action?: DomainAction;
+  /** Spieler: generischer Bash-Command (mcp list/add, ls, cat, read_file). */
+  bash?: string;
+  /** Aurora: MCP-Tool-Call oder Bash-Anfrage über die Permission-Queue. */
+  request?: AuroraRequest;
   decision?: "allow_once" | "allow_always" | "deny";
   ticks?: number;
   evaluateOutcomes?: boolean;
@@ -30,7 +39,6 @@ export type ReplayResult = {
 
 function cloneWorldSafe<T>(obj: T): T {
   // Use structuredClone when available to preserve Sets, otherwise fallback to JSON clone
-  // structuredClone is available in recent Node versions and in test helpers the user allowed it.
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   if (typeof structuredClone === "function") {
@@ -42,60 +50,73 @@ function cloneWorldSafe<T>(obj: T): T {
 
 export function runReplayStep(
   runtimeState: GameRuntimeState,
-  registry: CommandRegistry,
+  env: AuroraRuntimeEnvironment,
   step: ReplayStep
 ): GameRuntimeState {
   let state = runtimeState;
 
   if (step.actor === "player") {
-    if (!step.command) return state;
-    state = executePlayerCommand(state, registry, step.command).state;
+    if (step.action) {
+      return executePlayerDomainAction(state, env.actionRegistry, step.action).state;
+    }
+    if (step.bash) {
+      return executePlayerBashCommand(state, env.mcpRegistry, step.bash, env.workspaceFiles).state;
+    }
     return state;
   }
 
   if (step.actor === "aurora") {
-    if (step.command) {
-      const request = parseCommandText(step.command);
-      const queued = enqueueAuroraRequest(request, state.auroraQueue, state.world.clock.tick);
+    if (step.request) {
+      const queued = enqueueAuroraRequest(step.request, state.auroraQueue, state.world.clock.tick);
       state = { ...state, auroraQueue: queued };
 
-      const processed = processAuroraQueue(state.auroraQueue, registry, state.world, state.permissions);
+      const processed = processAuroraQueue(
+        state.auroraQueue,
+        env,
+        state.world,
+        state.mcp,
+        state.permissions
+      );
+
       let nextState = state;
-      for (const res of processed.results) {
-        nextState = executeCommandResultPatch(nextState, res, "aurora");
+      for (const result of processed.results) {
+        nextState = applyAuroraExecutionResult(nextState, result);
       }
-      nextState = { ...nextState, auroraQueue: processed.queueState, permissions: processed.permissionState };
-      return nextState;
+      return {
+        ...nextState,
+        auroraQueue: processed.queueState,
+        permissions: processed.permissionState,
+        mcp: processed.mcpState,
+      };
     }
 
     if (step.decision) {
-      // Find awaiting item to determine permission class/command name
-      const awaiting = state.auroraQueue.items.find((i) => i.status === "awaiting_approval");
+      const decision =
+        step.decision === "allow_always"
+          ? allow_always()
+          : step.decision === "allow_once"
+            ? allow_once()
+            : deny();
 
-      // Build a permission decision based on awaiting item and requested decision
-      let decision: ReturnType<typeof allow_once> | ReturnType<typeof allow_always> | ReturnType<typeof deny>;
+      const resolved = resolveAuroraApproval(
+        state.auroraQueue,
+        env,
+        state.world,
+        state.mcp,
+        state.permissions,
+        decision
+      );
 
-      if (step.decision === "allow_always") {
-        // If we can, pick the handler's access from registry, otherwise default to write
-        const access = awaiting?.request.access ?? "write";
-        decision = allow_always(access);
-      } else if (step.decision === "allow_once") {
-        const cmdName = awaiting?.request.name ?? "";
-        const access = awaiting?.request.access ?? "write";
-        decision = allow_once(cmdName, access);
-      } else {
-        const cmdName = awaiting?.request.name ?? "";
-        const access = awaiting?.request.access ?? "write";
-        decision = deny(cmdName, access);
-      }
-
-      const resolved = resolveAuroraApproval(state.auroraQueue, registry, state.world, state.permissions, decision);
       let nextState = state;
-      for (const res of resolved.results) {
-        nextState = executeCommandResultPatch(nextState, res, "aurora");
+      for (const result of resolved.results) {
+        nextState = applyAuroraExecutionResult(nextState, result);
       }
-      nextState = { ...nextState, auroraQueue: resolved.queueState, permissions: resolved.permissionState };
-      return nextState;
+      return {
+        ...nextState,
+        auroraQueue: resolved.queueState,
+        permissions: resolved.permissionState,
+        mcp: resolved.mcpState,
+      };
     }
 
     return state;
@@ -120,14 +141,22 @@ export function runReplayStep(
   return state;
 }
 
-export function runReplay(initialState: GameRuntimeState, registry: CommandRegistry, steps: ReplayStep[]): ReplayResult {
+export function runReplay(
+  initialState: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  steps: ReplayStep[]
+): ReplayResult {
   // Deep-clone the provided state so the initial is not mutated
   const clonedState: GameRuntimeState = {
     world: cloneWorldSafe(initialState.world),
-    permissions: { alwaysAllowedAccess: new Set([...initialState.permissions.alwaysAllowedAccess]) },
+    permissions: {
+      alwaysAllowedAccess: new Set([...initialState.permissions.alwaysAllowedAccess]),
+      allowAlwaysMcpToolKeys: new Set([...initialState.permissions.allowAlwaysMcpToolKeys]),
+    },
     auroraQueue: cloneWorldSafe(initialState.auroraQueue),
+    mcp: { activeServerIds: [...initialState.mcp.activeServerIds] },
     auditLog: cloneWorldSafe(initialState.auditLog),
-  } as GameRuntimeState;
+  };
 
   const errors: string[] = [];
   let state = clonedState;
@@ -135,9 +164,9 @@ export function runReplay(initialState: GameRuntimeState, registry: CommandRegis
 
   for (const step of steps) {
     try {
-      state = runReplayStep(state, registry, step);
-    } catch (err: any) {
-      errors.push(err?.message ?? String(err));
+      state = runReplayStep(state, env, step);
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
     }
     executed += 1;
   }

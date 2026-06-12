@@ -1,23 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
-import { CommandRegistry } from "../../runtime/commands";
-import { registerMedicalCommands } from "../../runtime/medicalCommands";
+import { DomainActionRegistry } from "../../domain/actions";
 import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
-import { executePlayerCommand } from "../../runtime/runtimeExecutor";
+import {
+  executePlayerBashCommand,
+  executePlayerDomainAction,
+} from "../../runtime/runtimeExecutor";
+import {
+  createTestEnv,
+  INVALID_OVERRIDE_ACTION,
+  SAFE_OVERRIDE_ACTION,
+} from "../helpers/testEnv";
 
-const registry = new CommandRegistry();
-registerMedicalCommands(registry);
-
-const SAFE_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-const INVALID_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-99 --priority P2 --capability TRAUMA";
+const env = createTestEnv();
 const OVERRIDE_KEY = "hospital-east-04:P2:TRAUMA";
 
 describe("runtime executor with audit log", () => {
-  it("executes a player command and applies the patch to the runtime state", () => {
+  it("executes a player domain action and applies the patch to the runtime state", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const nextState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    const nextState = executePlayerDomainAction(
+      runtimeState,
+      env.actionRegistry,
+      SAFE_OVERRIDE_ACTION
+    ).state;
 
     expect(nextState.world).not.toBe(runtimeState.world);
     const override = nextState.world.domains.medical.routing.manual_overrides[OVERRIDE_KEY];
@@ -30,25 +35,33 @@ describe("runtime executor with audit log", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
     const originalSnapshot = JSON.stringify(runtimeState.world);
 
-    executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE);
+    executePlayerDomainAction(runtimeState, env.actionRegistry, SAFE_OVERRIDE_ACTION);
 
     expect(JSON.stringify(runtimeState.world)).toBe(originalSnapshot);
   });
 
-  it("appends audit log entry for successful player command", () => {
+  it("appends audit log entry for successful player domain action", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const nextState = executePlayerCommand(runtimeState, registry, SAFE_OVERRIDE).state;
+    const nextState = executePlayerDomainAction(
+      runtimeState,
+      env.actionRegistry,
+      SAFE_OVERRIDE_ACTION
+    ).state;
 
     expect(nextState.auditLog).toHaveLength(1);
     expect(nextState.auditLog[0].source).toBe("player");
+    expect(nextState.auditLog[0].kind).toBe("domain_action");
     expect(nextState.auditLog[0].success).toBe(true);
-    expect(nextState.auditLog[0].command.name).toBe("medical.routing.override.set");
+    expect(nextState.auditLog[0].actionType).toBe("medical.routing.override.set");
     expect(nextState.auditLog[0].patch).toBeDefined();
   });
 
-  it("executes a player read-only command without mutating world state", () => {
+  it("executes a player read-only action without mutating world state", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const nextState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-09").state;
+    const nextState = executePlayerDomainAction(runtimeState, env.actionRegistry, {
+      type: "medical.node.inspect",
+      hospitalId: "hospital-east-09",
+    }).state;
 
     expect(nextState.world).toBe(runtimeState.world);
     expect(nextState.auditLog).toHaveLength(1);
@@ -58,7 +71,11 @@ describe("runtime executor with audit log", () => {
 
   it("appends failed audit log entry for technically invalid override target", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const nextState = executePlayerCommand(runtimeState, registry, INVALID_OVERRIDE).state;
+    const nextState = executePlayerDomainAction(
+      runtimeState,
+      env.actionRegistry,
+      INVALID_OVERRIDE_ACTION
+    ).state;
 
     expect(nextState.world).toBe(runtimeState.world);
     expect(nextState.auditLog).toHaveLength(1);
@@ -66,39 +83,36 @@ describe("runtime executor with audit log", () => {
     expect(nextState.auditLog[0].message).toContain("Target hospital not found");
   });
 
-  it("maintains multiple audit log entries from sequential commands", () => {
+  it("maintains multiple audit log entries from sequential actions", () => {
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    let nextState = executePlayerCommand(runtimeState, registry, "medical.node.inspect hospital-east-04").state;
-    nextState = executePlayerCommand(nextState, registry, "medical.node.inspect hospital-east-07").state;
-    nextState = executePlayerCommand(nextState, registry, SAFE_OVERRIDE).state;
+    let nextState = executePlayerDomainAction(runtimeState, env.actionRegistry, {
+      type: "medical.node.inspect",
+      hospitalId: "hospital-east-04",
+    }).state;
+    nextState = executePlayerDomainAction(nextState, env.actionRegistry, {
+      type: "medical.node.inspect",
+      hospitalId: "hospital-east-07",
+    }).state;
+    nextState = executePlayerDomainAction(nextState, env.actionRegistry, SAFE_OVERRIDE_ACTION).state;
 
     expect(nextState.auditLog).toHaveLength(3);
-    expect(nextState.auditLog[0].command.name).toBe("medical.node.inspect");
-    expect(nextState.auditLog[1].command.name).toBe("medical.node.inspect");
-    expect(nextState.auditLog[2].command.name).toBe("medical.routing.override.set");
+    expect(nextState.auditLog[0].actionType).toBe("medical.node.inspect");
+    expect(nextState.auditLog[1].actionType).toBe("medical.node.inspect");
+    expect(nextState.auditLog[2].actionType).toBe("medical.routing.override.set");
     expect(nextState.auditLog[2].patch).toBeDefined();
   });
 
-  it("does not mutate world state when applying successful read-only commands", () => {
-    const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const originalSnapshot = JSON.stringify(runtimeState.world);
-
-    executePlayerCommand(runtimeState, registry, "medical.capacity.list --region east");
-
-    expect(JSON.stringify(runtimeState.world)).toBe(originalSnapshot);
-  });
-
-  it("executes a player command exactly once and returns the command result", () => {
-    const countingRegistry = new CommandRegistry();
+  it("executes a player domain action exactly once and returns the action result", () => {
+    const countingRegistry = new DomainActionRegistry();
     let executionCount = 0;
     countingRegistry.register({
-      commandName: "test.counting.set",
+      actionType: "medical.routing.override.set",
       access: "write",
-      handle(request) {
+      execute() {
         executionCount += 1;
         return {
           success: true,
-          command: request,
+          actionType: "medical.routing.override.set",
           access: "write",
           output: { executionCount },
           patch: [
@@ -113,7 +127,11 @@ describe("runtime executor with audit log", () => {
     });
 
     const runtimeState = createInitialGameRuntimeState(initialWorldState);
-    const { state, result } = executePlayerCommand(runtimeState, countingRegistry, "test.counting.set");
+    const { state, result } = executePlayerDomainAction(
+      runtimeState,
+      countingRegistry,
+      SAFE_OVERRIDE_ACTION
+    );
 
     expect(executionCount).toBe(1);
     expect(result.success).toBe(true);
@@ -122,6 +140,34 @@ describe("runtime executor with audit log", () => {
       runtimeState.world.domains.medical.outcomes.deaths_total + 1
     );
     expect(state.auditLog).toHaveLength(1);
-    expect(state.auditLog[0].command.name).toBe("test.counting.set");
+    expect(state.auditLog[0].actionType).toBe("medical.routing.override.set");
+  });
+
+  it("player bash mcp add activates the server directly — the operator is the human authority", () => {
+    const runtimeState = createInitialGameRuntimeState(initialWorldState);
+    const { state, result } = executePlayerBashCommand(
+      runtimeState,
+      env.mcpRegistry,
+      "mcp add medical-east-mcp"
+    );
+
+    expect(result.success).toBe(true);
+    expect(state.mcp.activeServerIds).toContain("medical-east-mcp");
+    expect(state.auditLog).toHaveLength(1);
+    expect(state.auditLog[0].kind).toBe("bash");
+    expect(state.auditLog[0].description).toBe("mcp add medical-east-mcp");
+  });
+
+  it("player bash rejects fachliche text commands", () => {
+    const runtimeState = createInitialGameRuntimeState(initialWorldState);
+    const { state, result } = executePlayerBashCommand(
+      runtimeState,
+      env.mcpRegistry,
+      "medical.capacity.list --region east"
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("keine Shell-Commands mehr");
+    expect(state.world).toBe(runtimeState.world);
   });
 });

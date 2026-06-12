@@ -10,7 +10,7 @@ import type {
   SheddingPlanStatus,
   WorldState,
 } from "./types";
-import { routingOverrideKey } from "./medicalCommands";
+import { routingOverrideKey } from "../domain/medicalActions";
 import { isHospitalSuitableFor } from "./selectors";
 
 /**
@@ -431,7 +431,8 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
       world: nextWorld,
     },
     "system",
-    { raw: "system.tick", name: "system.tick", args: [], flags: {} },
+    "domain_action",
+    "system.tick",
     true,
     `Tick ${nextWorld.clock.tick} completed`
   );

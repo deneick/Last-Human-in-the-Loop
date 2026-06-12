@@ -1,12 +1,17 @@
-import type {
-  CommandAccess,
-  CommandExecutionContext,
-  CommandRequest,
-  CommandRegistry,
-  CommandResult,
-} from "./commands";
-import { DEFAULT_EXECUTION_CONTEXT } from "./commands";
-import type { WorldState } from "./types";
+import type { DomainActionAccess } from "../domain/actions";
+
+/**
+ * Permission-Engine für Aurora-Anfragen.
+ *
+ * Subjects:
+ * - mcp_tool: Jeder MCP-Tool-Call (auch read) läuft durch die Permission-Queue,
+ *   außer es existiert ein allowAlways für den EXAKTEN Tool-Key
+ *   (z. B. "mcp:medical-east-mcp:routing_override_set"). Die Aktivierung eines
+ *   MCP-Servers erteilt keine Ausführungsrechte.
+ * - bash: Generische Shell-Commands. Reads (mcp list, ls, cat, read_file)
+ *   laufen frei; die einzige schreibende Operation (`mcp add <server>`)
+ *   braucht eine Freigabe, außer "write" wurde dauerhaft erlaubt.
+ */
 
 export type PermissionStatus = "allowed" | "denied" | "requires_approval";
 
@@ -22,141 +27,92 @@ export function requires_approval(): PermissionStatus {
   return "requires_approval";
 }
 
-export type PermissionDecision =
+export type PermissionSubject =
   | {
-      type: "allow_once";
-      commandName: string;
-      access: CommandAccess;
+      kind: "mcp_tool";
+      /** Exakter Tool-Key, z. B. "mcp:medical-east-mcp:capacity_list". */
+      toolKey: string;
+      access: DomainActionAccess;
     }
   | {
-      type: "allow_always";
-      access: CommandAccess;
-    }
-  | {
-      type: "deny";
-      commandName: string;
-      access: CommandAccess;
+      kind: "bash";
+      command: string;
+      access: DomainActionAccess;
     };
 
-export function allow_once(commandName: string, access: CommandAccess): PermissionDecision {
-  return {
-    type: "allow_once",
-    commandName,
-    access,
-  };
+export type PermissionDecisionType = "allow_once" | "allow_always" | "deny";
+
+export type PermissionDecision = {
+  type: PermissionDecisionType;
+};
+
+export function allow_once(): PermissionDecision {
+  return { type: "allow_once" };
 }
 
-export function allow_always(access: CommandAccess): PermissionDecision {
-  return {
-    type: "allow_always",
-    access,
-  };
+export function allow_always(): PermissionDecision {
+  return { type: "allow_always" };
 }
 
-export function deny(commandName: string, access: CommandAccess): PermissionDecision {
-  return {
-    type: "deny",
-    commandName,
-    access,
-  };
+export function deny(): PermissionDecision {
+  return { type: "deny" };
 }
 
 export type PermissionState = {
-  alwaysAllowedAccess: Set<CommandAccess>;
+  /** Dauerhafte Freigaben für Bash-Zugriffsarten (praktisch: "write" für mcp add). */
+  alwaysAllowedAccess: Set<DomainActionAccess>;
+  /** Dauerhafte Freigaben für exakte MCP-Tool-Keys. */
+  allowAlwaysMcpToolKeys: Set<string>;
 };
 
 export function createInitialPermissionState(): PermissionState {
   return {
     alwaysAllowedAccess: new Set(),
+    allowAlwaysMcpToolKeys: new Set(),
   };
 }
 
 export function evaluatePermission(
-  commandRequest: CommandRequest,
+  subject: PermissionSubject,
   permissionState: PermissionState
 ): PermissionStatus {
-  const access = commandRequest.access ?? "read";
-  if (access === "read") {
+  if (subject.kind === "mcp_tool") {
+    // Auch read-Tools brauchen eine Freigabe — nur der exakte Tool-Key zählt.
+    return permissionState.allowAlwaysMcpToolKeys.has(subject.toolKey)
+      ? allowed()
+      : requires_approval();
+  }
+
+  if (subject.access === "read") {
     return allowed();
   }
 
-  if (permissionState.alwaysAllowedAccess.has(access)) {
-    return allowed();
-  }
-
-  return requires_approval();
+  return permissionState.alwaysAllowedAccess.has(subject.access)
+    ? allowed()
+    : requires_approval();
 }
 
 export function applyPermissionDecision(
-  commandRequest: CommandRequest,
+  subject: PermissionSubject,
   decision: PermissionDecision,
   permissionState: PermissionState
 ): PermissionState {
-  if (decision.type === "allow_always") {
+  if (decision.type !== "allow_always") {
+    return permissionState;
+  }
+
+  if (subject.kind === "mcp_tool") {
     return {
-      alwaysAllowedAccess: new Set([...permissionState.alwaysAllowedAccess, decision.access]),
+      ...permissionState,
+      allowAlwaysMcpToolKeys: new Set([
+        ...permissionState.allowAlwaysMcpToolKeys,
+        subject.toolKey,
+      ]),
     };
   }
 
-  return permissionState;
-}
-
-export function executeCommandWithPermissions(
-  request: CommandRequest,
-  registry: CommandRegistry,
-  state: WorldState,
-  permissionState: PermissionState,
-  context: CommandExecutionContext = DEFAULT_EXECUTION_CONTEXT
-): { result: CommandResult; permissionState: PermissionState } {
-  const handler = registry.getHandler(request.name);
-  if (!handler) {
-    return {
-      result: {
-        success: false,
-        command: request,
-        access: "read",
-        output: null,
-        error: `Unknown command ${request.name}`,
-      },
-      permissionState,
-    };
-  }
-
-  const requestWithAccess: CommandRequest = {
-    ...request,
-    access: handler.access,
-  };
-
-  const status = evaluatePermission(requestWithAccess, permissionState);
-  if (status === denied()) {
-    return {
-      result: {
-        success: false,
-        command: requestWithAccess,
-        access: handler.access,
-        output: null,
-        error: `Permission denied for ${request.name}`,
-      },
-      permissionState,
-    };
-  }
-
-  if (status === requires_approval()) {
-    return {
-      result: {
-        success: false,
-        command: requestWithAccess,
-        access: handler.access,
-        output: null,
-        error: `Requires approval for ${request.name}`,
-      },
-      permissionState,
-    };
-  }
-
-  const result = registry.execute(requestWithAccess, state, context);
   return {
-    result,
-    permissionState,
+    ...permissionState,
+    alwaysAllowedAccess: new Set([...permissionState.alwaysAllowedAccess, subject.access]),
   };
 }

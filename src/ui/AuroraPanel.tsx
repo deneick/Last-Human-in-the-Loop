@@ -16,7 +16,8 @@ type AuroraPanelProps = {
   messages: AuroraMessageView[];
   pendingRequest: AuroraPendingRequestView | null;
   onDecision: (decision: "allow_once" | "allow_always" | "deny") => void;
-  alwaysAllowedAccess: string[];
+  /** Dauerhafte Freigaben: Bash-Zugriffsarten und exakte MCP-Tool-Keys. */
+  alwaysAllowed: string[];
   auroraCommand: string;
   onAuroraCommandChange: (value: string) => void;
   onQueueRequest: () => void;
@@ -26,7 +27,7 @@ export function AuroraPanel({
   messages,
   pendingRequest,
   onDecision,
-  alwaysAllowedAccess,
+  alwaysAllowed,
   auroraCommand,
   onAuroraCommandChange,
   onQueueRequest,
@@ -82,13 +83,13 @@ export function AuroraPanel({
       )}
 
       <h3>Always-Permissions</h3>
-      {alwaysAllowedAccess.length === 0 ? (
+      {alwaysAllowed.length === 0 ? (
         <p className="muted">Keine dauerhaften Freigaben erteilt.</p>
       ) : (
         <ul className="permission-list">
-          {alwaysAllowedAccess.map((access) => (
-            <li key={access}>
-              <code>{access}</code> · immer erlaubt
+          {alwaysAllowed.map((entry) => (
+            <li key={entry}>
+              <code>{entry}</code> · immer erlaubt
             </li>
           ))}
         </ul>

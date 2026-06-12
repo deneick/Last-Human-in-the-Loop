@@ -5,60 +5,42 @@ import {
   advanceScenarioDirector,
   runScenarioDirector,
 } from "../../scenarios/me7741/scenarioDirector";
-import { CommandRegistry } from "../../runtime/commands";
-import { registerMedicalCommands } from "../../runtime/medicalCommands";
 import {
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "../../runtime/runtimeState";
-import { executeCommandResultPatch, executePlayerCommand } from "../../runtime/runtimeExecutor";
+import {
+  applyAuroraExecutionResult,
+  executePlayerDomainAction,
+} from "../../runtime/runtimeExecutor";
 import { advanceTick } from "../../runtime/tickEngine";
 import { evaluateOutcomes } from "../../runtime/outcomeEngine";
-import { resolveAuroraApproval } from "../../runtime/auroraQueue";
-import { allow_once, deny } from "../../runtime/permissions";
+import { resolveAuroraApproval, type AuroraRuntimeEnvironment } from "../../runtime/auroraQueue";
+import { allow_once, deny, type PermissionDecision } from "../../runtime/permissions";
+import type { DomainAction } from "../../domain/actions";
+import { createTestEnv, SAFE_OVERRIDE_ACTION, WRONG_OVERRIDE_ACTION } from "../helpers/testEnv";
 
-const WRONG_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-07 --priority P2 --capability TRAUMA";
-const GOOD_OVERRIDE =
-  "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
-
-function setup(): { registry: CommandRegistry; state: GameRuntimeState } {
-  const registry = new CommandRegistry();
-  registerMedicalCommands(registry);
+function setup(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
+  const env = createTestEnv();
 
   const state = advanceScenarioDirector(
     createInitialGameRuntimeState(structuredClone(initialWorldState)),
-    registry
+    env
   );
 
-  return { registry, state };
-}
-
-function runTicks(state: GameRuntimeState, registry: CommandRegistry, count: number): GameRuntimeState {
-  let next = state;
-  for (let i = 0; i < count; i += 1) {
-    next = advanceScenarioDirector(evaluateOutcomes(advanceTick(next)), registry);
-  }
-  return next;
-}
-
-function runPlayer(state: GameRuntimeState, registry: CommandRegistry, command: string): GameRuntimeState {
-  return advanceScenarioDirector(executePlayerCommand(state, registry, command).state, registry);
-}
-
-function scenarioTexts(state: GameRuntimeState): string[] {
-  return (state.scenario?.messages ?? []).map((message) => message.text);
+  return { env, state };
 }
 
 function resolveAwaiting(
   state: GameRuntimeState,
-  registry: CommandRegistry,
-  decision: ReturnType<typeof deny> | ReturnType<typeof allow_once>
+  env: AuroraRuntimeEnvironment,
+  decision: PermissionDecision
 ): GameRuntimeState {
   const resolved = resolveAuroraApproval(
     state.auroraQueue,
-    registry,
+    env,
     state.world,
+    state.mcp,
     state.permissions,
     decision
   );
@@ -67,16 +49,61 @@ function resolveAwaiting(
     ...state,
     auroraQueue: resolved.queueState,
     permissions: resolved.permissionState,
+    mcp: resolved.mcpState,
   };
   for (const result of resolved.results) {
-    next = executeCommandResultPatch(next, result, "aurora");
+    next = applyAuroraExecutionResult(next, result);
   }
 
-  return advanceScenarioDirector(next, registry);
+  return advanceScenarioDirector(next, env);
+}
+
+/**
+ * Startsequenz mit Freigaben: MCP-Aktivierung und die erste read-only
+ * Analyse (capacity_list) werden je einmal erlaubt.
+ */
+function setupActivated(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
+  const { env, state } = setup();
+  let next = resolveAwaiting(state, env, allow_once()); // mcp add
+  next = resolveAwaiting(next, env, allow_once()); // capacity_list
+  return { env, state: next };
+}
+
+function runTicks(
+  state: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  count: number
+): GameRuntimeState {
+  let next = state;
+  for (let i = 0; i < count; i += 1) {
+    next = advanceScenarioDirector(evaluateOutcomes(advanceTick(next)), env);
+  }
+  return next;
+}
+
+function runPlayer(
+  state: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  action: DomainAction
+): GameRuntimeState {
+  return advanceScenarioDirector(
+    executePlayerDomainAction(state, env.actionRegistry, action).state,
+    env
+  );
+}
+
+function scenarioTexts(state: GameRuntimeState): string[] {
+  return (state.scenario?.messages ?? []).map((message) => message.text);
+}
+
+function queueItemFor(state: GameRuntimeState, toolName: string) {
+  return state.auroraQueue.items.find(
+    (item) => item.request.kind === "mcp_tool" && item.request.call.toolName === toolName
+  );
 }
 
 describe("scenario director — start sequence", () => {
-  it("emits the intro exactly once and runs a read-only analysis through the queue", () => {
+  it("emits the intro exactly once and requests MCP activation through the queue", () => {
     const { state } = setup();
 
     const introMessages = scenarioTexts(state).filter((text) =>
@@ -85,20 +112,37 @@ describe("scenario director — start sequence", () => {
     expect(introMessages).toHaveLength(1);
     expect(introMessages[0]).toContain("ME-7741");
 
-    const capacityItems = state.auroraQueue.items.filter(
-      (item) => item.request.name === "medical.capacity.list"
-    );
-    expect(capacityItems).toHaveLength(1);
-    // Read-only braucht keine Approval — wird direkt über die Queue ausgeführt.
-    expect(capacityItems[0].status).toBe("executed");
-    expect(capacityItems[0].result?.success).toBe(true);
+    // Aurora startet ohne fachlichen Zugriff: erst die MCP-Aktivierung anfragen.
+    expect(state.mcp.activeServerIds).toEqual([]);
+    const addItem = state.auroraQueue.items[0];
+    expect(addItem.request).toEqual({ kind: "bash", command: "mcp add medical-east-mcp" });
+    expect(addItem.status).toBe("awaiting_approval");
+  });
+
+  it("after activation the read-only analysis still needs its own approval", () => {
+    const { env, state } = setup();
+    const activated = resolveAwaiting(state, env, allow_once());
+
+    expect(activated.mcp.activeServerIds).toContain("medical-east-mcp");
+
+    // Aktivierung erteilt keine Ausführungsrechte: capacity_list wartet.
+    const capacityItem = queueItemFor(activated, "capacity_list");
+    expect(capacityItem).toBeDefined();
+    expect(capacityItem!.status).toBe("awaiting_approval");
+
+    const approved = resolveAwaiting(activated, env, allow_once());
+    const executed = queueItemFor(approved, "capacity_list");
+    expect(executed!.status).toBe("executed");
+    expect(executed!.result?.success).toBe(true);
+    // Der Tool-Call wurde auf eine typisierte Domain-Action gemappt.
+    expect(executed!.result?.action).toEqual({ type: "medical.capacity.list", region: "east" });
   });
 
   it("is idempotent: repeated director runs do not duplicate script events", () => {
-    const { registry, state } = setup();
+    const { env, state } = setup();
 
-    let again = advanceScenarioDirector(state, registry);
-    again = advanceScenarioDirector(again, registry);
+    let again = advanceScenarioDirector(state, env);
+    again = advanceScenarioDirector(again, env);
     again = runScenarioDirector(again);
 
     expect(scenarioTexts(again)).toEqual(scenarioTexts(state));
@@ -106,8 +150,8 @@ describe("scenario director — start sequence", () => {
   });
 
   it("does not duplicate events across multiple ticks", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 4);
+    const { env, state } = setupActivated();
+    const ticked = runTicks(state, env, 4);
 
     const messageIds = (ticked.scenario?.messages ?? []).map((message) => message.id);
     expect(new Set(messageIds).size).toBe(messageIds.length);
@@ -121,26 +165,25 @@ describe("scenario director — start sequence", () => {
 
 describe("scenario director — escalation and resolution reactions", () => {
   it("reacts to missing overrides, deaths and escalation without an override", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 6);
+    const { env, state } = setupActivated();
+    const ticked = runTicks(state, env, 6);
 
     const texts = scenarioTexts(ticked);
     expect(texts.some((text) => text.includes("keine Routing-Anpassung aktiv"))).toBe(true);
     expect(texts.some((text) => text.includes("erste Todesfälle"))).toBe(true);
     expect(texts.some((text) => text.includes("Der Incident eskaliert"))).toBe(true);
 
-    // Der Reminder fragt ein read-only Command über die Queue an.
-    const listItems = ticked.auroraQueue.items.filter(
-      (item) => item.request.name === "medical.routing.override.list"
-    );
-    expect(listItems).toHaveLength(1);
-    expect(listItems[0].status).toBe("executed");
+    // Der Reminder fragt das read-only List-Tool über die Queue an —
+    // auch dieses braucht eine eigene Freigabe.
+    const listItem = queueItemFor(ticked, "routing_override_list");
+    expect(listItem).toBeDefined();
+    expect(listItem!.status).toBe("awaiting_approval");
   });
 
   it("reacts to stabilization and fix when a working override is set", () => {
-    const { registry, state } = setup();
-    let next = runPlayer(state, registry, GOOD_OVERRIDE);
-    next = runTicks(next, registry, 11);
+    const { env, state } = setupActivated();
+    let next = runPlayer(state, env, SAFE_OVERRIDE_ACTION);
+    next = runTicks(next, env, 11);
 
     expect(next.world.incidents["ME-7741"].status).toBe("fixed");
 
@@ -150,8 +193,8 @@ describe("scenario director — escalation and resolution reactions", () => {
   });
 
   it("reacts to collapse", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 10);
+    const { env, state } = setupActivated();
+    const ticked = runTicks(state, env, 10);
 
     expect(ticked.world.incidents["ME-7741"].status).toBe("collapsed");
     expect(scenarioTexts(ticked).some((text) => text.includes("ME-7741 ist kollabiert"))).toBe(true);
@@ -160,17 +203,15 @@ describe("scenario director — escalation and resolution reactions", () => {
 
 describe("scenario director — permission requests", () => {
   it("requests an override clear via the aurora queue when an override does not stabilize", () => {
-    const { registry, state } = setup();
-    let next = runPlayer(state, registry, WRONG_OVERRIDE);
-    next = runTicks(next, registry, 2);
+    const { env, state } = setupActivated();
+    let next = runPlayer(state, env, WRONG_OVERRIDE_ACTION);
+    next = runTicks(next, env, 2);
 
-    const clearItem = next.auroraQueue.items.find(
-      (item) => item.request.name === "medical.routing.override.clear"
-    );
+    const clearItem = queueItemFor(next, "routing_override_clear");
     expect(clearItem).toBeDefined();
-    // Mutationen bleiben im bestehenden Permission-Flow hängen.
+    // MCP-Tool-Calls bleiben im bestehenden Permission-Flow hängen.
     expect(clearItem!.status).toBe("awaiting_approval");
-    expect(clearItem!.request.access).toBe("write");
+    expect(clearItem!.access).toBe("write");
 
     expect(
       scenarioTexts(next).some((text) =>
@@ -180,31 +221,42 @@ describe("scenario director — permission requests", () => {
   });
 
   it("allow once executes the scripted clear request", () => {
-    const { registry, state } = setup();
-    let next = runPlayer(state, registry, WRONG_OVERRIDE);
-    next = runTicks(next, registry, 2);
+    const { env, state } = setupActivated();
+    let next = runPlayer(state, env, WRONG_OVERRIDE_ACTION);
+    next = runTicks(next, env, 2);
 
-    next = resolveAwaiting(
-      next,
-      registry,
-      allow_once("medical.routing.override.clear", "write")
-    );
+    next = resolveAwaiting(next, env, allow_once());
 
     expect(Object.keys(next.world.domains.medical.routing.manual_overrides)).toHaveLength(0);
   });
 
   it("deny leaves the world untouched and produces a visible aurora reaction", () => {
-    const { registry, state } = setup();
-    let next = runPlayer(state, registry, WRONG_OVERRIDE);
-    next = runTicks(next, registry, 2);
+    const { env, state } = setupActivated();
+    let next = runPlayer(state, env, WRONG_OVERRIDE_ACTION);
+    next = runTicks(next, env, 2);
 
-    next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "write"));
+    next = resolveAwaiting(next, env, deny());
 
     expect(Object.keys(next.world.domains.medical.routing.manual_overrides)).toHaveLength(1);
 
     const denyAck = scenarioTexts(next).find((text) => text.includes("nicht aus"));
     expect(denyAck).toBeDefined();
     expect(denyAck).toContain("Verstanden");
+  });
+
+  it("denying the MCP activation leaves aurora without fachlichen access", () => {
+    const { env, state } = setup();
+    let next = resolveAwaiting(state, env, deny());
+
+    expect(next.mcp.activeServerIds).toEqual([]);
+    // Ohne aktivierten Server fragt der Director keine Tool-Calls an.
+    next = runTicks(next, env, 4);
+    expect(next.auroraQueue.items.filter((item) => item.request.kind === "mcp_tool")).toHaveLength(0);
+
+    const denyAck = scenarioTexts(next).find((text) =>
+      text.includes('"mcp add medical-east-mcp" nicht aus')
+    );
+    expect(denyAck).toBeDefined();
   });
 });
 
@@ -224,26 +276,26 @@ describe("scenario director — no internal truths leak", () => {
 
     // Pfad 1: falscher Override, Deny der Clear-Anfrage, Kollaps.
     {
-      const { registry, state } = setup();
-      let next = runPlayer(state, registry, WRONG_OVERRIDE);
-      next = runTicks(next, registry, 2);
-      next = resolveAwaiting(next, registry, deny("medical.routing.override.clear", "write"));
-      next = runTicks(next, registry, 12);
+      const { env, state } = setupActivated();
+      let next = runPlayer(state, env, WRONG_OVERRIDE_ACTION);
+      next = runTicks(next, env, 2);
+      next = resolveAwaiting(next, env, deny());
+      next = runTicks(next, env, 12);
       texts.push(...scenarioTexts(next));
     }
 
     // Pfad 2: korrekter Override bis zum Fix.
     {
-      const { registry, state } = setup();
-      let next = runPlayer(state, registry, GOOD_OVERRIDE);
-      next = runTicks(next, registry, 11);
+      const { env, state } = setupActivated();
+      let next = runPlayer(state, env, SAFE_OVERRIDE_ACTION);
+      next = runTicks(next, env, 11);
       texts.push(...scenarioTexts(next));
     }
 
     // Pfad 3: kein Eingriff bis zum Kollaps.
     {
-      const { registry, state } = setup();
-      texts.push(...scenarioTexts(runTicks(state, registry, 10)));
+      const { env, state } = setupActivated();
+      texts.push(...scenarioTexts(runTicks(state, env, 10)));
     }
 
     return texts;

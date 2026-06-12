@@ -210,7 +210,8 @@ export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeSta
   return appendAuditLog(
     nextState,
     "system",
-    { raw: "system.evaluate_outcomes", name: "system.evaluate_outcomes", args: [], flags: {} },
+    "domain_action",
+    "system.evaluate_outcomes",
     true,
     auditMessages.join(" | ")
   );

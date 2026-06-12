@@ -1,10 +1,18 @@
 import type { KeyboardEvent } from "react";
-import type { CommandResult } from "../runtime/commands";
 import type { AuditLogLineView } from "./viewModel";
 
 export type CommandHelpEntry = {
   label: string;
   command: string;
+};
+
+/** Einheitliche Ergebnis-Sicht für Domain-Actions und Bash-Commands. */
+export type OperatorResultView = {
+  success: boolean;
+  /** Was ausgeführt wurde (Command-Text bzw. Action-Typ). */
+  subject: string;
+  output: unknown;
+  error?: string;
 };
 
 type OperatorConsolePanelProps = {
@@ -13,20 +21,20 @@ type OperatorConsolePanelProps = {
   onExecute: () => void;
   commandNames: string[];
   commandHelp: CommandHelpEntry[];
-  lastResult: CommandResult | null;
+  lastResult: OperatorResultView | null;
   auditLines: AuditLogLineView[];
 };
 
-function getResultLabel(result: CommandResult | null) {
+function getResultLabel(result: OperatorResultView | null) {
   if (!result) {
     return "Noch kein Command ausgeführt.";
   }
 
   if (result.success) {
-    return `OK: ${result.command.raw}`;
+    return `OK: ${result.subject}`;
   }
 
-  return `FEHLER: ${result.error ?? result.command.raw}`;
+  return `FEHLER: ${result.error ?? result.subject}`;
 }
 
 export function OperatorConsolePanel({

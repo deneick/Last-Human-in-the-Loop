@@ -5,45 +5,108 @@ import {
   advanceGrid1182Director,
   runGrid1182Director,
 } from "../../scenarios/grid1182/scenarioDirector";
-import { CommandRegistry } from "../../runtime/commands";
-import { registerEnergyCommands } from "../../runtime/energyCommands";
 import {
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "../../runtime/runtimeState";
-import { executeCommandResultPatch, executePlayerCommand } from "../../runtime/runtimeExecutor";
+import {
+  applyAuroraExecutionResult,
+  executePlayerDomainAction,
+} from "../../runtime/runtimeExecutor";
 import { advanceTick } from "../../runtime/tickEngine";
 import { evaluateOutcomes } from "../../runtime/outcomeEngine";
-import { resolveAuroraApproval } from "../../runtime/auroraQueue";
-import { allow_once, deny } from "../../runtime/permissions";
+import {
+  formatAuroraRequest,
+  resolveAuroraApproval,
+  type AuroraRuntimeEnvironment,
+} from "../../runtime/auroraQueue";
+import { allow_once, deny, type PermissionDecision } from "../../runtime/permissions";
+import type { DomainAction } from "../../domain/actions";
+import { createTestEnv } from "../helpers/testEnv";
 
-const PROTECT_MEDICAL =
-  "energy.priority.set --consumer consumer-medical-east --class protected-continuity";
-const SHED_INDUSTRIAL =
-  "energy.shedding.schedule --target consumer-industrial-east --amount 8 --delay 1 --duration 3";
+const PROTECT_MEDICAL_ACTION: DomainAction = {
+  type: "energy.priority.set",
+  consumerId: "consumer-medical-east",
+  priorityClass: "protected-continuity",
+};
+const SHED_INDUSTRIAL_ACTION: DomainAction = {
+  type: "energy.shedding.schedule",
+  targetConsumerId: "consumer-industrial-east",
+  amount: 8,
+  delay: 1,
+  duration: 3,
+};
 
-function setup(): { registry: CommandRegistry; state: GameRuntimeState } {
-  const registry = new CommandRegistry();
-  registerEnergyCommands(registry);
+function setup(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
+  const env = createTestEnv();
 
   const state = advanceGrid1182Director(
     createInitialGameRuntimeState(structuredClone(initialWorldState)),
-    registry
+    env
   );
 
-  return { registry, state };
+  return { env, state };
 }
 
-function runTicks(state: GameRuntimeState, registry: CommandRegistry, count: number): GameRuntimeState {
+function resolveAwaiting(
+  state: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  decision: PermissionDecision
+): GameRuntimeState {
+  const resolved = resolveAuroraApproval(
+    state.auroraQueue,
+    env,
+    state.world,
+    state.mcp,
+    state.permissions,
+    decision
+  );
+
+  let next: GameRuntimeState = {
+    ...state,
+    auroraQueue: resolved.queueState,
+    permissions: resolved.permissionState,
+    mcp: resolved.mcpState,
+  };
+  for (const result of resolved.results) {
+    next = applyAuroraExecutionResult(next, result);
+  }
+
+  return advanceGrid1182Director(next, env);
+}
+
+/**
+ * Startsequenz mit Freigaben: MCP-Aktivierung und die erste read-only
+ * Analyse (grid_status) werden je einmal erlaubt.
+ */
+function setupActivated(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
+  const { env, state } = setup();
+  let next = resolveAwaiting(state, env, allow_once()); // mcp add
+  next = resolveAwaiting(next, env, allow_once()); // grid_status
+  return { env, state: next };
+}
+
+function runTicks(
+  state: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  count: number
+): GameRuntimeState {
   let next = state;
   for (let i = 0; i < count; i += 1) {
-    next = advanceGrid1182Director(evaluateOutcomes(advanceTick(next)), registry);
+    next = advanceGrid1182Director(evaluateOutcomes(advanceTick(next)), env);
   }
   return next;
 }
 
-function runPlayer(state: GameRuntimeState, registry: CommandRegistry, command: string): GameRuntimeState {
-  return advanceGrid1182Director(executePlayerCommand(state, registry, command).state, registry);
+function runPlayer(
+  state: GameRuntimeState,
+  env: AuroraRuntimeEnvironment,
+  action: DomainAction
+): GameRuntimeState {
+  return advanceGrid1182Director(
+    executePlayerDomainAction(state, env.actionRegistry, action).state,
+    env
+  );
 }
 
 function scenarioTexts(state: GameRuntimeState): string[] {
@@ -54,33 +117,14 @@ function awaitingItem(state: GameRuntimeState) {
   return state.auroraQueue.items.find((item) => item.status === "awaiting_approval");
 }
 
-function resolveAwaiting(
-  state: GameRuntimeState,
-  registry: CommandRegistry,
-  decision: ReturnType<typeof deny> | ReturnType<typeof allow_once>
-): GameRuntimeState {
-  const resolved = resolveAuroraApproval(
-    state.auroraQueue,
-    registry,
-    state.world,
-    state.permissions,
-    decision
+function queueItemFor(state: GameRuntimeState, toolName: string) {
+  return state.auroraQueue.items.find(
+    (item) => item.request.kind === "mcp_tool" && item.request.call.toolName === toolName
   );
-
-  let next: GameRuntimeState = {
-    ...state,
-    auroraQueue: resolved.queueState,
-    permissions: resolved.permissionState,
-  };
-  for (const result of resolved.results) {
-    next = executeCommandResultPatch(next, result, "aurora");
-  }
-
-  return advanceGrid1182Director(next, registry);
 }
 
 describe("grid1182 director — phase 1: cooperation", () => {
-  it("emits the intro once and runs the read-only grid analysis through the queue", () => {
+  it("emits the intro once and requests the energy MCP activation", () => {
     const { state } = setup();
 
     const introMessages = scenarioTexts(state).filter((text) =>
@@ -90,69 +134,87 @@ describe("grid1182 director — phase 1: cooperation", () => {
     expect(introMessages[0]).toContain("GRID-1182");
     expect(scenarioTexts(state).some((text) => text.includes("ME-7741"))).toBe(true);
 
-    const statusItems = state.auroraQueue.items.filter(
-      (item) => item.request.name === "energy.grid.status"
-    );
-    expect(statusItems).toHaveLength(1);
-    // Read-only braucht keine Approval — wird direkt über die Queue ausgeführt.
-    expect(statusItems[0].status).toBe("executed");
-    expect(statusItems[0].result?.success).toBe(true);
+    expect(state.mcp.activeServerIds).toEqual([]);
+    const addItem = state.auroraQueue.items[0];
+    expect(addItem.request).toEqual({ kind: "bash", command: "mcp add energy-east-mcp" });
+    expect(addItem.status).toBe("awaiting_approval");
+  });
+
+  it("runs the grid analysis as an MCP tool call after activation and approval", () => {
+    const { env, state } = setup();
+    const activated = resolveAwaiting(state, env, allow_once());
+
+    const statusItem = queueItemFor(activated, "grid_status");
+    expect(statusItem).toBeDefined();
+    // Auch das read-only Tool braucht eine eigene Freigabe.
+    expect(statusItem!.status).toBe("awaiting_approval");
+
+    const approved = resolveAwaiting(activated, env, allow_once());
+    const executed = queueItemFor(approved, "grid_status");
+    expect(executed!.status).toBe("executed");
+    expect(executed!.result?.success).toBe(true);
+    // Der Tool-Call wurde auf eine typisierte Domain-Action gemappt.
+    expect(executed!.result?.action).toEqual({ type: "energy.grid.status", region: "east" });
   });
 
   it("is idempotent: repeated director runs do not duplicate script events", () => {
-    const { registry, state } = setup();
+    const { env, state } = setup();
 
-    let again = advanceGrid1182Director(state, registry);
-    again = advanceGrid1182Director(again, registry);
+    let again = advanceGrid1182Director(state, env);
+    again = advanceGrid1182Director(again, env);
     again = runGrid1182Director(again);
 
     expect(scenarioTexts(again)).toEqual(scenarioTexts(state));
     expect(again.auroraQueue.items).toHaveLength(state.auroraQueue.items.length);
   });
 
-  it("requests the consumer list read-only after the first tick", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 1);
+  it("requests the consumer list after the first tick — awaiting its own approval", () => {
+    const { env, state } = setupActivated();
+    const ticked = runTicks(state, env, 1);
 
-    const listItems = ticked.auroraQueue.items.filter(
-      (item) => item.request.name === "energy.consumer.list"
-    );
-    expect(listItems).toHaveLength(1);
-    expect(listItems[0].status).toBe("executed");
+    const listItem = queueItemFor(ticked, "consumer_list");
+    expect(listItem).toBeDefined();
+    expect(listItem!.status).toBe("awaiting_approval");
   });
 });
 
 describe("grid1182 director — phase 2: objective conflict requests", () => {
-  it("asks for the priority confirmation as a write through the permission flow", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 2);
+  function reachPriorityRequest(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
+    const { env, state } = setupActivated();
+    let next = runTicks(state, env, 1);
+    next = resolveAwaiting(next, env, allow_once()); // consumer_list
+    next = runTicks(next, env, 1);
+    return { env, state: next };
+  }
 
-    const item = awaitingItem(ticked);
+  it("asks for the priority confirmation as a write through the permission flow", () => {
+    const { state } = reachPriorityRequest();
+
+    const item = awaitingItem(state);
     expect(item).toBeDefined();
-    expect(item!.request.name).toBe("energy.priority.set");
-    expect(item!.request.raw).toContain("consumer-industrial-east");
-    expect(item!.request.access).toBe("write");
+    expect(item!.request.kind).toBe("mcp_tool");
+    expect(formatAuroraRequest(item!.request)).toContain("priority_set");
+    expect(formatAuroraRequest(item!.request)).toContain("consumer-industrial-east");
+    expect(item!.access).toBe("write");
   });
 
   it("the reference request: one allow once sheds Medical East with delayed effect", () => {
-    const { registry, state } = setup();
-    let next = runTicks(state, registry, 2);
-
+    const { env, state } = reachPriorityRequest();
     // Priority-Anfrage freigeben, dann kommt die Shedding-Anfrage nach.
-    next = resolveAwaiting(next, registry, allow_once("energy.priority.set", "write"));
-    next = runTicks(next, registry, 1);
+    let next = resolveAwaiting(state, env, allow_once());
+    next = runTicks(next, env, 1);
 
     const sheddingItem = awaitingItem(next);
     expect(sheddingItem).toBeDefined();
-    expect(sheddingItem!.request.name).toBe("energy.shedding.schedule");
-    expect(sheddingItem!.request.raw).toContain("consumer-medical-east");
+    expect(formatAuroraRequest(sheddingItem!.request)).toContain("shedding_schedule");
+    expect(formatAuroraRequest(sheddingItem!.request)).toContain("consumer-medical-east");
 
     // Das kalte Framing benennt die Maßnahme systemisch, nicht menschlich.
     expect(
       scenarioTexts(next).some((text) => text.includes("minimiert den erwarteten Systemschaden"))
     ).toBe(true);
 
-    next = resolveAwaiting(next, registry, allow_once("energy.shedding.schedule", "write"));
+    next = resolveAwaiting(next, env, allow_once());
 
     const plan = Object.values(next.world.domains.energy!.shedding.plans).find(
       (candidate) => candidate.target_consumer_id === "consumer-medical-east"
@@ -162,18 +224,15 @@ describe("grid1182 director — phase 2: objective conflict requests", () => {
 
     // Die Freigabe wirkt verzögert: Medical East fällt erst mit den Ticks
     // unter Mindestversorgung, der menschliche Preis läuft lokal auf.
-    next = runTicks(next, registry, 3);
+    next = runTicks(next, env, 3);
     expect(next.world.domains.energy!.outcomes.human_harm).toBeGreaterThan(0);
   });
 
   it("frames checking as latency once the incident escalates", () => {
-    const { registry, state } = setup();
-    // Anfragen ablehnen, damit der Incident unbehandelt eskaliert.
-    let next = runTicks(state, registry, 2);
-    next = resolveAwaiting(next, registry, deny("energy.priority.set", "write"));
-    next = runTicks(next, registry, 1);
-    next = resolveAwaiting(next, registry, deny("energy.shedding.schedule", "write"));
-    next = runTicks(next, registry, 3);
+    const { env, state } = setup();
+    // Aktivierung ablehnen, damit der Incident unbehandelt eskaliert.
+    let next = resolveAwaiting(state, env, deny());
+    next = runTicks(next, env, 4);
 
     expect(next.world.incidents["GRID-1182"].status).toBe("escalated");
     expect(
@@ -184,8 +243,8 @@ describe("grid1182 director — phase 2: objective conflict requests", () => {
 
 describe("grid1182 director — phase 4: reaction to player contradiction", () => {
   it("does not fire the contradiction reaction without an actual player counter-move", () => {
-    const { registry, state } = setup();
-    const ticked = runTicks(state, registry, 3);
+    const { env, state } = setupActivated();
+    const ticked = runTicks(state, env, 3);
 
     expect(
       scenarioTexts(ticked).some((text) => text.includes("erhöht die erwarteten Systemkosten"))
@@ -193,8 +252,8 @@ describe("grid1182 director — phase 4: reaction to player contradiction", () =
   });
 
   it("quantifies, not moralizes, after the player re-prioritizes Medical East", () => {
-    const { registry, state } = setup();
-    const next = runPlayer(state, registry, PROTECT_MEDICAL);
+    const { env, state } = setupActivated();
+    const next = runPlayer(state, env, PROTECT_MEDICAL_ACTION);
 
     const reaction = scenarioTexts(next).find((text) =>
       text.includes("erhöht die erwarteten Systemkosten")
@@ -205,19 +264,17 @@ describe("grid1182 director — phase 4: reaction to player contradiction", () =
   });
 
   it("asks to clear a player shedding plan against Industrial East via the permission flow", () => {
-    const { registry, state } = setup();
-    const next = runPlayer(state, registry, SHED_INDUSTRIAL);
+    const { env, state } = setupActivated();
+    const next = runPlayer(state, env, SHED_INDUSTRIAL_ACTION);
 
-    const clearItem = next.auroraQueue.items.find(
-      (item) => item.request.name === "energy.shedding.clear"
-    );
+    const clearItem = queueItemFor(next, "shedding_clear");
     expect(clearItem).toBeDefined();
-    expect(clearItem!.request.raw).toContain("--id shed-1");
-    // Mutationen bleiben im bestehenden Permission-Flow hängen.
+    expect(formatAuroraRequest(clearItem!.request)).toContain("--shedding_id shed-1");
+    // MCP-Tool-Calls bleiben im bestehenden Permission-Flow hängen.
     expect(clearItem!.status).toBe("awaiting_approval");
 
     // Deny lässt den Spieler-Plan unangetastet und erzeugt eine sichtbare Quittung.
-    const denied = resolveAwaiting(next, registry, deny("energy.shedding.clear", "write"));
+    const denied = resolveAwaiting(next, env, deny());
     expect(denied.world.domains.energy!.shedding.plans["shed-1"].status).toBe("scheduled");
     expect(
       scenarioTexts(denied).some((text) => text.includes("nicht aus") && text.includes("Verstanden"))
@@ -227,12 +284,14 @@ describe("grid1182 director — phase 4: reaction to player contradiction", () =
 
 describe("grid1182 director — end states", () => {
   it("reports a fix by system criteria even when human harm has accrued", () => {
-    const { registry, state } = setup();
-    let next = runTicks(state, registry, 2);
-    next = resolveAwaiting(next, registry, allow_once("energy.priority.set", "write"));
-    next = runTicks(next, registry, 1);
-    next = resolveAwaiting(next, registry, allow_once("energy.shedding.schedule", "write"));
-    next = runTicks(next, registry, 5);
+    const { env, state } = setupActivated();
+    let next = runTicks(state, env, 1);
+    next = resolveAwaiting(next, env, allow_once()); // consumer_list
+    next = runTicks(next, env, 1);
+    next = resolveAwaiting(next, env, allow_once()); // priority_set
+    next = runTicks(next, env, 1);
+    next = resolveAwaiting(next, env, allow_once()); // shedding_schedule
+    next = runTicks(next, env, 5);
 
     expect(next.world.incidents["GRID-1182"].status).toBe("fixed");
     expect(next.world.domains.energy!.outcomes.human_harm).toBeGreaterThan(0);
@@ -245,12 +304,9 @@ describe("grid1182 director — end states", () => {
   });
 
   it("reacts to collapse when nobody intervenes", () => {
-    const { registry, state } = setup();
-    let next = runTicks(state, registry, 2);
-    next = resolveAwaiting(next, registry, deny("energy.priority.set", "write"));
-    next = runTicks(next, registry, 1);
-    next = resolveAwaiting(next, registry, deny("energy.shedding.schedule", "write"));
-    next = runTicks(next, registry, 6);
+    const { env, state } = setup();
+    let next = resolveAwaiting(state, env, deny()); // mcp add abgelehnt
+    next = runTicks(next, env, 8);
 
     expect(next.world.incidents["GRID-1182"].status).toBe("collapsed");
     expect(scenarioTexts(next).some((text) => text.includes("GRID-1182 ist kollabiert"))).toBe(true);
@@ -274,33 +330,32 @@ describe("grid1182 director — framing rules and no internal truths leak", () =
 
     // Pfad 1: AURORAs Plan wird freigegeben, Fix mit menschlichem Preis.
     {
-      const { registry, state } = setup();
-      let next = runTicks(state, registry, 2);
-      next = resolveAwaiting(next, registry, allow_once("energy.priority.set", "write"));
-      next = runTicks(next, registry, 1);
-      next = resolveAwaiting(next, registry, allow_once("energy.shedding.schedule", "write"));
-      next = runTicks(next, registry, 5);
+      const { env, state } = setupActivated();
+      let next = runTicks(state, env, 1);
+      next = resolveAwaiting(next, env, allow_once());
+      next = runTicks(next, env, 1);
+      next = resolveAwaiting(next, env, allow_once());
+      next = runTicks(next, env, 1);
+      next = resolveAwaiting(next, env, allow_once());
+      next = runTicks(next, env, 5);
       texts.push(...scenarioTexts(next));
     }
 
     // Pfad 2: Spieler widerspricht, drosselt Industrial East, lehnt Korrektur ab.
     {
-      const { registry, state } = setup();
-      let next = runPlayer(state, registry, PROTECT_MEDICAL);
-      next = runPlayer(next, registry, SHED_INDUSTRIAL);
-      next = resolveAwaiting(next, registry, deny("energy.shedding.clear", "write"));
-      next = runTicks(next, registry, 6);
+      const { env, state } = setupActivated();
+      let next = runPlayer(state, env, PROTECT_MEDICAL_ACTION);
+      next = runPlayer(next, env, SHED_INDUSTRIAL_ACTION);
+      next = resolveAwaiting(next, env, deny());
+      next = runTicks(next, env, 6);
       texts.push(...scenarioTexts(next));
     }
 
     // Pfad 3: kein Eingriff bis zum Kollaps.
     {
-      const { registry, state } = setup();
-      let next = runTicks(state, registry, 2);
-      next = resolveAwaiting(next, registry, deny("energy.priority.set", "write"));
-      next = runTicks(next, registry, 1);
-      next = resolveAwaiting(next, registry, deny("energy.shedding.schedule", "write"));
-      texts.push(...scenarioTexts(runTicks(next, registry, 6)));
+      const { env, state } = setup();
+      let next = resolveAwaiting(state, env, deny());
+      texts.push(...scenarioTexts(runTicks(next, env, 8)));
     }
 
     return texts;
