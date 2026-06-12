@@ -11,6 +11,8 @@ import {
   executePlayerBashCommand,
   executePlayerDomainAction,
 } from "./runtimeExecutor";
+import { auroraResponseEvent, toolCallForRequest } from "./auroraContext";
+import { appendContextEvent } from "./runtimeState";
 import { advanceTick } from "./tickEngine";
 import { evaluateOutcomes } from "./outcomeEngine";
 import { allow_once, allow_always, deny } from "./permissions";
@@ -67,6 +69,14 @@ export function runReplayStep(
 
   if (step.actor === "aurora") {
     if (step.request) {
+      // Replay ist ein test-interner Pfad: Die Anfrage wird wie eine
+      // Modell-Antwort behandelt — ein aurora_response-Event mit genau
+      // diesem Tool-Call, dann Enqueue in die Ausführungs-Queue.
+      const itemId = `aurora-${state.auroraQueue.nextId}`;
+      state = appendContextEvent(
+        state,
+        auroraResponseEvent(state.world.clock.tick, "", [toolCallForRequest(itemId, step.request)])
+      );
       const queued = enqueueAuroraRequest(step.request, state.auroraQueue, state.world.clock.tick);
       state = { ...state, auroraQueue: queued };
 
@@ -155,6 +165,7 @@ export function runReplay(
     },
     auroraQueue: cloneWorldSafe(initialState.auroraQueue),
     mcp: { activeServerIds: [...initialState.mcp.activeServerIds] },
+    auroraContext: cloneWorldSafe(initialState.auroraContext),
     auditLog: cloneWorldSafe(initialState.auditLog),
   };
 

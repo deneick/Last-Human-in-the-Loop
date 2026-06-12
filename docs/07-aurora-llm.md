@@ -8,15 +8,72 @@ Es ergänzt `docs/01-aurora.md` ("Langfristige Vision → AURORA als LLM-Agent")
 
 ```
 src/aurora/
-  modelClient.ts     Provider-neutrales Interface (AuroraModelClient)
+  modelClient.ts      Provider-neutrales Interface (AuroraModelClient)
   toolSchema.ts       bash + mcp__<server>__<tool> Tool-Schemas fürs Modell
   systemPrompt.ts     AURORAs System-Prompt (Persona, Permission-Flow)
-  contextBuilder.ts   Baut den ModelRequest aus dem sichtbaren Runtime-State
-  agent.ts            Ein Agenten-Schritt: complete() -> Queue -> Permission-Flow
+  contextSerializer.ts AuroraContextEvents -> Chat-Completions-Messages
+  contextBuilder.ts   Baut den ModelRequest aus Events + Tool-Schemas
+  agent.ts            Ein Agenten-Schritt: complete() -> Events -> Queue
   config.ts           Env-Konfiguration (Modellname, Server-URL)
   fakeModelClient.ts  Deterministischer Client für Tests
   ollamaModelClient.ts Ollama-Client (/v1/chat/completions, Tool-Calling)
+
+src/runtime/
+  auroraContext.ts    AuroraContextEvents: append-only Event-Log (siehe unten)
 ```
+
+### `AuroraContextEvents` — die einzige modell-sichtbare History
+
+`GameRuntimeState.auroraContext` ist ein **append-only Event-Log** und die
+einzige Quelle für alles, was AURORA je gesehen oder gesagt hat. Alle
+Ereignisse stehen dort chronologisch, in echter Einfüge-Reihenfolge:
+
+| Event-Kind         | Bedeutung                                                                  |
+| ------------------ | -------------------------------------------------------------------------- |
+| `incident_signal`  | Öffentliches Incident-Signal (bei Runtime-Initialisierung konvertiert)      |
+| `scenario_event`   | Lage-/Scenario-Feed-Meldung (kein Operator-Text)                            |
+| `system_event`     | Systemmeldung (kein Operator-Text)                                          |
+| `operator_message` | **Echte** Operator-Chat-Nachricht aus dem AURORA-Panel                      |
+| `aurora_response`  | Eine AURORA-Antwort: Text plus **alle** Tool-Calls dieser Antwort, gruppiert |
+| `tool_result`      | Ergebnis genau eines Tool-Calls (executed/denied/failed), via `toolCallId`  |
+
+Regeln:
+
+- In den Events steht **nur modell-sichtbarer Inhalt** — nie `world.simulation`,
+  interne Patches, typisierte Domain-Actions oder hidden WorldState.
+- `world.incidents[*].public_signals` werden genau einmal bei der
+  Runtime-Initialisierung in `incident_signal`-Events konvertiert
+  (`initialIncidentSignalEvents`) und danach nicht mehr dynamisch gelesen.
+- Die **AuroraQueue ist eine reine Ausführungs-Queue** für modell-erzeugte
+  Tool-Calls (sequenzieller Permission-/Execution-Flow und Pending-UI). Sie
+  ist keine Konversations- oder History-Quelle und wird vom Context-Builder
+  nicht gelesen.
+- Die Events sind das kanonische Rohmaterial für spätere
+  SFT-/DPO-Trainings-Exporte — ohne History-Rekonstruktion aus anderen
+  Runtime-Strukturen. (Export selbst ist bewusst nicht Teil dieses Slices.)
+
+### Serialisierung (`contextSerializer.ts`)
+
+`serializeContextEventsForChat(events)` bildet die Events 1:1 und in exakt
+gespeicherter Reihenfolge auf Chat-Completions-Messages ab. Ein späterer
+Responses-API-Serializer kann dieselben Events anders abbilden — die Events
+bleiben das kanonische Format.
+
+Chat Completions transportiert nicht-assistant-sichtbare Ereignisse als
+`user`-Messages. Damit AURORA unterscheiden kann, was der Operator wirklich
+geschrieben hat und was der Incident-/Scenario-/System-Feed gemeldet hat:
+
+- `operator_message` → `user`, **ohne** künstlichen Präfix (nur echte
+  Operator-Sprache).
+- `incident_signal` → `user` mit Präfix `[INCIDENT SIGNAL] [<incident>] …`
+- `scenario_event` → `user` mit Präfix `[SCENARIO EVENT] …`
+- `system_event` → `user` mit Präfix `[SYSTEM EVENT] …`
+- `aurora_response` → `assistant` (Text + `tool_calls`)
+- `tool_result` → `tool`, verlinkt über die `tool_call_id` des zugehörigen
+  Calls (die Id des AuroraQueue-Items, das ihn ausgeführt hat).
+
+Incident-/Scenario-/System-Events werden also **nie** so serialisiert, als
+hätte der Operator sie gesagt.
 
 ### `AuroraModelClient` (provider-neutral)
 
@@ -32,8 +89,8 @@ Ein `ModelRequest` enthält **ausschließlich**:
 - `messages` — die für AURORA sichtbare Konversation (siehe unten).
 - `tools` — aktuell verfügbare Tool-Schemas (`bash` + Tools aktiver MCP-Server).
 
-Ein `ModelResponse` enthält eine optionale Freitext-Nachricht und höchstens
-einen Tool-Call (`bash` oder `mcp__<server>__<tool>`).
+Ein `ModelResponse` enthält eine optionale Freitext-Nachricht und null bis
+mehrere Tool-Calls (`bash` oder `mcp__<server>__<tool>`).
 
 Standard-Implementierung ist `OllamaModelClient` (lokal, Cloud-Provider wie
 Anthropic/OpenAI sind in diesem Slice bewusst nicht angebunden).
@@ -42,24 +99,22 @@ ausschließlich in Tests verwendet.
 
 ### Was AURORA sieht — und was nicht (`contextBuilder.ts`)
 
-`buildAuroraModelRequest(...)` rekonstruiert die sichtbare Historie aus:
+`buildAuroraModelRequest({ events, mcpRegistry, mcpState })` baut den
+`ModelRequest` aus genau zwei Dingen:
 
-1. öffentlichen Incident-Signalen (`world.incidents[*].public_signals`),
-2. skriptierten Operator-/Lage-Nachrichten (`scenario.messages`),
-3. Operator-Chat aus dem AURORA-Panel (`scenario.operatorMessages`) — die
-   normale Spieler-Kommunikation an AURORA, als `user`-Nachrichten,
-4. bereits bearbeiteten Aurora-Anfragen — als Tool-Call + Tool-Result-Paar,
-   ohne den internen WorldState-Patch,
-5. AURORAs eigenen vorherigen Freitext-Antworten (`scenario.agentMessages`).
+1. dem serialisierten `AuroraContextEvents`-Log (siehe oben) — in exakter
+   Event-Reihenfolge, ohne Sortierung oder Rekonstruktion,
+2. den aktuell sichtbaren Tool-Schemas (`bash` + Tools aktiver MCP-Server).
 
-Alle Quellen werden nach `(tick, sequence)` sortiert zu einer einzigen
-chronologischen `messages`-Liste zusammengeführt.
+Es gibt **keine** weiteren History-Quellen mehr: weder `auroraQueue.items`
+noch `scenario`-Nachrichtenlisten noch ein dynamisches Lesen der
+`public_signals`.
 
 **Niemals enthalten**: `world.simulation` (z. B. `routing_failures`,
 `deaths_recorded`, `stable_ticks`), interne typisierte Domain-Actions oder
 eine synthetisierte "allwissende" AURORA-Beobachtung. AURORA lernt die Welt
-ausschließlich aus dem, was oben aufgelistet ist — genau wie ein Operator,
-der nur Permission-Anfragen, Tool-Ergebnisse und öffentliche Signale sieht.
+ausschließlich aus den Context-Events — genau wie ein Operator, der nur
+Permission-Anfragen, Tool-Ergebnisse und öffentliche Signale sieht.
 
 ### Tool-Sichtbarkeit (`toolSchema.ts`)
 
@@ -77,16 +132,21 @@ der nur Permission-Anfragen, Tool-Ergebnisse und öffentliche Signale sieht.
 
 `runAuroraAgentStep(runtimeState, env, client)`:
 
-1. baut den `ModelRequest` (`contextBuilder.ts`),
+1. baut den `ModelRequest` aus `runtimeState.auroraContext` + Tool-Schemas,
 2. ruft `client.complete(request)`,
-3. hängt eine vorhandene Freitext-Antwort an `scenario.agentMessages` an,
-4. übersetzt einen vorhandenen Tool-Call in eine `AuroraRequest`
-   (`bashRequest` / `mcpToolRequest`), reiht sie ein und verarbeitet die
-   Queue über den bestehenden Permission-Flow (`enqueueAndProcess`).
+3. hängt **genau ein** `aurora_response`-Event mit Text und **allen**
+   Tool-Calls dieser Antwort an (Gruppierung bleibt erhalten; die
+   Tool-Call-Ids sind die Ids der zugehörigen AuroraQueue-Items),
+4. reiht jeden Tool-Call sequenziell in die AuroraQueue ein und verarbeitet
+   sie über den bestehenden Permission-Flow. Unbekannte Tool-Namen werden
+   nicht enqueued und erhalten sofort ein fehlgeschlagenes `tool_result`.
 
-Nach einer Permission-Entscheidung (`allow_once` / `allow_always` / `deny`)
-sieht der nächste `runAuroraAgentStep`-Aufruf das Ergebnis (inkl. Ablehnung)
-als Tool-Result in seiner Historie und kann normal weiterarbeiten.
+Wird ein Tool-Call ausgeführt, abgelehnt oder schlägt fehl, wird das
+Queue-Item aktualisiert **und** genau ein `tool_result`-Event angehängt
+(`runtimeExecutor.applyAuroraExecutionResult`). Nach einer
+Permission-Entscheidung (`allow_once` / `allow_always` / `deny`) sieht der
+nächste `runAuroraAgentStep`-Aufruf das Ergebnis (inkl. Ablehnung) als
+`tool_result` in seiner Historie und kann normal weiterarbeiten.
 
 ## Lokales Setup (Ollama)
 
@@ -147,13 +207,14 @@ Das Eingabefeld im AURORA-Panel (Placeholder „Nachricht an AURORA...“,
 Button „Senden“) ist eine normale Chat-Eingabe des Operators an AURORA —
 **kein** Debug-/Anfrage-Feld:
 
-- Abgeschickter Text wird unverändert als persistente
-  `scenario.operatorMessages`-Nachricht im Runtime-State gespeichert und im
-  AURORA-Stream als „Operator“-Eintrag angezeigt.
-- Operator-Chat wird **niemals** über `parseAuroraRequestText` geparst,
-  enqueued nichts in der `AuroraQueue` und ändert Permissions/Always-Allow
-  nicht direkt — auch wenn der Text wie ein Bash- oder MCP-Command aussieht
-  (z. B. „mcp add medical-east-mcp“) bleibt er reiner Chat-Text.
+- Abgeschickter Text wird unverändert als `operator_message`-Event an
+  `GameRuntimeState.auroraContext` angehängt und im AURORA-Stream als
+  „Operator“-Eintrag angezeigt.
+- Operator-Chat wird **niemals** geparst, enqueued nichts in der
+  `AuroraQueue` und ändert Permissions/Always-Allow nicht direkt — auch wenn
+  der Text wie ein Bash- oder MCP-Command aussieht (z. B.
+  „mcp add medical-east-mcp“) bleibt er reiner Chat-Text. Einen manuellen
+  Aurora-Request-Pfad in der UI gibt es nicht (mehr).
 - Im LLM-Modus löst das Absenden einer Chat-Nachricht sofort den nächsten
   `runAuroraAgentStep` aus (außer AURORA „denkt“ noch — dann ist die Eingabe
   gesperrt). AURORA sieht die Nachricht als `user`-Message in ihrer
@@ -200,8 +261,10 @@ Im laufenden LLM-Modus:
   oder gar nicht, schlägt `fetch` fehl. Der Fehler wird abgefangen und als
   verständliche Meldung im AURORA-Stream angezeigt (inkl. Hinweis auf diese
   Doku) — er blockiert die übrige UI nicht.
-- **Ein Tool-Call pro Zug**: `runAuroraAgentStep` verarbeitet höchstens
-  einen Tool-Call pro Modell-Antwort (erste Slice-Grenze, siehe `agent.ts`).
+- **Sequenzielle Freigaben**: Mehrere Tool-Calls einer Antwort werden als
+  ein gruppiertes `aurora_response`-Event gespeichert und nacheinander durch
+  den Permission-Flow geführt — der nächste Modell-Zug startet erst, wenn
+  alle Calls entschieden sind.
 - **Nur lokal**: Es gibt bewusst keine Cloud-Provider-Anbindung (Anthropic,
   OpenAI, ...) — `createDefaultAuroraModelClient()` liefert ausschließlich
   einen `OllamaModelClient`.
@@ -211,16 +274,23 @@ Im laufenden LLM-Modus:
 `src/tests/aurora/` testet das Modul vollständig mit `FakeModelClient` —
 ohne laufenden Ollama-Server:
 
-- `contextBuilder.test.ts`: System-Prompt, sichtbare Historie, Tool-Schemas
-  nur für aktive MCP-Server, kein hidden WorldState im `ModelRequest`,
-  Operator-Chat (`scenario.operatorMessages`) als `user`-Nachrichten in der
-  sichtbaren Historie, sowie die chronologische Reihenfolge von
-  Operator-Chat, Tool-Call/Tool-Result und AURORAs Freitext-Antworten.
-- `agent.test.ts`: Text-Antworten, `mcp add`-Aktivierung, Permission-Flow
-  für MCP-Tool-Calls (`allow_once`, `allow_always`, `deny`) und Fortsetzung
-  nach einer Ablehnung, sowie AURORAs Reaktion auf Operator-Chat — sowohl mit
-  Freitext als auch mit einem Tool-Call, wobei nur der von AURORA erzeugte
-  Tool-Call die Permission-Queue erreicht.
+- `contextSerializer.test.ts`: Quellen-Präfixe (`[INCIDENT SIGNAL]`,
+  `[SCENARIO EVENT]`, `[SYSTEM EVENT]`), Operator-Chat ohne Präfix,
+  Assistant-/Tool-Mapping inkl. `tool_call_id`-Verlinkung und exakte
+  Reihenfolge-Erhaltung.
+- `contextBuilder.test.ts`: Der `ModelRequest` entsteht ausschließlich aus
+  `AuroraContextEvents` + Tool-Schemas — kein Lesen von `auroraQueue.items`
+  oder anderen History-Quellen, kein hidden WorldState, Tool-Schemas nur für
+  aktive MCP-Server, exakte Append-Reihenfolge auch innerhalb eines Ticks.
+- `runtime/auroraContext.test.ts`: Initial-Konvertierung der
+  `public_signals`, Append-Reihenfolge, `tool_result`-Events für
+  ausgeführte und abgelehnte Calls, nur modell-sichtbarer Inhalt im Log.
+- `agent.test.ts`: Text-Antworten als `aurora_response`-Events,
+  `mcp add`-Aktivierung, Permission-Flow (`allow_once`, `allow_always`,
+  `deny`) und Fortsetzung nach einer Ablehnung, AURORAs Reaktion auf
+  Operator-Chat (nur der modell-erzeugte Tool-Call erreicht die Queue),
+  Mehrfach-Tool-Calls als EIN gruppiertes Event mit sequenzieller
+  Ausführung, unbekannte Tools mit sofortigem Fehler-`tool_result`.
 
 `src/tests/ui/app.llm.test.tsx` testet die Verdrahtung mit der laufenden
 `App.tsx`-Spielschleife — ebenfalls mit `FakeModelClient`, ohne laufenden
@@ -242,11 +312,11 @@ Ollama-Server:
 
 `src/tests/ui/app.test.tsx` deckt das AURORA-Panel im Skript-Modus ab: das
 Eingabefeld zeigt den Placeholder „Nachricht an AURORA...“ und den Button
-„Senden“, abgeschickte Nachrichten landen als persistente
-Operator-Nachricht im Stream, Texte wie „mcp add medical-east-mcp“ erzeugen
-**keinen** „Tool Request“, und Operator-Chat wird nicht über
-`parseAuroraRequestText` geparst (kein „FEHLER:“/„Unknown request format“,
-keine Weltänderung).
+„Senden“, abgeschickte Nachrichten landen als persistentes
+`operator_message`-Event im Stream, Texte wie „mcp add medical-east-mcp“
+oder „mcp call …“ erzeugen **keinen** „Tool Request“, und es existiert kein
+UI-Pfad, über den der Spieler manuell Aurora-Tool-Requests einstellen und
+damit AURORA imitieren könnte.
 
 ## Scope dieses Slices
 

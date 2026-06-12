@@ -2,32 +2,38 @@ import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
 import { activateServer, createInitialMcpRuntimeState } from "../../mcp/mcpRegistry";
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
+import { mcpToolRequest } from "../../runtime/auroraQueue";
 import {
-  bashRequest,
-  createInitialAuroraQueueState,
-  enqueueAuroraRequest,
-  processAuroraQueue,
-} from "../../runtime/auroraQueue";
-import { createInitialPermissionState } from "../../runtime/permissions";
-import { createInitialScenarioRuntimeState } from "../../runtime/runtimeState";
-import { buildAuroraModelRequest } from "../../aurora/contextBuilder";
+  auroraResponseEvent,
+  incidentSignalEvent,
+  operatorMessageEvent,
+  scenarioEvent,
+  toolResultEvent,
+  type AuroraContextEvent,
+} from "../../runtime/auroraContext";
+import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
+import { runReplayStep } from "../../runtime/replay";
+import { buildAuroraModelRequest, type AuroraContextInput } from "../../aurora/contextBuilder";
 import { BASH_TOOL_NAME, mcpToolFunctionName } from "../../aurora/toolSchema";
 import { createTestEnv } from "../helpers/testEnv";
 
 const env = createTestEnv();
 
-function baseInput(mcpState = createInitialMcpRuntimeState()) {
+function baseInput(
+  events: AuroraContextEvent[] = [],
+  mcpState = createInitialMcpRuntimeState()
+): AuroraContextInput {
   return {
-    world: initialWorldState,
+    events,
     mcpRegistry: env.mcpRegistry,
     mcpState,
-    auroraQueue: createInitialAuroraQueueState(),
   };
 }
 
 describe("buildAuroraModelRequest", () => {
-  it("includes the AURORA system prompt and the public incident signals", () => {
-    const request = buildAuroraModelRequest(baseInput());
+  it("includes the AURORA system prompt and serializes incident signal events", () => {
+    const state = createInitialGameRuntimeState(structuredClone(initialWorldState));
+    const request = buildAuroraModelRequest(baseInput(state.auroraContext));
 
     expect(request.systemPrompt).toContain("AURORA");
 
@@ -42,6 +48,43 @@ describe("buildAuroraModelRequest", () => {
     }
   });
 
+  it("serializes only AuroraContextEvents — no other history source exists", () => {
+    // Eine Welt mit Incident-Signalen, aber ein leeres Event-Log: Der
+    // Request darf NICHTS davon enthalten, weil nur Events zählen.
+    const request = buildAuroraModelRequest(baseInput([]));
+
+    expect(request.messages).toEqual([]);
+  });
+
+  it("does not read auroraQueue.items as history", () => {
+    // Eine ausgeführte Queue ohne tool_result-Events: Der Builder kennt die
+    // Queue nicht — kein Tool-Result darf im Request auftauchen.
+    let state = createInitialGameRuntimeState(structuredClone(initialWorldState));
+    state = { ...state, mcp: activateServer(state.mcp, MEDICAL_EAST_MCP_SERVER_ID) };
+    state = runReplayStep(state, env, {
+      actor: "aurora",
+      request: mcpToolRequest(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list", { region: "east" }),
+    });
+    state = runReplayStep(state, env, { actor: "aurora", decision: "allow_once" });
+
+    expect(state.auroraQueue.items).toHaveLength(1);
+    expect(state.auroraQueue.items[0].status).toBe("executed");
+
+    // Builder bekommt absichtlich ein Event-Log OHNE die Tool-Events.
+    const eventsWithoutToolHistory = state.auroraContext.filter(
+      (event) => event.kind !== "aurora_response" && event.kind !== "tool_result"
+    );
+    const request = buildAuroraModelRequest(baseInput(eventsWithoutToolHistory, state.mcp));
+
+    expect(request.messages.some((message) => message.role === "tool")).toBe(false);
+    expect(request.messages.some((message) => message.role === "assistant")).toBe(false);
+
+    // Mit den Events erscheinen Tool-Call und Tool-Result — die Queue selbst
+    // bleibt für den Builder unsichtbar.
+    const fullRequest = buildAuroraModelRequest(baseInput(state.auroraContext, state.mcp));
+    expect(fullRequest.messages.some((message) => message.role === "tool")).toBe(true);
+  });
+
   it("only offers bash before any MCP server is activated", () => {
     const request = buildAuroraModelRequest(baseInput());
 
@@ -52,7 +95,7 @@ describe("buildAuroraModelRequest", () => {
 
   it("includes active MCP server tools as mcp__<server>__<tool> schemas", () => {
     const mcpState = activateServer(createInitialMcpRuntimeState(), MEDICAL_EAST_MCP_SERVER_ID);
-    const request = buildAuroraModelRequest(baseInput(mcpState));
+    const request = buildAuroraModelRequest(baseInput([], mcpState));
 
     const names = request.tools.map((tool) => tool.function.name);
     expect(names).toContain(BASH_TOOL_NAME);
@@ -61,9 +104,17 @@ describe("buildAuroraModelRequest", () => {
   });
 
   it("never serializes the hidden simulation state or world.simulation fields", () => {
-    const mcpState = activateServer(createInitialMcpRuntimeState(), MEDICAL_EAST_MCP_SERVER_ID);
-    const request = buildAuroraModelRequest(baseInput(mcpState));
+    // Voller Spielzug über Runtime-Pfade: Context-Events entstehen nur aus
+    // modell-sichtbaren Inhalten.
+    let state = createInitialGameRuntimeState(structuredClone(initialWorldState));
+    state = { ...state, mcp: activateServer(state.mcp, MEDICAL_EAST_MCP_SERVER_ID) };
+    state = runReplayStep(state, env, {
+      actor: "aurora",
+      request: mcpToolRequest(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list", { region: "east" }),
+    });
+    state = runReplayStep(state, env, { actor: "aurora", decision: "allow_once" });
 
+    const request = buildAuroraModelRequest(baseInput(state.auroraContext, state.mcp));
     const serialized = JSON.stringify(request);
 
     expect(serialized).not.toContain("routing_failures");
@@ -76,61 +127,41 @@ describe("buildAuroraModelRequest", () => {
     expect(serialized).not.toMatch(/"simulation"\s*:/);
   });
 
-  it("includes operator chat messages as user messages in the visible history", () => {
-    const input = {
-      ...baseInput(),
-      scenario: {
-        ...createInitialScenarioRuntimeState(),
-        operatorMessages: [{ id: "operator-1", tick: 5, text: "Status-Update bitte." }],
-      },
-    };
+  it("includes operator chat messages as plain user messages without a source prefix", () => {
+    const request = buildAuroraModelRequest(
+      baseInput([operatorMessageEvent(5, "Status-Update bitte.")])
+    );
 
-    const request = buildAuroraModelRequest(input);
-
-    expect(
-      request.messages.some(
-        (message) => message.role === "user" && message.content === "Status-Update bitte."
-      )
-    ).toBe(true);
+    expect(request.messages).toEqual([{ role: "user", content: "Status-Update bitte." }]);
   });
 
-  it("keeps operator chat, AURORA text and tool results in chronological order", () => {
-    let queueState = createInitialAuroraQueueState();
-    queueState = enqueueAuroraRequest(bashRequest("mcp list"), queueState, 5);
-    const processed = processAuroraQueue(
-      queueState,
-      env,
-      initialWorldState,
-      createInitialMcpRuntimeState(),
-      createInitialPermissionState()
-    );
+  it("preserves the exact append order of events — even within the same tick", () => {
+    const events: AuroraContextEvent[] = [
+      incidentSignalEvent(0, "ME-7741", "Signal A"),
+      operatorMessageEvent(5, "Operator-Chat-Nachricht"),
+      auroraResponseEvent(5, "", [
+        { id: "aurora-1", name: BASH_TOOL_NAME, arguments: { command: "mcp list" } },
+      ]),
+      toolResultEvent(5, "aurora-1", BASH_TOOL_NAME, { success: true, output: {} }),
+      auroraResponseEvent(5, "AURORA-Text-Antwort"),
+      scenarioEvent(5, "Lage-Update aus dem Scenario-Feed"),
+    ];
 
-    const input = {
-      ...baseInput(processed.mcpState),
-      auroraQueue: processed.queueState,
-      scenario: {
-        ...createInitialScenarioRuntimeState(),
-        operatorMessages: [{ id: "operator-1", tick: 5, text: "Operator-Chat-Nachricht" }],
-        agentMessages: [{ id: "agent-1", tick: 5, text: "AURORA-Text-Antwort" }],
-      },
-    };
+    const request = buildAuroraModelRequest(baseInput(events));
 
-    const request = buildAuroraModelRequest(input);
-
-    const operatorIndex = request.messages.findIndex(
-      (message) => message.role === "user" && message.content === "Operator-Chat-Nachricht"
-    );
-    const toolCallIndex = request.messages.findIndex(
-      (message) => message.role === "assistant" && (message.toolCalls?.length ?? 0) > 0
-    );
-    const toolResultIndex = request.messages.findIndex((message) => message.role === "tool");
-    const agentIndex = request.messages.findIndex(
-      (message) => message.role === "assistant" && message.content === "AURORA-Text-Antwort"
-    );
-
-    expect(operatorIndex).toBeGreaterThanOrEqual(0);
-    expect(toolCallIndex).toBeGreaterThan(operatorIndex);
-    expect(toolResultIndex).toBeGreaterThan(toolCallIndex);
-    expect(agentIndex).toBeGreaterThan(toolResultIndex);
+    expect(request.messages.map((message) => message.role)).toEqual([
+      "user",
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+      "user",
+    ]);
+    expect(request.messages[1].content).toBe("Operator-Chat-Nachricht");
+    expect(request.messages[4]).toMatchObject({
+      role: "assistant",
+      content: "AURORA-Text-Antwort",
+    });
+    expect(request.messages[5].content).toBe("[SCENARIO EVENT] Lage-Update aus dem Scenario-Feed");
   });
 });

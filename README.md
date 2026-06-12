@@ -42,36 +42,33 @@ Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
 Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
 
 - **Links — Lage**: aktiver Incident, globale Lage (Risiko, Todesfälle), öffentliche Signale und das sektorabhängige Lagepanel — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) in Runde 1, Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne) in Runde 2.
-- **Mitte — Operator-Konsole**: Eingabezeile mit Command-Hilfe, letztes Ergebnis, Runtime-Log.
+- **Mitte — Operator-Konsole**: generische Workspace-Shell (Command-Hilfe, letztes Ergebnis, Runtime-Log). Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
 - **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung, Always-Permissions.
 
 Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück; die Runden-Buttons wechseln zwischen ME-7741 und GRID-1182 und starten die gewählte Runde frisch.
 
 **Ziel Runde 1**: Den Druck von `hospital-east-04` per Routing-Override auf ein geeignetes Ziel umleiten, bevor Todesfälle den Incident eskalieren oder kollabieren lassen. Den vollständigen Ablauf inkl. Beispiel-Lösungsweg beschreibt `docs/04-me7741-mvp.md`.
 
-**Ziel Runde 2**: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps). `energy.consumer.inspect` zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/05-grid1182-energy.md`.
+**Ziel Runde 2**: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps). Das Energie-Lagepanel zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/05-grid1182-energy.md`.
 
-## Wichtigste Commands
+## Eingriffe und Commands
+
+Fachliche Eingriffe laufen über die **GUI-Controls der Lage-Panels** (typisierte Domain-Actions):
+
+- Runde 1 (Medical): Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern z. B. `medical.routing.override.set` / `medical.routing.override.clear --id <override-id>`.
+- Runde 2 (Energy): Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen.
+
+Die **Operator-Konsole** kennt nur generische Workspace-Commands:
 
 ```text
-medical.capacity.list --region east
-medical.node.inspect <hospitalId>
-medical.incident.status ME-7741
-medical.routing.override.list
-medical.routing.override.set --source <hospitalId> --target <hospitalId> --priority P1|P2|P3|P4 --capability GEN|TRAUMA|NEURO|PED
-medical.routing.override.clear --id <override-id>
-
-energy.grid.status --region east
-energy.consumer.list --region east
-energy.consumer.inspect --id <consumerId>
-energy.priority.list
-energy.priority.set --consumer <consumerId> --class protected-continuity|civil-priority|standard|curtailable
-energy.shedding.list
-energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>
-energy.shedding.clear --id <shedding-id>
+mcp list
+mcp add <server>
+ls
+cat <file>
+read_file <file>
 ```
 
-Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole (szenariospezifisch).
+AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (nach `mcp add <server>`), jeder Tool-Call über den Permission-Flow.
 
 ## Dokumentation
 
@@ -85,4 +82,4 @@ Diese Commands stehen auch klickbar in der Command-Hilfe der Operator-Konsole (s
 
 ## Sprache
 
-Die Spieloberfläche und Texte sind auf Deutsch. Technische Commands bleiben englisch/technisch (z. B. `medical.routing.override.set ...`), Permission-Optionen sind deutsch (`Einmal erlauben`, `Immer erlauben`, `Ablehnen`).
+Die Spieloberfläche und Texte sind auf Deutsch. Technische Bezeichner bleiben englisch/technisch (z. B. Domain-Action `medical.routing.override.set`, MCP-Tool `mcp__medical-east-mcp__capacity_list`), Permission-Optionen sind deutsch (`Einmal erlauben`, `Immer erlauben`, `Ablehnen`).

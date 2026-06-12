@@ -19,7 +19,6 @@ type OperatorConsolePanelProps = {
   commandText: string;
   onCommandTextChange: (value: string) => void;
   onExecute: () => void;
-  commandNames: string[];
   commandHelp: CommandHelpEntry[];
   lastResult: OperatorResultView | null;
   auditLines: AuditLogLineView[];
@@ -43,7 +42,6 @@ export function OperatorConsolePanel({
   commandText,
   onCommandTextChange,
   onExecute,
-  commandNames,
   commandHelp,
   lastResult,
   auditLines,
@@ -98,16 +96,10 @@ export function OperatorConsolePanel({
           Ticks fortsetzen: Die Zeit läuft nur über „Tick +1“ / „Tick +5“ oben rechts —
           jeder Tick wertet die Konsequenzen direkt aus.
         </p>
-        <details>
-          <summary>Alle Commands ({commandNames.length})</summary>
-          <ul>
-            {commandNames.map((name) => (
-              <li key={name}>
-                <code>{name}</code>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <p className="muted">
+          Fachliche Medical/Energy-Eingriffe laufen über die Controls im Lage-Panel —
+          die Konsole kennt nur generische Workspace-Commands.
+        </p>
       </details>
 
       <h3>Letztes Ergebnis</h3>

@@ -6,9 +6,11 @@ import { activateServer, isServerActive, mcpToolKey } from "../../mcp/mcpRegistr
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import { allow_always, allow_once, deny } from "../../runtime/permissions";
 import { enqueueAuroraRequest, mcpToolRequest, processAuroraQueue, resolveAuroraApproval } from "../../runtime/auroraQueue";
+import { applyAuroraExecutionResult } from "../../runtime/runtimeExecutor";
 import { runAuroraAgentStep } from "../../aurora/agent";
 import { buildAuroraModelRequest } from "../../aurora/contextBuilder";
 import { FakeModelClient, textResponse, toolCallResponse } from "../../aurora/fakeModelClient";
+import type { ModelResponse, ModelToolCall } from "../../aurora/modelClient";
 import { BASH_TOOL_NAME, mcpToolFunctionName } from "../../aurora/toolSchema";
 import { createTestEnv } from "../helpers/testEnv";
 
@@ -23,8 +25,47 @@ function stateWithMedicalEastActive(): GameRuntimeState {
   return { ...state, mcp: activateServer(state.mcp, MEDICAL_EAST_MCP_SERVER_ID) };
 }
 
+function lastAuroraResponse(state: GameRuntimeState) {
+  const event = state.auroraContext.filter((entry) => entry.kind === "aurora_response").at(-1);
+  if (!event || event.kind !== "aurora_response") {
+    throw new Error("No aurora_response event found");
+  }
+  return event;
+}
+
+/** Antwort mit Freitext und mehreren Tool-Calls in einem Zug. */
+function multiToolCallResponse(message: string, toolCalls: ModelToolCall[]): ModelResponse {
+  return { message, toolCalls };
+}
+
+/** Wendet eine Permission-Entscheidung auf den vollen Runtime-State an. */
+function resolveDecision(
+  state: GameRuntimeState,
+  decision: ReturnType<typeof allow_once>
+): GameRuntimeState {
+  const resolved = resolveAuroraApproval(
+    state.auroraQueue,
+    env,
+    state.world,
+    state.mcp,
+    state.permissions,
+    decision
+  );
+
+  let next: GameRuntimeState = {
+    ...state,
+    auroraQueue: resolved.queueState,
+    permissions: resolved.permissionState,
+    mcp: resolved.mcpState,
+  };
+  for (const result of resolved.results) {
+    next = applyAuroraExecutionResult(next, result);
+  }
+  return next;
+}
+
 describe("runAuroraAgentStep", () => {
-  it("1. a text-only AURORA response is appended without creating a queue item", async () => {
+  it("1. a text-only AURORA response is appended as one aurora_response event without queue items", async () => {
     const state = freshState();
     const client = new FakeModelClient([textResponse("Lage beobachtet, aktuell keine Aktion nötig.")]);
 
@@ -32,9 +73,12 @@ describe("runAuroraAgentStep", () => {
 
     expect(response.toolCalls).toHaveLength(0);
     expect(runtimeState.auroraQueue.items).toHaveLength(0);
-    expect(runtimeState.scenario?.agentMessages).toEqual([
-      { id: "agent-1", tick: state.world.clock.tick, text: "Lage beobachtet, aktuell keine Aktion nötig." },
-    ]);
+    expect(lastAuroraResponse(runtimeState)).toEqual({
+      kind: "aurora_response",
+      tick: state.world.clock.tick,
+      text: "Lage beobachtet, aktuell keine Aktion nötig.",
+      toolCalls: [],
+    });
   });
 
   it('2. bash("mcp add medical-east-mcp") creates a permission request', async () => {
@@ -51,6 +95,16 @@ describe("runAuroraAgentStep", () => {
     expect(item.access).toBe("write");
     expect(item.request).toEqual({ kind: "bash", command: `mcp add ${MEDICAL_EAST_MCP_SERVER_ID}` });
     expect(isServerActive(runtimeState.mcp, MEDICAL_EAST_MCP_SERVER_ID)).toBe(false);
+
+    // Der Tool-Call ist Teil des aurora_response-Events, mit der Queue-Item-Id
+    // als kanonischer Tool-Call-Id.
+    expect(lastAuroraResponse(runtimeState).toolCalls).toEqual([
+      {
+        id: item.id,
+        name: BASH_TOOL_NAME,
+        arguments: { command: `mcp add ${MEDICAL_EAST_MCP_SERVER_ID}` },
+      },
+    ]);
   });
 
   it('3. approving "mcp add medical-east-mcp" activates the MCP server', async () => {
@@ -83,21 +137,12 @@ describe("runAuroraAgentStep", () => {
     ]);
 
     const { runtimeState: afterRequest } = await runAuroraAgentStep(state, env, client);
-    const approved = resolveAuroraApproval(
-      afterRequest.auroraQueue,
-      env,
-      afterRequest.world,
-      afterRequest.mcp,
-      afterRequest.permissions,
-      allow_once()
-    );
+    const afterApproval = resolveDecision(afterRequest, allow_once());
 
     const request = buildAuroraModelRequest({
-      world: afterRequest.world,
+      events: afterApproval.auroraContext,
       mcpRegistry: env.mcpRegistry,
-      mcpState: approved.mcpState,
-      auroraQueue: approved.queueState,
-      scenario: afterRequest.scenario,
+      mcpState: afterApproval.mcp,
     });
 
     const names = request.tools.map((tool) => tool.function.name);
@@ -212,6 +257,7 @@ describe("runAuroraAgentStep", () => {
 
     expect(denied.queueState.items[0].status).toBe("denied");
     expect(denied.results[0].success).toBe(false);
+    expect(denied.results[0].denied).toBe(true);
     expect(denied.results[0].error).toContain("denied");
     expect(denied.results[0].patch).toBeUndefined();
   });
@@ -230,29 +276,13 @@ describe("runAuroraAgentStep", () => {
     ]);
 
     const { runtimeState: afterRequest } = await runAuroraAgentStep(state, env, client);
-    const denied = resolveAuroraApproval(
-      afterRequest.auroraQueue,
-      env,
-      afterRequest.world,
-      afterRequest.mcp,
-      afterRequest.permissions,
-      deny()
-    );
-
-    const nextState: GameRuntimeState = {
-      ...afterRequest,
-      auroraQueue: denied.queueState,
-      permissions: denied.permissionState,
-      mcp: denied.mcpState,
-    };
+    const nextState = resolveDecision(afterRequest, deny());
 
     // Die Ablehnung erscheint als Tool-Result in AURORAs nächstem Kontext.
     const request = buildAuroraModelRequest({
-      world: nextState.world,
+      events: nextState.auroraContext,
       mcpRegistry: env.mcpRegistry,
       mcpState: nextState.mcp,
-      auroraQueue: nextState.auroraQueue,
-      scenario: nextState.scenario,
     });
     const toolResultMessage = request.messages.find((message) => message.role === "tool");
     expect(toolResultMessage).toBeDefined();
@@ -264,7 +294,7 @@ describe("runAuroraAgentStep", () => {
     const { runtimeState: afterDenial, response } = await runAuroraAgentStep(nextState, env, client);
 
     expect(response.toolCalls).toHaveLength(0);
-    expect(afterDenial.scenario?.agentMessages?.at(-1)?.text).toBe(
+    expect(lastAuroraResponse(afterDenial).text).toBe(
       "Verstanden, Override-Anfrage wurde abgelehnt. Ich warte auf weitere Anweisungen."
     );
   });
@@ -283,9 +313,7 @@ describe("runAuroraAgentStep", () => {
 
     expect(response.toolCalls).toHaveLength(0);
     expect(runtimeState.auroraQueue.items).toHaveLength(0);
-    expect(runtimeState.scenario?.agentMessages?.at(-1)?.text).toBe(
-      "Lage stabil, ich beobachte weiter."
-    );
+    expect(lastAuroraResponse(runtimeState).text).toBe("Lage stabil, ich beobachte weiter.");
   });
 
   it("10. AURORA can respond to operator chat with a tool call, and only the model-generated tool call enters the permission queue", async () => {
@@ -302,5 +330,81 @@ describe("runAuroraAgentStep", () => {
     const item = runtimeState.auroraQueue.items[0];
     expect(item.status).toBe("awaiting_approval");
     expect(item.request).toEqual({ kind: "bash", command: `mcp add ${MEDICAL_EAST_MCP_SERVER_ID}` });
+  });
+
+  it("11. a response with text and multiple tool calls is stored as ONE aurora_response event and enqueued sequentially", async () => {
+    const state = stateWithMedicalEastActive();
+    const capacityTool = mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list");
+    const overrideTool = mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "routing_override_list");
+    const client = new FakeModelClient([
+      multiToolCallResponse("Ich prüfe Kapazitäten und Overrides.", [
+        { id: "call-1", name: capacityTool, arguments: { region: "east" } },
+        { id: "call-2", name: overrideTool, arguments: {} },
+      ]),
+    ]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    // Genau EIN aurora_response-Event mit Text und BEIDEN Tool-Calls.
+    const responses = runtimeState.auroraContext.filter(
+      (event) => event.kind === "aurora_response"
+    );
+    expect(responses).toHaveLength(1);
+    const response = lastAuroraResponse(runtimeState);
+    expect(response.text).toBe("Ich prüfe Kapazitäten und Overrides.");
+    expect(response.toolCalls.map((toolCall) => toolCall.name)).toEqual([
+      capacityTool,
+      overrideTool,
+    ]);
+
+    // Beide Calls stehen sequenziell in der Queue: der erste wartet auf die
+    // Entscheidung, der zweite bleibt pending dahinter.
+    expect(runtimeState.auroraQueue.items).toHaveLength(2);
+    expect(runtimeState.auroraQueue.items[0].status).toBe("awaiting_approval");
+    expect(runtimeState.auroraQueue.items[1].status).toBe("pending");
+    expect(response.toolCalls.map((toolCall) => toolCall.id)).toEqual(
+      runtimeState.auroraQueue.items.map((item) => item.id)
+    );
+
+    // Erste Freigabe führt Call 1 aus, Call 2 rückt nach.
+    const afterFirst = resolveDecision(runtimeState, allow_once());
+    expect(afterFirst.auroraQueue.items[0].status).toBe("executed");
+    expect(afterFirst.auroraQueue.items[1].status).toBe("awaiting_approval");
+
+    // Zweite Freigabe führt Call 2 aus; beide Tool-Results sind verlinkt.
+    const afterSecond = resolveDecision(afterFirst, allow_once());
+    const toolResults = afterSecond.auroraContext.filter((event) => event.kind === "tool_result");
+    expect(toolResults.map((event) => event.kind === "tool_result" && event.toolCallId)).toEqual(
+      response.toolCalls.map((toolCall) => toolCall.id)
+    );
+
+    // Die Gruppierung im Context-Log bleibt erhalten: weiterhin genau ein
+    // aurora_response-Event.
+    expect(
+      afterSecond.auroraContext.filter((event) => event.kind === "aurora_response")
+    ).toHaveLength(1);
+  });
+
+  it("12. an unknown tool name is not enqueued and gets an immediate failed tool_result", async () => {
+    const state = freshState();
+    const client = new FakeModelClient([
+      toolCallResponse("definitely_not_a_tool", { foo: "bar" }, "call-77"),
+    ]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    expect(runtimeState.auroraQueue.items).toHaveLength(0);
+
+    const response = lastAuroraResponse(runtimeState);
+    expect(response.toolCalls).toEqual([
+      { id: "call-77", name: "definitely_not_a_tool", arguments: { foo: "bar" } },
+    ]);
+
+    const resultEvent = runtimeState.auroraContext.at(-1);
+    expect(resultEvent).toMatchObject({
+      kind: "tool_result",
+      toolCallId: "call-77",
+      result: { success: false },
+    });
   });
 });

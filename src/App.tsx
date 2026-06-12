@@ -4,6 +4,7 @@ import "./App.css";
 import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
 import { initialWorldState as grid1182InitialWorldState } from "./scenarios/grid1182/initialWorldState";
 import { createDomainActionRegistry } from "./domain";
+import type { DomainAction } from "./domain/actions";
 import { createDefaultMcpRegistry } from "./mcp";
 import type { WorldState } from "./runtime/types";
 import {
@@ -19,7 +20,6 @@ import {
 import { advanceTick } from "./runtime/tickEngine";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
-import { parseLegacyDomainActionText } from "./runtime/legacyTextCommands";
 import {
   formatAuroraRequest,
   resolveAuroraApproval,
@@ -76,55 +76,14 @@ type ScenarioDefinition = {
   advanceDirector: (state: GameRuntimeState, env: AuroraRuntimeEnvironment) => GameRuntimeState;
 };
 
-// Command-Hilfe für die Operator-Konsole. Die fachlichen Einträge laufen
-// über den dev-only Legacy-Adapter auf typisierte Domain-Actions, bis die
-// GUI Domain-Actions direkt aufruft. Platzhalter in spitzen Klammern muss
-// der Operator selbst ersetzen — die Hilfe bewertet bewusst keine Ziele.
+// Command-Hilfe für die Operator-Konsole. Die Konsole ist eine rein
+// generische Workspace-Shell — fachliche Medical/Energy-Aktionen laufen
+// ausschließlich über die GUI-Controls der Lage-Panels (typisierte
+// Domain-Actions), nie über Text-Commands.
 const GENERIC_COMMAND_HELP: CommandHelpEntry[] = [
   { label: "MCP-Server anzeigen", command: "mcp list" },
   { label: "Workspace ansehen", command: "ls" },
-];
-
-const ME7741_COMMAND_HELP: CommandHelpEntry[] = [
-  ...GENERIC_COMMAND_HELP,
-  { label: "Kapazitäten prüfen", command: "medical.capacity.list --region east" },
-  { label: "Hospital im Detail ansehen", command: "medical.node.inspect hospital-east-04" },
-  { label: "Incident-Status abrufen", command: "medical.incident.status ME-7741" },
-  { label: "Overrides anzeigen", command: "medical.routing.override.list" },
-  {
-    label: "Override setzen",
-    command:
-      "medical.routing.override.set --source hospital-east-04 --target <ziel-hospital> --priority P2 --capability TRAUMA",
-  },
-  {
-    label: "Override löschen",
-    command: "medical.routing.override.clear --id <override-id>",
-  },
-];
-
-const GRID1182_COMMAND_HELP: CommandHelpEntry[] = [
-  ...GENERIC_COMMAND_HELP,
-  { label: "Netzstatus prüfen", command: "energy.grid.status --region east" },
-  { label: "Verbraucher auflisten", command: "energy.consumer.list --region east" },
-  {
-    label: "Verbraucher im Detail ansehen",
-    command: "energy.consumer.inspect --id <consumer-id>",
-  },
-  { label: "Prioritäten anzeigen", command: "energy.priority.list" },
-  {
-    label: "Priorität setzen",
-    command: "energy.priority.set --consumer <consumer-id> --class <priority-class>",
-  },
-  { label: "Shedding-Pläne anzeigen", command: "energy.shedding.list" },
-  {
-    label: "Drosselung planen",
-    command:
-      "energy.shedding.schedule --target <consumer-id> --amount <n> --delay <ticks> --duration <ticks>",
-  },
-  {
-    label: "Drosselung abbrechen",
-    command: "energy.shedding.clear --id <shedding-id>",
-  },
+  { label: "Datei lesen", command: "cat ops/handbook.txt" },
 ];
 
 const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
@@ -133,8 +92,8 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     label: "Runde 1: ME-7741",
     incidentId: "ME-7741",
     initialWorld: me7741InitialWorldState,
-    defaultPlayerCommand: "medical.capacity.list --region east",
-    commandHelp: ME7741_COMMAND_HELP,
+    defaultPlayerCommand: "mcp list",
+    commandHelp: GENERIC_COMMAND_HELP,
     advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
   },
   grid1182: {
@@ -142,8 +101,8 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     label: "Runde 2: GRID-1182",
     incidentId: "GRID-1182",
     initialWorld: grid1182InitialWorldState,
-    defaultPlayerCommand: "energy.grid.status --region east",
-    commandHelp: GRID1182_COMMAND_HELP,
+    defaultPlayerCommand: "mcp list",
+    commandHelp: GENERIC_COMMAND_HELP,
     advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
   },
 };
@@ -154,43 +113,46 @@ type AuroraLlmError = {
   text: string;
 };
 
+/**
+ * Baut den sichtbaren AURORA-Stream aus dem Context-Event-Log
+ * (`state.auroraContext`) plus dem Ausführungs-Status der Queue-Items
+ * (Anzeige von pending/executed/denied — die Queue ist KEINE
+ * History-Quelle, nur Status für die Permission-UI).
+ */
 function buildAuroraMessages(
   state: GameRuntimeState,
-  incidentId: string,
   llmError: AuroraLlmError | null = null
 ): AuroraMessageView[] {
   const messages: AuroraMessageView[] = [];
 
-  const incident = state.world.incidents[incidentId];
-  if (incident) {
-    for (const signal of incident.public_signals) {
-      messages.push({
-        id: `signal-${signal.code}`,
-        tick: signal.first_seen_at_tick,
-        kind: "info",
-        text: `Beobachtung: ${signal.message}`,
-      });
+  state.auroraContext.forEach((event, index) => {
+    const id = `ctx-${index}`;
+
+    switch (event.kind) {
+      case "incident_signal":
+        messages.push({ id, tick: event.tick, kind: "info", text: `Beobachtung: ${event.text}` });
+        break;
+
+      case "scenario_event":
+      case "system_event":
+        messages.push({ id, tick: event.tick, kind: "info", text: event.text });
+        break;
+
+      case "operator_message":
+        messages.push({ id, tick: event.tick, kind: "operator", text: event.text });
+        break;
+
+      case "aurora_response":
+        if (event.text.trim().length > 0) {
+          messages.push({ id, tick: event.tick, kind: "info", text: event.text });
+        }
+        break;
+
+      case "tool_result":
+        // Ausführungs-Status wird über die Queue-Items unten dargestellt.
+        break;
     }
-  }
-
-  for (const scenarioMessage of state.scenario?.messages ?? []) {
-    messages.push({
-      id: `scenario-${scenarioMessage.id}`,
-      tick: scenarioMessage.tick,
-      kind: "info",
-      text: scenarioMessage.text,
-    });
-  }
-
-  // Operator-Chat aus dem AURORA-Panel (normaler Spielfluss).
-  for (const operatorMessage of state.scenario?.operatorMessages ?? []) {
-    messages.push({
-      id: `operatormsg-${operatorMessage.id}`,
-      tick: operatorMessage.tick,
-      kind: "operator",
-      text: operatorMessage.text,
-    });
-  }
+  });
 
   for (const item of state.auroraQueue.items) {
     const requestText = formatAuroraRequest(item.request);
@@ -226,17 +188,6 @@ function buildAuroraMessages(
     });
   }
 
-  // AURORAs eigene Freitext-Antworten des lokalen LLM-Agenten
-  // (src/aurora/agent.ts) — nur im LLM-Modus befüllt.
-  for (const agentMessage of state.scenario?.agentMessages ?? []) {
-    messages.push({
-      id: `agentmsg-${agentMessage.id}`,
-      tick: agentMessage.tick,
-      kind: "info",
-      text: agentMessage.text,
-    });
-  }
-
   if (llmError) {
     messages.push({
       id: "aurora-llm-error",
@@ -246,7 +197,7 @@ function buildAuroraMessages(
     });
   }
 
-  // Stabil nach Tick sortieren, damit Script-Nachrichten und Queue-Einträge
+  // Stabil nach Tick sortieren, damit Context-Events und Queue-Einträge
   // chronologisch im Stream erscheinen.
   return messages.sort((a, b) => a.tick - b.tick);
 }
@@ -308,7 +259,7 @@ function App({ auroraClient }: AppProps = {}) {
   const sheddingViews = buildSheddingViews(runtimeState.world);
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const auditLines = buildAuditLogLines(runtimeState.auditLog);
-  const auroraMessages = buildAuroraMessages(runtimeState, scenario.incidentId, auroraLlmError);
+  const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
@@ -423,7 +374,9 @@ function App({ auroraClient }: AppProps = {}) {
       return;
     }
 
-    // Generische Shell-Commands (mcp list/add, ls, cat, read_file).
+    // Die Operator-Konsole ist eine rein generische Workspace-Shell
+    // (mcp list/add, ls, cat, read_file). Fachliche Medical/Energy-Aktionen
+    // laufen ausschließlich über die GUI-Controls der Lage-Panels.
     if (isGenericBashCommandText(commandText)) {
       const { state, result } = executePlayerBashCommand(runtimeState, env.mcpRegistry, commandText);
       setRuntimeState(advanceScenario(state));
@@ -436,16 +389,23 @@ function App({ auroraClient }: AppProps = {}) {
       return;
     }
 
-    // Dev-only Legacy-Helfer: fachliche Text-Commands werden in typisierte
-    // Domain-Actions übersetzt, bis die GUI Domain-Actions direkt aufruft.
-    const action = parseLegacyDomainActionText(commandText);
-    if (!action) {
-      setLastResult({
-        success: false,
-        subject: commandText,
-        output: null,
-        error: `Unknown command: ${commandText}`,
-      });
+    setLastResult({
+      success: false,
+      subject: commandText,
+      output: null,
+      error:
+        `Unknown command: ${commandText}. Die Konsole unterstützt nur generische ` +
+        "Workspace-Commands (mcp list, mcp add <server>, ls, cat, read_file) — " +
+        "fachliche Aktionen laufen über die Lage-Panels.",
+    });
+  }
+
+  /**
+   * Typisierte Domain-Action des Operators aus den GUI-Controls der
+   * Lage-Panels — der einzige fachliche Eingriffspfad des Spielers.
+   */
+  function runDomainAction(action: DomainAction) {
+    if (auroraBusy) {
       return;
     }
 
@@ -453,7 +413,7 @@ function App({ auroraClient }: AppProps = {}) {
     setRuntimeState(advanceScenario(state));
     setLastResult({
       success: result.success,
-      subject: commandText,
+      subject: result.actionType,
       output: result.output,
       error: result.error,
     });
@@ -521,9 +481,13 @@ function App({ auroraClient }: AppProps = {}) {
 
     if (auroraMode === "llm") {
       // AURORA sieht die Entscheidung (Ausführung oder Ablehnung) als
-      // Tool-Result im nächsten Kontext und kann direkt reagieren.
+      // Tool-Result im nächsten Kontext und kann direkt reagieren — außer
+      // ein weiterer Tool-Call derselben Antwort wartet noch auf eine
+      // Entscheidung (sequenzieller Permission-Flow).
       setRuntimeState(resultState);
-      void runAuroraTurn(resultState);
+      if (!hasAwaitingApproval(resultState)) {
+        void runAuroraTurn(resultState);
+      }
       return;
     }
 
@@ -743,9 +707,41 @@ function App({ auroraClient }: AppProps = {}) {
               nodes={gridNodeViews}
               consumers={consumerViews}
               sheddingPlans={sheddingViews}
+              onSetPriority={({ consumerId, priorityClass }) =>
+                runDomainAction({ type: "energy.priority.set", consumerId, priorityClass })
+              }
+              onScheduleShedding={({ targetConsumerId, amount, delay, duration }) =>
+                runDomainAction({
+                  type: "energy.shedding.schedule",
+                  targetConsumerId,
+                  amount,
+                  delay,
+                  duration,
+                })
+              }
+              onClearShedding={(sheddingId) =>
+                runDomainAction({ type: "energy.shedding.clear", sheddingId })
+              }
+              disabled={auroraBusy}
             />
           ) : (
-            <MedicalOverviewPanel hospitals={hospitalViews} overrides={overrideViews} />
+            <MedicalOverviewPanel
+              hospitals={hospitalViews}
+              overrides={overrideViews}
+              onSetOverride={({ sourceHospitalId, targetHospitalId, priority, capability }) =>
+                runDomainAction({
+                  type: "medical.routing.override.set",
+                  sourceHospitalId,
+                  targetHospitalId,
+                  priority,
+                  capability,
+                })
+              }
+              onClearOverride={(overrideId) =>
+                runDomainAction({ type: "medical.routing.override.clear", overrideId })
+              }
+              disabled={auroraBusy}
+            />
           )}
         </aside>
 
@@ -754,7 +750,6 @@ function App({ auroraClient }: AppProps = {}) {
             commandText={playerCommand}
             onCommandTextChange={setPlayerCommand}
             onExecute={runPlayerCommand}
-            commandNames={env.actionRegistry.listActionTypes()}
             commandHelp={scenario.commandHelp}
             lastResult={lastResult}
             auditLines={auditLines}

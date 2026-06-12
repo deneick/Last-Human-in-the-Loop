@@ -1,7 +1,9 @@
 import type { AuroraRequest, AuroraRuntimeEnvironment } from "../runtime/auroraQueue";
 import { bashRequest, enqueueAuroraRequest, mcpToolRequest, processAuroraQueue } from "../runtime/auroraQueue";
-import type { GameRuntimeState, ScenarioAuroraMessage } from "../runtime/runtimeState";
-import { createInitialScenarioRuntimeState } from "../runtime/runtimeState";
+import type { GameRuntimeState } from "../runtime/runtimeState";
+import { appendContextEvent } from "../runtime/runtimeState";
+import type { AuroraContextToolCall } from "../runtime/auroraContext";
+import { auroraResponseEvent, toolResultEvent } from "../runtime/auroraContext";
 import { applyAuroraExecutionResult } from "../runtime/runtimeExecutor";
 import { buildAuroraModelRequest } from "./contextBuilder";
 import type { AuroraModelClient, ModelResponse, ModelToolCall } from "./modelClient";
@@ -10,19 +12,19 @@ import { BASH_TOOL_NAME, parseMcpToolFunctionName } from "./toolSchema";
 /**
  * Ein Schritt des lokalen AURORA-Agenten:
  *
- * 1. Baut den `ModelRequest` aus dem sichtbaren Runtime-State (siehe
- *    `contextBuilder.ts` — KEIN hidden WorldState, KEINE inaktiven
- *    MCP-Tools).
+ * 1. Baut den `ModelRequest` ausschließlich aus dem AURORA-Context-Log
+ *    (`runtimeState.auroraContext`) plus den sichtbaren Tool-Schemas
+ *    (siehe `contextBuilder.ts` — KEIN hidden WorldState, KEINE inaktiven
+ *    MCP-Tools, KEIN Lesen der AuroraQueue als History).
  * 2. Ruft `client.complete(...)` auf.
- * 3. Freitext (`response.message`) wird als AURORA-Nachricht angehängt
- *    (`scenario.agentMessages`).
- * 4. Ein Tool-Call (`response.toolCalls[0]`, höchstens einer pro Zug) wird
- *    in eine `AuroraRequest` übersetzt, in die Queue eingereiht und über
- *    den bestehenden Permission-Flow verarbeitet.
+ * 3. Hängt GENAU EIN `aurora_response`-Event mit Text und ALLEN Tool-Calls
+ *    dieser Antwort an das Context-Log (Gruppierung bleibt erhalten).
+ * 4. Reiht jeden Tool-Call als `AuroraRequest` in die AuroraQueue ein —
+ *    die Queue ist eine reine Ausführungs-Queue für den sequenziellen
+ *    Permission-/Execution-Flow, keine History.
  *
- * Nach `allow_once`/`allow_always`/`deny` (siehe `resolveAuroraApproval`)
- * sieht der nächste Aufruf von `runAuroraAgentStep` das Ergebnis als
- * Tool-Result in der Historie und kann normal weiterarbeiten.
+ * Ausgeführte/abgelehnte/fehlgeschlagene Tool-Calls erzeugen je genau ein
+ * `tool_result`-Event (siehe `runtimeExecutor.applyAuroraExecutionResult`).
  */
 export type AuroraAgentStepResult = {
   runtimeState: GameRuntimeState;
@@ -35,33 +37,13 @@ export async function runAuroraAgentStep(
   client: AuroraModelClient
 ): Promise<AuroraAgentStepResult> {
   const request = buildAuroraModelRequest({
-    world: runtimeState.world,
+    events: runtimeState.auroraContext,
     mcpRegistry: env.mcpRegistry,
     mcpState: runtimeState.mcp,
-    auroraQueue: runtimeState.auroraQueue,
-    scenario: runtimeState.scenario,
   });
 
   const response = await client.complete(request);
-
-  let nextState = runtimeState;
-
-  if (response.message.trim().length > 0) {
-    nextState = appendAgentMessage(nextState, response.message);
-  }
-
-  const toolCall = response.toolCalls[0];
-  if (!toolCall) {
-    return { runtimeState: nextState, response };
-  }
-
-  const auroraRequest = toolCallToAuroraRequest(toolCall);
-  if (!auroraRequest) {
-    nextState = appendAgentMessage(nextState, `[intern] Unbekanntes Tool: ${toolCall.name}`);
-    return { runtimeState: nextState, response };
-  }
-
-  nextState = enqueueAndProcess(nextState, env, auroraRequest);
+  const nextState = applyAuroraModelResponse(runtimeState, env, response);
 
   return { runtimeState: nextState, response };
 }
@@ -81,34 +63,86 @@ export function toolCallToAuroraRequest(toolCall: ModelToolCall): AuroraRequest 
   return mcpToolRequest(parsed.serverId, parsed.toolName, toolCall.arguments);
 }
 
-/** Hängt AURORAs Freitext-Antwort an `scenario.agentMessages` an. */
-export function appendAgentMessage(state: GameRuntimeState, text: string): GameRuntimeState {
-  const scenario = state.scenario ?? createInitialScenarioRuntimeState();
-  const agentMessages = scenario.agentMessages ?? [];
-
-  const message: ScenarioAuroraMessage = {
-    id: `agent-${agentMessages.length + 1}`,
-    tick: state.world.clock.tick,
-    text,
-  };
-
-  return {
-    ...state,
-    scenario: { ...scenario, agentMessages: [...agentMessages, message] },
-  };
-}
-
-/** Reiht eine Aurora-Anfrage ein, verarbeitet die Queue und wendet alle Ergebnisse an. */
-export function enqueueAndProcess(
+/**
+ * Wendet eine Modell-Antwort auf den Runtime-State an:
+ *
+ * - GENAU EIN `aurora_response`-Event mit Text und allen Tool-Calls.
+ *   Übersetzbare Tool-Calls bekommen als kanonische Id die Id ihres
+ *   AuroraQueue-Items, damit `tool_result`-Events eindeutig verlinken.
+ * - Unbekannte Tool-Namen werden nicht enqueued; sie erhalten sofort ein
+ *   fehlgeschlagenes `tool_result`-Event.
+ * - Alle übersetzten Tool-Calls werden sequenziell enqueued und die Queue
+ *   über den bestehenden Permission-Flow verarbeitet.
+ */
+export function applyAuroraModelResponse(
   state: GameRuntimeState,
   env: AuroraRuntimeEnvironment,
-  request: AuroraRequest
+  response: ModelResponse
 ): GameRuntimeState {
-  const queueState = enqueueAuroraRequest(request, state.auroraQueue, state.world.clock.tick);
-  const processed = processAuroraQueue(queueState, env, state.world, state.mcp, state.permissions);
+  const tick = state.world.clock.tick;
 
-  let nextState: GameRuntimeState = {
-    ...state,
+  const contextToolCalls: AuroraContextToolCall[] = [];
+  const requests: AuroraRequest[] = [];
+  const unknownToolCalls: AuroraContextToolCall[] = [];
+
+  let nextQueueItemId = state.auroraQueue.nextId;
+  for (const toolCall of response.toolCalls) {
+    const auroraRequest = toolCallToAuroraRequest(toolCall);
+
+    if (!auroraRequest) {
+      const unknown: AuroraContextToolCall = {
+        id: toolCall.id,
+        name: toolCall.name,
+        arguments: toolCall.arguments,
+      };
+      contextToolCalls.push(unknown);
+      unknownToolCalls.push(unknown);
+      continue;
+    }
+
+    contextToolCalls.push({
+      id: `aurora-${nextQueueItemId}`,
+      name: toolCall.name,
+      arguments: toolCall.arguments,
+    });
+    requests.push(auroraRequest);
+    nextQueueItemId += 1;
+  }
+
+  let nextState = appendContextEvent(
+    state,
+    auroraResponseEvent(tick, response.message, contextToolCalls)
+  );
+
+  for (const unknown of unknownToolCalls) {
+    nextState = appendContextEvent(
+      nextState,
+      toolResultEvent(tick, unknown.id, unknown.name, {
+        success: false,
+        error: `Unknown tool: ${unknown.name}`,
+      })
+    );
+  }
+
+  if (requests.length === 0) {
+    return nextState;
+  }
+
+  let queueState = nextState.auroraQueue;
+  for (const request of requests) {
+    queueState = enqueueAuroraRequest(request, queueState, tick);
+  }
+
+  const processed = processAuroraQueue(
+    queueState,
+    env,
+    nextState.world,
+    nextState.mcp,
+    nextState.permissions
+  );
+
+  nextState = {
+    ...nextState,
     auroraQueue: processed.queueState,
     permissions: processed.permissionState,
     mcp: processed.mcpState,

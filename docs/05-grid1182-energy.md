@@ -372,7 +372,7 @@ Ziel: **Erweiterung** der bestehenden Drei-Zonen-Struktur, kein Neubau.
   - Critical Consumers mit **beiden Bewertungsdimensionen** (`criticality` und `priority_class`), `status` und Consequence-Text — die Diskrepanz zwischen menschlicher und systemischer Sicht soll ablesbar sein, ohne sie zu kommentieren.
   - Shedding-Status: geplante/aktive/abgebrochene Pläne mit `id`, Target, Fenster, `created_by` (Spiegel der heutigen Override-Liste — hier sieht der Spieler auch von ihm freigegebene AURORA-Pläne ticken).
   - `ActiveIncidentPanel` und Globale Lage bleiben unverändert; im Endzustand zeigt das bestehende Banner zusätzlich zum Incident-Status die aufgelaufenen lokalen Outcomes (menschlich/wirtschaftlich), damit "gelöst — für wen?" sichtbar wird.
-- **Mitte — Operator-Konsole**: unverändert. Energy-Commands erscheinen automatisch in Command-Hilfe und Registry-Liste, sobald registriert.
+- **Mitte — Operator-Konsole**: bleibt die generische Workspace-Shell. Die fachlichen Energy-Eingriffe (Systemklasse setzen, Drosselung planen/abbrechen) laufen als typisierte Domain-Actions über GUI-Controls im Energie-Lagepanel — nicht über Text-Commands.
 - **Rechts — AURORA-Panel**: unverändert. Stream, Tool Requests, Always-Permissions und der Permission-Flow funktionieren ohne Anpassung, da sie auf Commands/Zugriffsart arbeiten, nicht auf Sektoren.
 - **ViewModel**: neue Builder (`buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`) nach dem Muster der bestehenden — ausschließlich öffentlicher WorldState, `simulation.*` bleibt tabu und wird in die statischen Leak-Tests aufgenommen.
 
@@ -388,7 +388,7 @@ Für den reduzierten MVP von Incident 2 gilt verbindlich:
 - **Keine echte Netzsimulation** — keine Lastflussrechnung, keine Frequenzphysik; deterministische Tick-Logik nach dem Muster der Medical-Engine.
 - **Keine neuen Permission-Kategorien** — das Permission-Modell bleibt `read`/`write`; verzögerte Wirkung ist Domain-/Tick-Logik, keine eigene Zugriffsart.
 - **Keine generische Infrastruktur-Matschabstraktion** — kein `GenericInfraNode`; Sektoren teilen Infrastruktur, nicht Fachmodelle.
-- **Keine echte Shell** — die Operator-Konsole bleibt der bestehende Parser.
+- **Keine echte Shell** — die Operator-Konsole bleibt die simulierte generische Bash-Schicht (`mcp list/add`, `ls`, `cat`, `read_file`).
 - **Kein echtes MCP** — Tool Requests bleiben Spielmechanik.
 - **Kein freies LLM in Incident 2** — AURORA bleibt Scenario-Director (LLM-Vision: `01-aurora.md`).
 - **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken über den bestehenden Permission-Flow hinaus; Runde 3 wird hier nicht vorgebaut.

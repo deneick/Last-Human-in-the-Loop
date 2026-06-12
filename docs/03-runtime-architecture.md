@@ -22,13 +22,19 @@ src/
 type GameRuntimeState = {
   world: WorldState;
   permissions: PermissionState;
-  auroraQueue: AuroraQueueState;
+  auroraQueue: AuroraQueueState;        // reine Ausführungs-Queue, keine History
+  mcp: McpRuntimeState;                 // aktivierte MCP-Server
+  auroraContext: AuroraContextEvent[];  // append-only: alles, was AURORA sah/sagte
   auditLog: RuntimeAuditEvent[];
   scenario?: ScenarioRuntimeState;
 };
 ```
 
-`createInitialGameRuntimeState(world)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue, leeres Log). `appendAuditLog(...)` hängt Einträge an `auditLog` an — das ist die Quelle für das Runtime-Log in der Operator-Konsole.
+`createInitialGameRuntimeState(world)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue, leeres Log) und konvertiert die öffentlichen `public_signals` der Incidents genau einmal in `incident_signal`-Context-Events. `appendAuditLog(...)` hängt Einträge an `auditLog` an — das ist die Quelle für das Runtime-Log in der Operator-Konsole.
+
+### AuroraContextEvents (`src/runtime/auroraContext.ts`)
+
+`auroraContext` ist das **append-only Event-Log** der modell-sichtbaren Konversation und die einzige History-Quelle für `buildAuroraModelRequest`. Operator-Chat (`operator_message`), AURORA-Antworten (`aurora_response` mit Text und allen Tool-Calls einer Antwort), Tool-Ergebnisse (`tool_result`), Incident-Signale (`incident_signal`) sowie Scenario-/System-Meldungen (`scenario_event` / `system_event`) stehen dort chronologisch in echter Einfüge-Reihenfolge. Es enthält ausschließlich modell-sichtbaren Inhalt — nie `world.simulation`, interne Patches oder typisierte Domain-Actions. Details und Serialisierungsregeln (inkl. der `[INCIDENT SIGNAL]`/`[SCENARIO EVENT]`/`[SYSTEM EVENT]`-Präfixe für Chat Completions): `docs/07-aurora-llm.md`.
 
 ## WorldState
 
@@ -150,7 +156,7 @@ class CommandRegistry {
 }
 ```
 
-`CommandRequest` kommt aus `commandParser.parseCommandText(raw)` (whitespace-getrennt, `--flag value` / `--flag` (boolean) / `-f`). `CommandExecutionContext` trägt `actor: "player" | "aurora"`.
+Die folgenden Tabellen beschreiben typisierte **Domain-Actions** (Felder in Command-ähnlicher Kurzform notiert). Sie sind **keine** Text-Commands mehr: Der Spieler erreicht sie über die GUI-Controls der Lage-Panels (`executePlayerDomainAction`), AURORA ausschließlich über simulierte MCP-Tools. Einen Freitext-Parser für fachliche Commands gibt es nicht mehr; die Operator-Konsole kennt nur die generische Bash-Schicht (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`). `DomainActionContext` trägt `actor: "player" | "aurora"`.
 
 ### Aktuell registrierte Medical-Commands (`src/runtime/medicalCommands.ts`)
 
@@ -270,9 +276,11 @@ type AuroraQueueItem = {
 type AuroraQueueState = { items: AuroraQueueItem[]; nextId: number };
 ```
 
-`processAuroraQueue(queue, registry, world, permissions)` arbeitet die Queue der Reihe nach ab: Items mit Zugriffsart `read` oder bereits erlaubter Zugriffsart werden sofort über die Registry ausgeführt (mit `actor: "aurora"`); das erste Item, das eine Freigabe braucht, wird zu `awaiting_approval` und stoppt die Verarbeitung (FIFO, ein offener Request gleichzeitig). `resolveAuroraApproval(...)` wendet eine `PermissionDecision` auf das wartende Item an, führt es ggf. aus und ruft danach erneut `processAuroraQueue` für nachfolgende Items auf.
+Die AuroraQueue ist eine **reine Ausführungs-Queue** für modell- bzw. script-erzeugte Tool-Calls: Sie treibt die Pending-Permission-UI und die sequenzielle Ausführung — sie ist **keine** Konversations- oder History-Quelle und wird vom Context-Builder nicht gelesen.
 
-Erfolgreiche Patches werden in `App.tsx` über `executeCommandResultPatch` auf den `GameRuntimeState.world` angewendet und im Audit-Log vermerkt.
+`processAuroraQueue(queue, env, world, mcpState, permissions)` arbeitet die Queue der Reihe nach ab: Items, deren Permission-Subject erlaubt ist, werden sofort ausgeführt (mit `actor: "aurora"`); das erste Item, das eine Freigabe braucht, wird zu `awaiting_approval` und stoppt die Verarbeitung (FIFO, ein offener Request gleichzeitig). `resolveAuroraApproval(...)` wendet eine `PermissionDecision` auf das wartende Item an, führt es ggf. aus und ruft danach erneut `processAuroraQueue` für nachfolgende Items auf.
+
+Jedes Ergebnis (executed/denied/failed) läuft durch `applyAuroraExecutionResult`: WorldState-Patch anwenden, MCP-Aktivierung, **genau ein** `tool_result`-Event an `auroraContext` anhängen (verlinkt über die Queue-Item-Id als `tool_call_id`) und Audit-Log schreiben.
 
 ## Scenario-State
 
@@ -282,13 +290,14 @@ Erfolgreiche Patches werden in `App.tsx` über `executeCommandResultPatch` auf d
 type ScenarioRuntimeState = {
   firedEventIds: string[];
   scriptedQueueItemIds: Record<string, string>; // Event-Id -> Aurora-Queue-Item-Id
-  messages: ScenarioAuroraMessage[];             // { id, tick, text }
 };
 ```
 
+Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte Script-Event hängt genau ein `aurora_response`-Event (Text + optionaler Tool-Call) an `GameRuntimeState.auroraContext` an — dieselbe Struktur, die auch der LLM-Agent schreibt.
+
 `SCRIPT_EVENTS` ist eine Liste aus `{ id, when(view), messages(view), request?(view) }`. `view: DirectorView` enthält nur `tick`, das `IncidentState`, `deathsTotal` und die aktiven `manual_overrides` — kein `world.simulation`. Jedes Event feuert maximal einmal (`firedEventIds`); abgelehnte geskriptete Requests werden zusätzlich einmalig im Stream quittiert (`<eventId>:deny-ack`).
 
-`advanceScenarioDirector` ruft danach `processAuroraQueue` auf und wendet erfolgreiche Patches via `executeCommandResultPatch` an.
+`advanceScenarioDirector` ruft danach `processAuroraQueue` auf und wendet jedes Ergebnis über `applyAuroraExecutionResult` an (Patch, MCP-Aktivierung, `tool_result`-Event, Audit-Log).
 
 ## ViewModel-Schicht
 
