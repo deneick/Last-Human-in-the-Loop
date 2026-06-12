@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 export type AuroraMessageView = {
   id: string;
   tick: number;
-  kind: "info" | "request" | "executed" | "denied";
+  kind: "info" | "request" | "executed" | "denied" | "error";
   text: string;
 };
 
@@ -21,6 +21,8 @@ type AuroraPanelProps = {
   auroraCommand: string;
   onAuroraCommandChange: (value: string) => void;
   onQueueRequest: () => void;
+  /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
+  busy?: boolean;
 };
 
 export function AuroraPanel({
@@ -31,6 +33,7 @@ export function AuroraPanel({
   auroraCommand,
   onAuroraCommandChange,
   onQueueRequest,
+  busy = false,
 }: AuroraPanelProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
@@ -63,9 +66,15 @@ export function AuroraPanel({
           <code className="approval-command">{pendingRequest.raw}</code>
           <p className="muted">Zugriffsart: {pendingRequest.access}</p>
           <div className="approval-actions">
-            <button onClick={() => onDecision("allow_once")}>Einmal erlauben</button>
-            <button onClick={() => onDecision("allow_always")}>Immer erlauben</button>
-            <button onClick={() => onDecision("deny")}>Ablehnen</button>
+            <button onClick={() => onDecision("allow_once")} disabled={busy}>
+              Einmal erlauben
+            </button>
+            <button onClick={() => onDecision("allow_always")} disabled={busy}>
+              Immer erlauben
+            </button>
+            <button onClick={() => onDecision("deny")} disabled={busy}>
+              Ablehnen
+            </button>
           </div>
         </section>
       ) : (
@@ -77,10 +86,15 @@ export function AuroraPanel({
             onKeyDown={handleKeyDown}
             placeholder="Command, den AURORA anfragen soll"
             spellCheck={false}
+            disabled={busy}
           />
-          <button onClick={onQueueRequest}>Anfrage an AURORA senden</button>
+          <button onClick={onQueueRequest} disabled={busy}>
+            Anfrage an AURORA senden
+          </button>
         </div>
       )}
+
+      {busy && <p className="muted">AURORA denkt nach…</p>}
 
       <h3>Always-Permissions</h3>
       {alwaysAllowed.length === 0 ? (
