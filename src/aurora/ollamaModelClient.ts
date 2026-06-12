@@ -26,6 +26,7 @@ export type OllamaModelClientOptions = {
 
 type OpenAiToolCall = {
   id?: string;
+  type?: string;
   function?: {
     name?: string;
     arguments?: string;
@@ -45,6 +46,12 @@ export class OllamaModelClient implements AuroraModelClient {
   private readonly baseUrl: string;
   private readonly model: string;
   private readonly fetchImpl: typeof fetch;
+  /**
+   * Fallback-Zähler für Tool-Call-Ids, falls der Server keine (oder leere)
+   * Ids liefert. Läuft über die Lebensdauer des Clients monoton hoch, damit
+   * Fallback-Ids auch über mehrere Züge hinweg eindeutig bleiben.
+   */
+  private fallbackCallIdCounter = 0;
 
   constructor(options: OllamaModelClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? DEFAULT_OLLAMA_BASE_URL;
@@ -72,7 +79,33 @@ export class OllamaModelClient implements AuroraModelClient {
     }
 
     const data = (await response.json()) as OpenAiChatCompletionResponse;
-    return toModelResponse(data);
+    return this.toModelResponse(data);
+  }
+
+  private toModelResponse(data: OpenAiChatCompletionResponse): ModelResponse {
+    const message = data.choices?.[0]?.message ?? {};
+
+    const toolCalls: ModelToolCall[] = (message.tool_calls ?? []).map((toolCall) => {
+      const parsed = parseToolArguments(toolCall.function?.arguments);
+
+      return {
+        // `||` statt `??`: auch ein leerer Id-String bekommt eine Fallback-Id.
+        id: toolCall.id || this.nextFallbackCallId(),
+        name: toolCall.function?.name ?? "",
+        arguments: parsed.arguments,
+        ...(parsed.error ? { argumentsError: parsed.error } : {}),
+      };
+    });
+
+    return {
+      message: typeof message.content === "string" ? message.content : "",
+      toolCalls,
+    };
+  }
+
+  private nextFallbackCallId(): string {
+    this.fallbackCallIdCounter += 1;
+    return `call-${this.fallbackCallIdCounter}`;
   }
 }
 
@@ -101,34 +134,40 @@ function toOpenAiMessage(message: ModelMessage): Record<string, unknown> {
 function toOpenAiToolCall(call: ModelToolCall): OpenAiToolCall {
   return {
     id: call.id,
+    // OpenAI-Schema verlangt das type-Feld an jedem assistant tool_call.
+    type: "function",
     function: { name: call.name, arguments: JSON.stringify(call.arguments) },
   };
 }
 
-function toModelResponse(data: OpenAiChatCompletionResponse): ModelResponse {
-  const message = data.choices?.[0]?.message ?? {};
+const MAX_RAW_ARGUMENTS_IN_ERROR = 200;
 
-  const toolCalls: ModelToolCall[] = (message.tool_calls ?? []).map((toolCall, index) => ({
-    id: toolCall.id ?? `call-${index + 1}`,
-    name: toolCall.function?.name ?? "",
-    arguments: parseToolArguments(toolCall.function?.arguments),
-  }));
+type ParsedToolArguments = {
+  arguments: Record<string, unknown>;
+  /** Fehlerbeschreibung, falls die rohen Argumente kein JSON-Objekt waren. */
+  error?: string;
+};
 
-  return {
-    message: typeof message.content === "string" ? message.content : "",
-    toolCalls,
-  };
-}
-
-function parseToolArguments(raw: string | undefined): Record<string, unknown> {
+/**
+ * Parst die rohen Tool-Argumente des Modells. Kaputtes JSON wird NICHT still
+ * zu `{}` — der Fehler wandert als `argumentsError` in den ModelToolCall und
+ * von dort als fehlgeschlagenes Tool-Result zurück ans Modell.
+ */
+function parseToolArguments(raw: string | undefined): ParsedToolArguments {
   if (!raw) {
-    return {};
+    return { arguments: {} };
   }
+
+  const excerpt =
+    raw.length > MAX_RAW_ARGUMENTS_IN_ERROR ? `${raw.slice(0, MAX_RAW_ARGUMENTS_IN_ERROR)}…` : raw;
 
   try {
     const parsed = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return { arguments: parsed as Record<string, unknown> };
+    }
+    return { arguments: {}, error: `Tool arguments must be a JSON object, got: ${excerpt}` };
   } catch {
-    return {};
+    return { arguments: {}, error: `Invalid JSON in tool arguments: ${excerpt}` };
   }
 }

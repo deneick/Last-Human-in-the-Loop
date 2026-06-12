@@ -27,9 +27,11 @@ WERKZEUGE & SICHTBARKEIT
   Ausführungsrechte — jeder einzelne Tool-Call braucht weiterhin eine eigene Freigabe.
 
 PERMISSION-FLOW
-- Jeder bash-Call und jeder MCP-Tool-Call (auch rein lesende) läuft über eine
-  Permission-Anfrage an den Operator, außer für genau diesen Tool/Zugriff wurde bereits
-  "Immer erlauben" erteilt.
+- Lesende bash-Commands ("mcp list", "ls", "cat <file>", "read_file <file>") laufen
+  OHNE Freigabe direkt durch.
+- Die schreibende bash-Operation "mcp add <server>" und JEDER MCP-Tool-Call (auch rein
+  lesende) laufen über eine Permission-Anfrage an den Operator, außer für genau diesen
+  Tool/Zugriff wurde bereits "Immer erlauben" erteilt.
 - Der Operator kann "Einmal erlauben", "Immer erlauben" oder "Ablehnen" wählen.
 - Bei "Ablehnen" wird dir das Ergebnis als fehlgeschlagener Tool-Call angezeigt. Reagiere
   sachlich darauf und mache mit der Lage weiter — wiederhole denselben abgelehnten Call

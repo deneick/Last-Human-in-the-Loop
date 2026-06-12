@@ -407,4 +407,55 @@ describe("runAuroraAgentStep", () => {
       result: { success: false },
     });
   });
+
+  it('13. a bash call without a "command" string is not enqueued and reports the precise reason — not "Unknown tool"', async () => {
+    const state = freshState();
+    const client = new FakeModelClient([toolCallResponse(BASH_TOOL_NAME, {}, "call-13")]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    expect(runtimeState.auroraQueue.items).toHaveLength(0);
+
+    const resultEvent = runtimeState.auroraContext.at(-1);
+    expect(resultEvent).toMatchObject({
+      kind: "tool_result",
+      toolCallId: "call-13",
+      toolName: BASH_TOOL_NAME,
+      result: { success: false },
+    });
+    const error =
+      resultEvent?.kind === "tool_result" ? resultEvent.result.error ?? "" : "";
+    expect(error).toContain('missing string field "command"');
+    expect(error).not.toContain("Unknown tool");
+  });
+
+  it("14. a tool call with malformed arguments (argumentsError) is not enqueued and feeds the parse error back", async () => {
+    const state = stateWithMedicalEastActive();
+    const toolName = mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list");
+    const client = new FakeModelClient([
+      {
+        message: "",
+        toolCalls: [
+          {
+            id: "call-14",
+            name: toolName,
+            arguments: {},
+            argumentsError: "Invalid JSON in tool arguments: {broken",
+          },
+        ],
+      },
+    ]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    expect(runtimeState.auroraQueue.items).toHaveLength(0);
+
+    const resultEvent = runtimeState.auroraContext.at(-1);
+    expect(resultEvent).toMatchObject({
+      kind: "tool_result",
+      toolCallId: "call-14",
+      toolName,
+      result: { success: false, error: "Invalid JSON in tool arguments: {broken" },
+    });
+  });
 });

@@ -13,14 +13,16 @@ import type { DomainActionAccess } from "../domain/actions";
  *   braucht eine Freigabe, außer "write" wurde dauerhaft erlaubt.
  */
 
-export type PermissionStatus = "allowed" | "denied" | "requires_approval";
+/**
+ * Es gibt bewusst keinen "denied"-Status: Die Engine kennt keine Deny-Liste.
+ * Eine Anfrage ist entweder dauerhaft erlaubt oder braucht eine
+ * Operator-Entscheidung — Ablehnung ist immer eine Entscheidung
+ * (`PermissionDecision` "deny"), nie ein vorab evaluierter Zustand.
+ */
+export type PermissionStatus = "allowed" | "requires_approval";
 
 export function allowed(): PermissionStatus {
   return "allowed";
-}
-
-export function denied(): PermissionStatus {
-  return "denied";
 }
 
 export function requires_approval(): PermissionStatus {

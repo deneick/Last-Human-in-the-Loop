@@ -299,7 +299,30 @@ describe("AURORA local LLM mode", () => {
     expect(text()).toContain("Zeit fortgeschritten: Tick 1");
   });
 
-  // 12. stale async AURORA responses cannot overwrite newer runtime state
+  // 12. ticks are locked while a tool request awaits the operator's decision:
+  // a system_event between aurora_response (tool call) and tool_result would
+  // produce an invalid chat-completions message order.
+  it("disables Tick +1/+5 while a tool request awaits the operator's decision", async () => {
+    const client = new FakeModelClient([
+      ACTIVATE_MEDICAL_MCP,
+      textResponse("Medical-MCP ist jetzt aktiv."),
+    ]);
+    renderApp(client);
+
+    await enableLlmMode();
+    expect(text()).toContain("Tool Request");
+
+    expect(findButton("Tick +1").disabled).toBe(true);
+    expect(findButton("Tick +5").disabled).toBe(true);
+
+    await clickAndFlush("Einmal erlauben");
+
+    expect(text()).not.toContain("Tool Request");
+    expect(findButton("Tick +1").disabled).toBe(false);
+    expect(findButton("Tick +5").disabled).toBe(false);
+  });
+
+  // 13. stale async AURORA responses cannot overwrite newer runtime state
   it("discards a stale AURORA response after 'Neu starten' started a fresh run", async () => {
     const client = new DeferredModelClient();
     renderApp(client);

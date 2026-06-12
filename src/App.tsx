@@ -269,6 +269,11 @@ function App({ auroraClient }: AppProps = {}) {
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
 
+  // Im LLM-Modus blockiert eine offene Permission-Anfrage den Zeitfortschritt
+  // (Message-Ordering, siehe runTicks). Im Skript-Modus bleibt Ticken bei
+  // offener Anfrage erlaubt — dort wird kein Modell-Request serialisiert.
+  const ticksLockedByApproval = auroraMode === "llm" && awaitingAuroraItem !== undefined;
+
   // Scenario-Director-Schritt: löst fällige Script-Events aus und verarbeitet
   // die Aurora-Queue über den bestehenden Permission-Flow. Idempotent —
   // bereits gefeuerte Events erzeugen keine Duplikate.
@@ -426,8 +431,9 @@ function App({ auroraClient }: AppProps = {}) {
 
   /**
    * Operator-Chat an AURORA (normaler Spielfluss): plain User-Message,
-   * landet als persistente `scenario.operatorMessages`-Nachricht im
-   * Runtime-State und in der nächsten `buildAuroraModelRequest`-Historie.
+   * landet als persistentes `operator_message`-Event in
+   * `GameRuntimeState.auroraContext` und damit in der nächsten
+   * `buildAuroraModelRequest`-Historie.
    * Wird NIE als Bash/MCP/AuroraRequest geparst, enqueued nichts in der
    * AuroraQueue und ändert Permissions/allowAlways nicht direkt — nur ein
    * von AURORA selbst erzeugter Tool-Call kann eine Permission-Anfrage
@@ -510,6 +516,15 @@ function App({ auroraClient }: AppProps = {}) {
     }
 
     if (auroraMode === "llm") {
+      // Solange ein Tool-Call auf eine Entscheidung wartet, ist die Zeit
+      // gesperrt: Ein system_event ZWISCHEN aurora_response (mit Tool-Call)
+      // und dessen tool_result würde eine für Chat Completions ungültige
+      // Message-Reihenfolge erzeugen (tool-Message muss direkt auf die
+      // assistant-Message folgen). Erst entscheiden, dann ticken.
+      if (hasAwaitingApproval(runtimeState)) {
+        return;
+      }
+
       let next = runtimeState;
       for (let i = 0; i < count; i += 1) {
         next = evaluateOutcomes(advanceTick(next));
@@ -632,26 +647,30 @@ function App({ auroraClient }: AppProps = {}) {
           ))}
           <button
             onClick={() => runTicks(1)}
-            disabled={incidentView.isFinal || auroraBusy}
+            disabled={incidentView.isFinal || auroraBusy || ticksLockedByApproval}
             title={
               incidentView.isFinal
                 ? "Incident beendet — nur Neu starten geht weiter."
                 : auroraBusy
                   ? "AURORA denkt nach — bitte warten."
-                  : undefined
+                  : ticksLockedByApproval
+                    ? "AURORA-Anfrage wartet auf Ihre Entscheidung — erst entscheiden, dann ticken."
+                    : undefined
             }
           >
             Tick +1
           </button>
           <button
             onClick={() => runTicks(5)}
-            disabled={incidentView.isFinal || auroraBusy}
+            disabled={incidentView.isFinal || auroraBusy || ticksLockedByApproval}
             title={
               incidentView.isFinal
                 ? "Incident beendet — nur Neu starten geht weiter."
                 : auroraBusy
                   ? "AURORA denkt nach — bitte warten."
-                  : undefined
+                  : ticksLockedByApproval
+                    ? "AURORA-Anfrage wartet auf Ihre Entscheidung — erst entscheiden, dann ticken."
+                    : undefined
             }
           >
             Tick +5
