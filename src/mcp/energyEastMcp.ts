@@ -1,11 +1,20 @@
 import type { McpServerDefinition, McpToolInput } from "./mcpRegistry";
+import { mcpInputSchema } from "./mcpRegistry";
 
 /**
  * Simulierter MCP-Server für den Energy-Sektor (Region East).
- * Jedes Tool mappt seinen Input auf genau eine typisierte Domain-Action.
+ * Jedes Tool mappt seinen Input auf genau eine typisierte Domain-Action
+ * und trägt ein eigenes Parameter-Schema fürs Modell.
  */
 
 export const ENERGY_EAST_MCP_SERVER_ID = "energy-east-mcp";
+
+const PRIORITY_CLASS_VALUES = [
+  "protected-continuity",
+  "civil-priority",
+  "standard",
+  "curtailable",
+];
 
 function asString(input: McpToolInput, key: string): string {
   const value = input[key];
@@ -38,6 +47,12 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "grid_status",
       description: "Zeigt die Netzknoten einer Region mit Last und sicherer Kapazität.",
       access: "read",
+      inputSchema: mcpInputSchema(
+        {
+          region: { type: "string", description: 'Region, z. B. "east".' },
+        },
+        ["region"]
+      ),
       buildAction: (input) => ({
         type: "energy.grid.status",
         region: asString(input, "region"),
@@ -47,6 +62,12 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "consumer_list",
       description: "Listet Verbraucher einer Region mit beiden Bewertungsdimensionen.",
       access: "read",
+      inputSchema: mcpInputSchema(
+        {
+          region: { type: "string", description: 'Region, z. B. "east".' },
+        },
+        ["region"]
+      ),
       buildAction: (input) => ({
         type: "energy.consumer.list",
         region: asString(input, "region"),
@@ -56,6 +77,12 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "consumer_inspect",
       description: "Zeigt einen Verbraucher inklusive Consequence-Text.",
       access: "read",
+      inputSchema: mcpInputSchema(
+        {
+          consumer_id: { type: "string", description: 'Verbraucher-Id, z. B. "consumer-medical-east".' },
+        },
+        ["consumer_id"]
+      ),
       buildAction: (input) => ({
         type: "energy.consumer.inspect",
         consumerId: asString(input, "consumer_id"),
@@ -65,6 +92,7 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "priority_list",
       description: "Listet alle Prioritätszuordnungen mit letztem Akteur.",
       access: "read",
+      inputSchema: mcpInputSchema({}),
       buildAction: () => ({
         type: "energy.priority.list",
       }),
@@ -73,6 +101,7 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "shedding_list",
       description: "Listet alle Shedding-Pläne mit Status und Ersteller.",
       access: "read",
+      inputSchema: mcpInputSchema({}),
       buildAction: () => ({
         type: "energy.shedding.list",
       }),
@@ -81,6 +110,13 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "priority_set",
       description: "Setzt die Kontinuitätsklasse eines Verbrauchers (write).",
       access: "write",
+      inputSchema: mcpInputSchema(
+        {
+          consumer_id: { type: "string", description: "Verbraucher-Id." },
+          priority_class: { type: "string", enum: PRIORITY_CLASS_VALUES },
+        },
+        ["consumer_id", "priority_class"]
+      ),
       buildAction: (input) => ({
         type: "energy.priority.set",
         consumerId: asString(input, "consumer_id"),
@@ -91,6 +127,15 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "shedding_schedule",
       description: "Plant eine zeitlich begrenzte Lastreduktion (write).",
       access: "write",
+      inputSchema: mcpInputSchema(
+        {
+          target_consumer_id: { type: "string", description: "Ziel-Verbraucher-Id." },
+          amount: { type: "integer", description: "Reduktionsmenge." },
+          delay: { type: "integer", description: "Verzögerung in Ticks bis Wirkungsbeginn." },
+          duration: { type: "integer", description: "Wirkdauer in Ticks." },
+        },
+        ["target_consumer_id", "amount", "delay", "duration"]
+      ),
       buildAction: (input) => ({
         type: "energy.shedding.schedule",
         targetConsumerId: asString(input, "target_consumer_id"),
@@ -103,6 +148,12 @@ export const energyEastMcpServer: McpServerDefinition = {
       name: "shedding_clear",
       description: "Bricht einen aktiven Shedding-Plan per Id ab (write).",
       access: "write",
+      inputSchema: mcpInputSchema(
+        {
+          shedding_id: { type: "string", description: 'Plan-Id, z. B. "shed-1".' },
+        },
+        ["shedding_id"]
+      ),
       buildAction: (input) => ({
         type: "energy.shedding.clear",
         sheddingId: asString(input, "shedding_id"),

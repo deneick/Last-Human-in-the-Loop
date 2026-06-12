@@ -54,8 +54,8 @@ export type MedicalDomainAction =
   | MedicalRoutingOverrideClearAction
   | MedicalRoutingOverrideListAction;
 
-const KNOWN_PRIORITIES: PriorityClass[] = ["P1", "P2", "P3", "P4"];
-const KNOWN_CAPABILITIES: ClinicalCapability[] = ["GEN", "TRAUMA", "NEURO", "PED"];
+export const KNOWN_PRIORITIES: PriorityClass[] = ["P1", "P2", "P3", "P4"];
+export const KNOWN_CAPABILITIES: ClinicalCapability[] = ["GEN", "TRAUMA", "NEURO", "PED"];
 
 export function routingOverrideKey(
   sourceHospitalId: string,

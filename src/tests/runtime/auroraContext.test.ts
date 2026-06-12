@@ -32,6 +32,7 @@ describe("AuroraContextEvents — append-only event log", () => {
         kind: "incident_signal",
         tick: signal.first_seen_at_tick,
         incidentId: "ME-7741",
+        code: signal.code,
         text: signal.message,
       }))
     );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { KNOWN_PRIORITY_CLASSES } from "../domain/energyActions";
 import type { ConsumerView, GridNodeView, SheddingPlanView } from "./viewModel";
 
 export type PriorityFormInput = {
@@ -101,25 +102,37 @@ export function EnergyOverviewPanel({
 
       <h3>Systemklasse setzen</h3>
       <div className="domain-action-form">
-        <input
+        <select
           className="console-input"
+          aria-label="Prioritäts-Verbraucher"
           value={priorityConsumerId}
           onChange={(event) => setPriorityConsumerId(event.target.value)}
-          placeholder="Verbraucher (consumer-id)"
-          spellCheck={false}
           disabled={disabled}
-        />
-        <input
+        >
+          <option value="">— Verbraucher wählen —</option>
+          {consumers.map((consumer) => (
+            <option key={consumer.id} value={consumer.id}>
+              {consumer.label} ({consumer.id})
+            </option>
+          ))}
+        </select>
+        <select
           className="console-input"
+          aria-label="Systemklasse"
           value={priorityClass}
           onChange={(event) => setPriorityClass(event.target.value)}
-          placeholder="Systemklasse (z. B. protected-continuity)"
-          spellCheck={false}
           disabled={disabled}
-        />
+        >
+          <option value="">— Klasse wählen —</option>
+          {KNOWN_PRIORITY_CLASSES.map((priorityClassValue) => (
+            <option key={priorityClassValue} value={priorityClassValue}>
+              {priorityClassValue}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => onSetPriority({ consumerId: priorityConsumerId, priorityClass })}
-          disabled={disabled}
+          disabled={disabled || priorityConsumerId === "" || priorityClass === ""}
         >
           Priorität setzen
         </button>
@@ -127,14 +140,20 @@ export function EnergyOverviewPanel({
 
       <h3>Drosselung planen</h3>
       <div className="domain-action-form">
-        <input
+        <select
           className="console-input"
+          aria-label="Drosselungs-Ziel"
           value={sheddingTargetId}
           onChange={(event) => setSheddingTargetId(event.target.value)}
-          placeholder="Ziel (consumer-id)"
-          spellCheck={false}
           disabled={disabled}
-        />
+        >
+          <option value="">— Ziel wählen —</option>
+          {consumers.map((consumer) => (
+            <option key={consumer.id} value={consumer.id}>
+              {consumer.label} ({consumer.id})
+            </option>
+          ))}
+        </select>
         <input
           className="console-input"
           value={sheddingAmount}
@@ -168,7 +187,7 @@ export function EnergyOverviewPanel({
               duration: Number(sheddingDuration),
             })
           }
-          disabled={disabled}
+          disabled={disabled || sheddingTargetId === ""}
         >
           Drosselung planen
         </button>

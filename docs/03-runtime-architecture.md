@@ -1,17 +1,24 @@
 # Runtime-Architektur
 
-Diese Datei beschreibt den aktuellen technischen Aufbau: WorldState, Command Registry, Tick-Pipeline, Permissions und die Trennung zwischen interner Simulationswahrheit und sichtbarer UI. Sie ist sektoragnostisch angelegt — `medical` ist der erste implementierte Sektor, weitere Sektoren (z. B. `energy`) sind als Erweiterungspunkte vorgesehen, aber noch nicht modelliert.
+Diese Datei beschreibt den aktuellen technischen Aufbau: WorldState, Domain-Actions, AURORA-Context-Events, Tick-Pipeline, Permissions und die Trennung zwischen interner Simulationswahrheit und sichtbarer UI. Sie ist sektoragnostisch angelegt — implementiert sind die Sektoren `medical` (ME-7741) und `energy` (GRID-1182).
 
 ## Projektstruktur
 
 ```text
 src/
-  runtime/        Engine: Typen, Commands, Tick-/Outcome-Logik, Permissions, Patches
+  runtime/        Engine: Typen, Context-Events, Queue, Tick-/Outcome-Logik,
+                  Permissions, Patches, Bash-Schicht, Tool-Namen, Replay
+  domain/          Typisierte Domain-Actions (medical.*, energy.*) + Registry
+  mcp/             Simulierte MCP-Server: Tool-Definitionen mit JSON-Schemas,
+                  Aktivierungs-Zustand, Tool-Executor
+  aurora/          LLM-Anbindung: ModelClient-Interface, Context-Serializer,
+                  Context-Builder, Agent-Schritt, Ollama-/Fake-Client
   scenarios/
     me7741/        Initialer WorldState und Scenario-Director für ME-7741
+    grid1182/      Initialer WorldState und Scenario-Director für GRID-1182
   ui/              React-Komponenten + ViewModel (liest nur öffentlichen WorldState)
-  tests/           Vitest-Tests (runtime, scenarios, ui)
-  App.tsx          Verdrahtet Registry, RuntimeState, UI-Panels
+  tests/           Vitest-Tests (runtime, domain, mcp, aurora, scenarios, ui)
+  App.tsx          Verdrahtet Runtime, Panels, Permission-Flow und AURORA-Modi
 ```
 
 ## GameRuntimeState
@@ -117,6 +124,7 @@ type SimulationState = {
     routing_failures: RoutingFailure[];      // interne Engine-Wahrheit
     deaths_recorded: Record<HospitalId, RecordedDeaths>; // Idempotenz-Ledger
   };
+  energy?: { stable_ticks: number };         // GRID-1182: interner Stabilitäts-Zähler
   cross_sector: { effects_applied: CrossSectorEffectLogEntry[] }; // aktuell immer []
 };
 ```
@@ -134,31 +142,32 @@ type DomainState = {
 
 `energy` ist seit dem GRID-1182-Foundation-Slice konkret typisiert (`EnergyDomainState` in `src/runtime/types.ts`) und wird im Szenario `src/scenarios/grid1182/initialWorldState.ts` initialisiert; ME-7741 läuft weiterhin ohne Energy-Domain. Design und weitere Slices: `05-grid1182-energy.md`.
 
-## Command Registry
+## Domain-Action-Registry
 
-`src/runtime/commands.ts`:
+`src/domain/actions.ts`:
 
 ```ts
-type CommandAccess = "read" | "write";
+type DomainActionAccess = "read" | "write";
+type DomainAction = MedicalDomainAction | EnergyDomainAction; // diskriminierte Union über `type`
 
-type CommandHandler = {
-  commandName: string;
+type DomainActionHandler<TAction> = {
+  actionType: TAction["type"];
   sectorId?: SectorId;
-  access: CommandAccess;
-  handle: (request, state, context) => CommandResult;
+  access: DomainActionAccess;
+  execute: (action, state, context) => DomainActionResult;
 };
 
-class CommandRegistry {
-  register(handler: CommandHandler): this;
-  getHandler(commandName: string): CommandHandler | null;
-  execute(request, state, context?): CommandResult;
-  listCommandNames(): string[];
+class DomainActionRegistry {
+  register(handler): void;
+  getHandler(actionType): DomainActionHandler | null;
+  execute(action, state, context): DomainActionResult;
+  listActionTypes(): string[];
 }
 ```
 
-Die folgenden Tabellen beschreiben typisierte **Domain-Actions** (Felder in Command-ähnlicher Kurzform notiert). Sie sind **keine** Text-Commands mehr: Der Spieler erreicht sie über die GUI-Controls der Lage-Panels (`executePlayerDomainAction`), AURORA ausschließlich über simulierte MCP-Tools. Einen Freitext-Parser für fachliche Commands gibt es nicht mehr; die Operator-Konsole kennt nur die generische Bash-Schicht (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`). `DomainActionContext` trägt `actor: "player" | "aurora"`.
+Die folgende Tabelle beschreibt die typisierten **Medical-Domain-Actions** (Felder in Command-ähnlicher Kurzform notiert). Sie sind **keine** Text-Commands: Der Spieler erreicht sie über die GUI-Controls der Lage-Panels (`runtimeExecutor.executePlayerDomainAction`), AURORA ausschließlich über simulierte MCP-Tools. Einen Freitext-Parser für fachliche Commands gibt es nicht; die Operator-Konsole kennt nur die generische Bash-Schicht (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`, siehe `src/runtime/bashCommands.ts` — fachliche Texte lehnt sie aktiv ab). `DomainActionContext` trägt `actor: "player" | "aurora"`.
 
-### Aktuell registrierte Medical-Commands (`src/runtime/medicalCommands.ts`)
+### Medical-Domain-Actions (`src/domain/medicalActions.ts`)
 
 | Command | Access | Beschreibung |
 | --- | --- | --- |
@@ -171,9 +180,15 @@ Die folgenden Tabellen beschreiben typisierte **Domain-Actions** (Felder in Comm
 
 Es gibt **keine** `medical.routing.plan.*`-Commands. Routing-Eingriffe laufen ausschließlich über `override.set` / `.clear` / `.list`.
 
+Die Energy-Domain-Actions (`src/domain/energyActions.ts`: `energy.grid.status`, `energy.consumer.list/.inspect`, `energy.priority.list/.set`, `energy.shedding.list/.schedule/.clear`) folgen demselben Muster; fachliche Details in `docs/05-grid1182-energy.md`.
+
+### MCP-Schicht (`src/mcp/`)
+
+AURORAs einziger fachlicher Zugriffspfad. Jeder simulierte MCP-Server (`medical-east-mcp`, `energy-east-mcp`) definiert Tools mit `access`, einem **eigenen JSON-Parameter-Schema** (`inputSchema`, wird dem Modell als `function.parameters` angeboten) und `buildAction(input)`, das den untypisierten Tool-Input auf genau eine typisierte Domain-Action mappt. Aktivierung (`mcp add <server>`) macht Tools nur sichtbar; jeder Tool-Call läuft einzeln durch die Permission-Queue (siehe unten).
+
 ## Patches
 
-Command-Handler liefern optional ein `WorldStatePatch` (`src/runtime/patch.ts`) statt direkt den WorldState zu mutieren:
+Domain-Action-Handler liefern optional ein `WorldStatePatch` (`src/runtime/patch.ts`) statt direkt den WorldState zu mutieren:
 
 ```ts
 type PatchOperation =
@@ -252,25 +267,32 @@ Alles deterministisch, kein Zufall, keine Echtzeit.
 ### PermissionState (`src/runtime/permissions.ts`)
 
 ```ts
-type PermissionState = { alwaysAllowedAccess: Set<CommandAccess> };
+type PermissionState = {
+  alwaysAllowedAccess: Set<DomainActionAccess>; // Bash-Zugriffsarten (praktisch: "write" für mcp add)
+  allowAlwaysMcpToolKeys: Set<string>;          // exakte Tool-Keys, z. B. "mcp:medical-east-mcp:capacity_list"
+};
 ```
 
-`evaluatePermission(request, state)`:
+`evaluatePermission(subject, state)` arbeitet auf `PermissionSubject`s:
 
-- `read` → immer `allowed`.
-- Zugriffsart in `alwaysAllowedAccess` → `allowed`.
-- sonst (`write`, noch nicht dauerhaft erlaubt) → `requires_approval`.
+- `mcp_tool`: **jeder** MCP-Tool-Call (auch `read`) braucht eine Freigabe, außer der exakte Tool-Key steht in `allowAlwaysMcpToolKeys`. Die Aktivierung eines Servers erteilt keine Rechte.
+- `bash`: Reads (`mcp list`, `ls`, `cat`, `read_file`) laufen frei; die einzige schreibende Shell-Operation (`mcp add <server>`) braucht eine Freigabe, außer `"write"` steht in `alwaysAllowedAccess`.
 
-`PermissionDecision` ist `allow_once` (führt genau diesen Command einmal aus), `allow_always` (fügt die Zugriffsart zu `alwaysAllowedAccess` hinzu) oder `deny`.
+`PermissionDecision` ist `allow_once` (führt genau dieses Queue-Item einmal aus), `allow_always` (persistiert den exakten Subject-Key) oder `deny` (führt nicht aus, erzeugt ein `denied`-Tool-Result).
 
 ### AuroraQueueState (`src/runtime/auroraQueue.ts`)
 
 ```ts
+type AuroraRequest =
+  | { kind: "mcp_tool"; call: { serverId; toolName; input } }
+  | { kind: "bash"; command: string };
+
 type AuroraQueueItem = {
-  id: string;                 // "aurora-<n>"
-  request: CommandRequest;
+  id: string;                 // "aurora-<n>" — zugleich die tool_call_id im Context-Log
+  request: AuroraRequest;
   status: "pending" | "awaiting_approval" | "executed" | "denied";
-  result?: CommandResult;
+  access?: DomainActionAccess;
+  result?: AuroraExecutionResult; // enthält itemId, output, error, denied?, intern: patch/action
   createdAtTick: number;
 };
 type AuroraQueueState = { items: AuroraQueueItem[]; nextId: number };
@@ -314,8 +336,8 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 ## Tests & Guards gegen Leaks
 
 - `src/tests/runtime/sectorAgnostic.test.ts`: WorldState hat keine alten Top-Level-Felder (`hospitals`, `routing`, `transports`, ...), Incidents sind sektoragnostisch, alle Mutation-Patches zeigen auf `["domains", "medical", ...]`, die Tick-Pipeline läuft auch ohne `routing_failures`, und Read-only Commands enthalten nie `routing_failures`, `excess_cases_per_tick` oder `deaths_recorded` in ihrem Output.
-- `src/tests/ui/noLegacyFields.test.ts`: durchsucht `App.tsx`, alle `src/ui/*`-Dateien und `scenarioDirector.ts` statisch nach verbotenen Strings — alte Top-Level-Felder, `medical.routing.plan.*`, `routing_failures`, `simulation.medical`, `isHospitalSuitableFor` und geleakte Bewertungen wie `unsafe_for_p2_trauma`.
+- `src/tests/ui/noLegacyFields.test.ts`: durchsucht `App.tsx`, alle `src/ui/*`-Dateien und die Scenario-Directors statisch nach verbotenen Strings — alte Top-Level-Felder, `medical.routing.plan.*`, `routing_failures`, `simulation.medical`, `isHospitalSuitableFor` und geleakte Bewertungen wie `unsafe_for_p2_trauma`. Zusätzlich prüft er über alle `src/`-Dateien, dass die entfernten Module (manueller Aurora-Request-Parser, fachlicher Legacy-Text-Command-Adapter) nirgends mehr referenziert werden.
 
 Diese Tests sind der formale Nachweis dafür, dass UI und Scenario-Director ausschließlich die öffentliche Sicht des WorldState verwenden.
 
-`src/runtime/replay.ts` und `src/runtime/playerExecution.ts` bieten zusätzlich eine deterministische Replay-Infrastruktur (Sequenzen aus Spieler-/AURORA-/System-Schritten) für Golden-Run-artige Tests in `src/tests/runtime/replay.test.ts`.
+`src/runtime/replay.ts` (zusammen mit `src/runtime/runtimeExecutor.ts`) bietet zusätzlich eine deterministische, test-interne Replay-Infrastruktur (Sequenzen aus Spieler-/AURORA-/System-Schritten) für Golden-Run-artige Tests in `src/tests/runtime/replay.test.ts`. AURORA-Schritte im Replay werden dabei wie Modell-Antworten behandelt (ein `aurora_response`-Event plus Queue-Ausführung) — es ist KEIN Spieler-Pfad.

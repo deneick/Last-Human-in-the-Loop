@@ -10,6 +10,7 @@ import {
 } from "../../runtime/auroraContext";
 import {
   INCIDENT_SIGNAL_PREFIX,
+  PENDING_TOOL_RESULT_CONTENT,
   SCENARIO_EVENT_PREFIX,
   SYSTEM_EVENT_PREFIX,
   serializeContextEventsForChat,
@@ -18,7 +19,7 @@ import {
 describe("serializeContextEventsForChat", () => {
   it("serializes incident/scenario/system events as user messages with a clear source prefix", () => {
     const messages = serializeContextEventsForChat([
-      incidentSignalEvent(0, "ME-7741", "Emergency intake pressure rising"),
+      incidentSignalEvent(0, "ME-7741", "sig-intake", "Emergency intake pressure rising"),
       scenarioEvent(1, "Schichtwechsel in 10 Minuten"),
       systemEvent(2, "Telemetrie-Feed wiederhergestellt"),
     ]);
@@ -45,7 +46,7 @@ describe("serializeContextEventsForChat", () => {
   });
 
   it("serializes aurora responses as assistant messages with their grouped tool calls", () => {
-    const [message] = serializeContextEventsForChat([
+    const [message, ...rest] = serializeContextEventsForChat([
       auroraResponseEvent(4, "Ich prüfe zwei Dinge parallel.", [
         { id: "aurora-1", name: "bash", arguments: { command: "mcp list" } },
         {
@@ -68,6 +69,37 @@ describe("serializeContextEventsForChat", () => {
         },
       ],
     });
+
+    // Guard: Ohne tool_result-Events bekommen beide Calls ein synthetisches
+    // pending-Result, damit kein assistant-tool_call ohne tool-Antwort bleibt.
+    expect(rest).toEqual([
+      { role: "tool", toolCallId: "aurora-1", toolName: "bash", content: PENDING_TOOL_RESULT_CONTENT },
+      {
+        role: "tool",
+        toolCallId: "aurora-2",
+        toolName: "mcp__medical-east-mcp__capacity_list",
+        content: PENDING_TOOL_RESULT_CONTENT,
+      },
+    ]);
+  });
+
+  it("emits a synthetic pending result only for unresolved tool calls", () => {
+    const messages = serializeContextEventsForChat([
+      auroraResponseEvent(4, "", [
+        { id: "aurora-1", name: "bash", arguments: { command: "mcp list" } },
+        { id: "aurora-2", name: "bash", arguments: { command: "ls" } },
+      ]),
+      toolResultEvent(4, "aurora-1", "bash", { success: true, output: {} }),
+    ]);
+
+    // assistant + pending(aurora-2) + echtes Result(aurora-1) — der bereits
+    // aufgelöste Call bekommt KEIN synthetisches pending-Result.
+    expect(messages.map((message) => message.role)).toEqual(["assistant", "tool", "tool"]);
+    const pendingMessages = messages.filter(
+      (message) => message.role === "tool" && message.content === PENDING_TOOL_RESULT_CONTENT
+    );
+    expect(pendingMessages).toHaveLength(1);
+    expect(pendingMessages[0]).toMatchObject({ toolCallId: "aurora-2" });
   });
 
   it("serializes a text-only aurora response without a toolCalls field", () => {
@@ -100,7 +132,7 @@ describe("serializeContextEventsForChat", () => {
   it("preserves event order exactly as stored", () => {
     const events: AuroraContextEvent[] = [
       operatorMessageEvent(1, "Erste Nachricht"),
-      incidentSignalEvent(1, "ME-7741", "Signal"),
+      incidentSignalEvent(1, "ME-7741", "sig-1", "Signal"),
       auroraResponseEvent(1, "Antwort"),
       operatorMessageEvent(1, "Zweite Nachricht"),
     ];

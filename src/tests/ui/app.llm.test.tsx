@@ -276,7 +276,30 @@ describe("AURORA local LLM mode", () => {
     expect(operatorMessage).toBeDefined();
   });
 
-  // 11. stale async AURORA responses cannot overwrite newer runtime state
+  // 11. tick passage is visible to AURORA as a prefixed system event
+  it("makes tick passage visible to AURORA as a [SYSTEM EVENT] user message", async () => {
+    const client = new FakeModelClient([
+      textResponse("Ich beobachte die Lage."),
+      textResponse("Verstanden, Zeit ist vergangen."),
+    ]);
+    renderApp(client);
+
+    await enableLlmMode();
+    expect(client.requests).toHaveLength(1);
+
+    await clickAndFlush("Tick +1");
+    expect(client.requests).toHaveLength(2);
+
+    const systemMessage = client.requests[1].messages.find(
+      (message) => message.role === "user" && message.content.startsWith("[SYSTEM EVENT]")
+    );
+    expect(systemMessage).toBeDefined();
+    expect(systemMessage!.content).toContain("Tick 1");
+    // Echte Operator-Sprache ist das nicht — der Stream zeigt es als "System".
+    expect(text()).toContain("Zeit fortgeschritten: Tick 1");
+  });
+
+  // 12. stale async AURORA responses cannot overwrite newer runtime state
   it("discards a stale AURORA response after 'Neu starten' started a fresh run", async () => {
     const client = new DeferredModelClient();
     renderApp(client);

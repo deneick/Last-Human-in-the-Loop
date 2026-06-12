@@ -78,16 +78,35 @@ function formInput(placeholder: string): HTMLInputElement {
   return input;
 }
 
+function formSelect(ariaLabel: string): HTMLSelectElement {
+  const select = container.querySelector<HTMLSelectElement>(`select[aria-label="${ariaLabel}"]`);
+  if (!select) {
+    throw new Error(`Select not found: ${ariaLabel}`);
+  }
+  return select;
+}
+
+function setSelectValue(select: HTMLSelectElement, value: string) {
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLSelectElement.prototype,
+    "value"
+  )!.set!;
+  act(() => {
+    nativeSetter.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
 /** Setzt die Systemklasse eines Verbrauchers über die GUI-Controls. */
 function setConsumerPriority(consumerId: string, priorityClass: string) {
-  setInputValue(formInput("Verbraucher (consumer-id)"), consumerId);
-  setInputValue(formInput("Systemklasse (z. B. protected-continuity)"), priorityClass);
+  setSelectValue(formSelect("Prioritäts-Verbraucher"), consumerId);
+  setSelectValue(formSelect("Systemklasse"), priorityClass);
   clickButton("Priorität setzen");
 }
 
 /** Plant eine Drosselung über die GUI-Controls. */
 function scheduleShedding(targetConsumerId: string, amount: string, delay: string, duration: string) {
-  setInputValue(formInput("Ziel (consumer-id)"), targetConsumerId);
+  setSelectValue(formSelect("Drosselungs-Ziel"), targetConsumerId);
   setInputValue(formInput("Menge"), amount);
   setInputValue(formInput("Verzögerung (Ticks)"), delay);
   setInputValue(formInput("Dauer (Ticks)"), duration);

@@ -8,10 +8,12 @@ import type { DomainAction } from "./domain/actions";
 import { createDefaultMcpRegistry } from "./mcp";
 import type { WorldState } from "./runtime/types";
 import {
+  appendContextEvent,
   appendOperatorMessage,
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "./runtime/runtimeState";
+import { systemEvent } from "./runtime/auroraContext";
 import {
   applyAuroraExecutionResult,
   executePlayerBashCommand,
@@ -134,8 +136,11 @@ function buildAuroraMessages(
         break;
 
       case "scenario_event":
-      case "system_event":
         messages.push({ id, tick: event.tick, kind: "info", text: event.text });
+        break;
+
+      case "system_event":
+        messages.push({ id, tick: event.tick, kind: "system", text: event.text });
         break;
 
       case "operator_message":
@@ -512,6 +517,16 @@ function App({ auroraClient }: AppProps = {}) {
           break;
         }
       }
+
+      // Zeitverlauf modell-sichtbar machen: Ohne dieses Event wüsste AURORA
+      // nicht, dass zwischen ihren Zügen Ticks vergangen sind.
+      next = appendContextEvent(
+        next,
+        systemEvent(
+          next.world.clock.tick,
+          `Zeit fortgeschritten: Tick ${next.world.clock.tick} · ${next.world.clock.elapsed_minutes} Minuten seit Schichtbeginn.`
+        )
+      );
 
       setRuntimeState(next);
 

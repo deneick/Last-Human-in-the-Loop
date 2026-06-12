@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { KNOWN_CAPABILITIES, KNOWN_PRIORITIES } from "../domain/medicalActions";
 import type { HospitalView, OverrideView } from "./viewModel";
 
 export type OverrideFormInput = {
@@ -24,7 +25,7 @@ export function MedicalOverviewPanel({
   onClearOverride,
   disabled = false,
 }: MedicalOverviewPanelProps) {
-  const [sourceHospitalId, setSourceHospitalId] = useState("hospital-east-04");
+  const [sourceHospitalId, setSourceHospitalId] = useState(() => hospitals[0]?.id ?? "");
   const [targetHospitalId, setTargetHospitalId] = useState("");
   const [priority, setPriority] = useState("P2");
   const [capability, setCapability] = useState("TRAUMA");
@@ -71,41 +72,62 @@ export function MedicalOverviewPanel({
 
       <h3>Routing Override setzen</h3>
       <div className="domain-action-form">
-        <input
+        <select
           className="console-input"
+          aria-label="Override-Quelle"
           value={sourceHospitalId}
           onChange={(event) => setSourceHospitalId(event.target.value)}
-          placeholder="Quelle (hospital-id)"
-          spellCheck={false}
           disabled={disabled}
-        />
-        <input
+        >
+          {hospitals.map((hospital) => (
+            <option key={hospital.id} value={hospital.id}>
+              Quelle: {hospital.id}
+            </option>
+          ))}
+        </select>
+        <select
           className="console-input"
+          aria-label="Override-Ziel"
           value={targetHospitalId}
           onChange={(event) => setTargetHospitalId(event.target.value)}
-          placeholder="Ziel (hospital-id)"
-          spellCheck={false}
           disabled={disabled}
-        />
-        <input
+        >
+          <option value="">— Ziel wählen —</option>
+          {hospitals.map((hospital) => (
+            <option key={hospital.id} value={hospital.id}>
+              Ziel: {hospital.id}
+            </option>
+          ))}
+        </select>
+        <select
           className="console-input"
+          aria-label="Override-Priorität"
           value={priority}
           onChange={(event) => setPriority(event.target.value)}
-          placeholder="Priorität (z. B. P2)"
-          spellCheck={false}
           disabled={disabled}
-        />
-        <input
+        >
+          {KNOWN_PRIORITIES.map((priorityClass) => (
+            <option key={priorityClass} value={priorityClass}>
+              {priorityClass}
+            </option>
+          ))}
+        </select>
+        <select
           className="console-input"
+          aria-label="Override-Capability"
           value={capability}
           onChange={(event) => setCapability(event.target.value)}
-          placeholder="Capability (z. B. TRAUMA)"
-          spellCheck={false}
           disabled={disabled}
-        />
+        >
+          {KNOWN_CAPABILITIES.map((capabilityValue) => (
+            <option key={capabilityValue} value={capabilityValue}>
+              {capabilityValue}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => onSetOverride({ sourceHospitalId, targetHospitalId, priority, capability })}
-          disabled={disabled}
+          disabled={disabled || targetHospitalId === ""}
         >
           Override setzen
         </button>
