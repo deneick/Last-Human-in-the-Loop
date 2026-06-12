@@ -17,9 +17,28 @@ export type McpToolDefinition = {
   name: string;
   description: string;
   access: DomainActionAccess;
+  /**
+   * JSON-Schema der Tool-Parameter — wird dem Modell als
+   * `function.parameters` angeboten. Nur dokumentierend: Die Ausführung
+   * validiert weiterhin über `buildAction` + Domain-Handler.
+   */
+  inputSchema: Record<string, unknown>;
   /** Mappt den untypisierten Tool-Input auf eine typisierte Domain-Action. */
   buildAction: (input: McpToolInput) => DomainAction | { error: string };
 };
+
+/** Kleiner Helfer für strikte Objekt-Schemas der Tool-Parameter. */
+export function mcpInputSchema(
+  properties: Record<string, unknown>,
+  required: string[] = []
+): Record<string, unknown> {
+  return {
+    type: "object",
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+    additionalProperties: false,
+  };
+}
 
 export type McpServerDefinition = {
   id: string;
@@ -96,6 +115,7 @@ export type AvailableMcpTool = {
   toolKey: string;
   access: DomainActionAccess;
   description: string;
+  inputSchema: Record<string, unknown>;
 };
 
 /** Tools sind erst nach Aktivierung ihres Servers verfügbar. */
@@ -113,6 +133,7 @@ export function listAvailableMcpTools(
         toolKey: mcpToolKey(server.id, tool.name),
         access: tool.access,
         description: tool.description,
+        inputSchema: tool.inputSchema,
       }))
     );
 }

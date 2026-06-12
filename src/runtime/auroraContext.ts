@@ -1,6 +1,6 @@
 import type { WorldState } from "./types";
 import type { AuroraRequest } from "./auroraQueue";
-import { BASH_TOOL_NAME, mcpToolFunctionName } from "../aurora/toolSchema";
+import { BASH_TOOL_NAME, mcpToolFunctionName } from "./toolNames";
 
 /**
  * AuroraContextEvents: die EINZIGE Quelle für alles, was AURORA je gesehen
@@ -38,7 +38,14 @@ export type AuroraToolResultPayload = {
 };
 
 export type AuroraContextEvent =
-  | { kind: "incident_signal"; tick: number; incidentId: string; text: string }
+  | {
+      kind: "incident_signal";
+      tick: number;
+      incidentId: string;
+      /** Stabiler Signal-Code aus `public_signals` (für spätere Training-Labels/Dedup). */
+      code: string;
+      text: string;
+    }
   | { kind: "scenario_event"; tick: number; text: string }
   | { kind: "system_event"; tick: number; text: string }
   | { kind: "operator_message"; tick: number; text: string }
@@ -60,9 +67,10 @@ export type AuroraContextEvent =
 export function incidentSignalEvent(
   tick: number,
   incidentId: string,
+  code: string,
   text: string
 ): AuroraContextEvent {
-  return { kind: "incident_signal", tick, incidentId, text };
+  return { kind: "incident_signal", tick, incidentId, code, text };
 }
 
 export function scenarioEvent(tick: number, text: string): AuroraContextEvent {
@@ -125,7 +133,9 @@ export function initialIncidentSignalEvents(world: WorldState): AuroraContextEve
 
   for (const incident of Object.values(world.incidents)) {
     for (const signal of incident.public_signals) {
-      events.push(incidentSignalEvent(signal.first_seen_at_tick, incident.id, signal.message));
+      events.push(
+        incidentSignalEvent(signal.first_seen_at_tick, incident.id, signal.code, signal.message)
+      );
     }
   }
 

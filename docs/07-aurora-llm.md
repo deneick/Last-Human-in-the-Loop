@@ -20,6 +20,7 @@ src/aurora/
 
 src/runtime/
   auroraContext.ts    AuroraContextEvents: append-only Event-Log (siehe unten)
+  toolNames.ts        Runtime-neutrale Tool-Funktionsnamen (bash, mcp__<server>__<tool>)
 ```
 
 ### `AuroraContextEvents` — die einzige modell-sichtbare History
@@ -30,7 +31,7 @@ Ereignisse stehen dort chronologisch, in echter Einfüge-Reihenfolge:
 
 | Event-Kind         | Bedeutung                                                                  |
 | ------------------ | -------------------------------------------------------------------------- |
-| `incident_signal`  | Öffentliches Incident-Signal (bei Runtime-Initialisierung konvertiert)      |
+| `incident_signal`  | Öffentliches Incident-Signal inkl. stabilem `code` (bei Initialisierung konvertiert) |
 | `scenario_event`   | Lage-/Scenario-Feed-Meldung (kein Operator-Text)                            |
 | `system_event`     | Systemmeldung (kein Operator-Text)                                          |
 | `operator_message` | **Echte** Operator-Chat-Nachricht aus dem AURORA-Panel                      |
@@ -74,6 +75,14 @@ geschrieben hat und was der Incident-/Scenario-/System-Feed gemeldet hat:
 
 Incident-/Scenario-/System-Events werden also **nie** so serialisiert, als
 hätte der Operator sie gesagt.
+
+**Pending-Guard**: Chat Completions verlangt zu jedem assistant-`tool_call`
+eine `tool`-Antwort. Tool-Calls, zu denen noch kein `tool_result`-Event
+existiert (z. B. weil der Call in der Queue auf eine Operator-Entscheidung
+wartet), bekommen direkt nach ihrer assistant-Message ein synthetisches
+`{"status":"pending", ...}`-Tool-Result. Es wird nicht im Event-Log
+gespeichert und verschwindet automatisch aus der Serialisierung, sobald das
+echte `tool_result`-Event angehängt wurde.
 
 ### `AuroraModelClient` (provider-neutral)
 
@@ -124,6 +133,14 @@ Permission-Anfragen, Tool-Ergebnisse und öffentliche Signale sieht.
   `mcp__<serverId>__<toolName>` bei (z. B. `mcp__medical-east-mcp__capacity_list`).
   Tools inaktiver Server erscheinen nicht im `ModelRequest` — Aktivierung per
   `mcp add <server>` (über `bash`) macht sie erst sichtbar.
+- Jedes MCP-Tool bringt sein **eigenes JSON-Parameter-Schema** mit
+  (`McpToolDefinition.inputSchema`, inkl. `required`-Feldern und Enums für
+  Prioritäts-/Kontinuitätsklassen) — kein generisches
+  `additionalProperties: true`-Objekt mehr. Die Schemas sind dokumentierend
+  fürs Modell; die Ausführung validiert weiterhin über `buildAction` +
+  Domain-Handler.
+- Die Funktionsnamen selbst (`bash`, `mcp__<server>__<tool>`) leben
+  runtime-neutral in `src/runtime/toolNames.ts`.
 - Aktivierung erteilt **keine** Ausführungsrechte. Jeder einzelne Tool-Call
   läuft über den bestehenden Permission-Flow (`runtime/permissions.ts`,
   `runtime/auroraQueue.ts`) — unverändert gegenüber dem Scenario-Director.
@@ -239,6 +256,12 @@ Im laufenden LLM-Modus:
   `mcp add <server>` aktiviert den Server im Runtime-State; ab dem nächsten
   Zug sind dessen Tools für das Modell sichtbar (inaktive Server tragen
   keine Tool-Schemas zum `ModelRequest` bei).
+- **Tick-Verlauf ist modell-sichtbar**: `Tick +1` / `Tick +5` hängt ein
+  `system_event` an („Zeit fortgeschritten: Tick N · M Minuten seit
+  Schichtbeginn.“), das als `[SYSTEM EVENT]`-`user`-Message serialisiert
+  wird — ohne dieses Event wüsste AURORA nicht, dass zwischen ihren Zügen
+  Zeit vergangen ist. Im Stream erscheint es als „System“-Eintrag, nicht
+  als Operator- oder AURORA-Text.
 - Während eine Modell-Antwort aussteht, zeigt der Header
   „AURORA denkt nach…“ und die Operator-Konsole sowie die
   AURORA-Eingabe/-Entscheidungen sind gesperrt. **„Neu starten“**, der

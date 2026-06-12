@@ -3,9 +3,19 @@ import type { KeyboardEvent } from "react";
 export type AuroraMessageView = {
   id: string;
   tick: number;
-  kind: "info" | "request" | "executed" | "denied" | "error" | "operator";
+  kind: "info" | "request" | "executed" | "denied" | "error" | "operator" | "system";
   text: string;
 };
+
+function senderLabel(kind: AuroraMessageView["kind"]): string {
+  if (kind === "operator") {
+    return "Operator";
+  }
+  if (kind === "system") {
+    return "System";
+  }
+  return "AURORA";
+}
 
 export type AuroraPendingRequestView = {
   raw: string;
@@ -54,7 +64,7 @@ export function AuroraPanel({
           messages.map((message) => (
             <div className={`aurora-message aurora-${message.kind}`} key={message.id}>
               <small className="muted">
-                {message.kind === "operator" ? "Operator" : "AURORA"} · Tick {message.tick}
+                {senderLabel(message.kind)} · Tick {message.tick}
               </small>
               <p>{message.text}</p>
             </div>

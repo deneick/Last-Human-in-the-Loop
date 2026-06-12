@@ -75,20 +75,31 @@ function runPlayerCommand(commandText: string) {
   clickButton("Ausführen");
 }
 
-function formInput(placeholder: string): HTMLInputElement {
-  const input = container.querySelector<HTMLInputElement>(`input[placeholder="${placeholder}"]`);
-  if (!input) {
-    throw new Error(`Input not found: ${placeholder}`);
+function formSelect(ariaLabel: string): HTMLSelectElement {
+  const select = container.querySelector<HTMLSelectElement>(`select[aria-label="${ariaLabel}"]`);
+  if (!select) {
+    throw new Error(`Select not found: ${ariaLabel}`);
   }
-  return input;
+  return select;
+}
+
+function setSelectValue(select: HTMLSelectElement, value: string) {
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLSelectElement.prototype,
+    "value"
+  )!.set!;
+  act(() => {
+    nativeSetter.call(select, value);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 /** Setzt einen Routing-Override über die GUI-Controls des Medical-Panels. */
 function setOverride(targetHospitalId: string, sourceHospitalId = "hospital-east-04") {
-  setInputValue(formInput("Quelle (hospital-id)"), sourceHospitalId);
-  setInputValue(formInput("Ziel (hospital-id)"), targetHospitalId);
-  setInputValue(formInput("Priorität (z. B. P2)"), "P2");
-  setInputValue(formInput("Capability (z. B. TRAUMA)"), "TRAUMA");
+  setSelectValue(formSelect("Override-Quelle"), sourceHospitalId);
+  setSelectValue(formSelect("Override-Ziel"), targetHospitalId);
+  setSelectValue(formSelect("Override-Priorität"), "P2");
+  setSelectValue(formSelect("Override-Capability"), "TRAUMA");
   clickButton("Override setzen");
 }
 

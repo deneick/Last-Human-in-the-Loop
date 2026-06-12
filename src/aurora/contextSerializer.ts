@@ -27,9 +27,44 @@ export const INCIDENT_SIGNAL_PREFIX = "[INCIDENT SIGNAL]";
 export const SCENARIO_EVENT_PREFIX = "[SCENARIO EVENT]";
 export const SYSTEM_EVENT_PREFIX = "[SYSTEM EVENT]";
 
-/** Event-Reihenfolge bleibt exakt erhalten — keine Sortierung, kein Mergen. */
+/** Inhalt des synthetischen Tool-Results für noch nicht entschiedene Tool-Calls. */
+export const PENDING_TOOL_RESULT_CONTENT = JSON.stringify({
+  status: "pending",
+  detail: "Awaiting operator permission decision. Result not available yet.",
+});
+
+/**
+ * Event-Reihenfolge bleibt exakt erhalten — keine Sortierung, kein Mergen.
+ *
+ * Guard: Chat Completions verlangt zu jedem assistant-`tool_call` eine
+ * `tool`-Antwort. Tool-Calls, zu denen (noch) kein `tool_result`-Event
+ * existiert — z. B. weil der Call in der Queue auf eine Operator-Entscheidung
+ * wartet — bekommen direkt nach ihrer assistant-Message ein synthetisches
+ * `pending`-Tool-Result. Es verschwindet automatisch, sobald das echte
+ * `tool_result`-Event angehängt wurde.
+ */
 export function serializeContextEventsForChat(events: AuroraContextEvent[]): ModelMessage[] {
-  return events.map(serializeContextEvent);
+  const resolvedToolCallIds = new Set(
+    events.flatMap((event) => (event.kind === "tool_result" ? [event.toolCallId] : []))
+  );
+
+  return events.flatMap((event) => {
+    const message = serializeContextEvent(event);
+    if (event.kind !== "aurora_response") {
+      return [message];
+    }
+
+    const pendingResults: ModelMessage[] = event.toolCalls
+      .filter((toolCall) => !resolvedToolCallIds.has(toolCall.id))
+      .map((toolCall) => ({
+        role: "tool",
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        content: PENDING_TOOL_RESULT_CONTENT,
+      }));
+
+    return [message, ...pendingResults];
+  });
 }
 
 function serializeContextEvent(event: AuroraContextEvent): ModelMessage {

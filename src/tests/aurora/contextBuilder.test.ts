@@ -103,6 +103,32 @@ describe("buildAuroraModelRequest", () => {
     expect(names).toContain(mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "routing_override_set"));
   });
 
+  it("exposes per-tool JSON parameter schemas for active MCP tools", () => {
+    const mcpState = activateServer(createInitialMcpRuntimeState(), MEDICAL_EAST_MCP_SERVER_ID);
+    const request = buildAuroraModelRequest(baseInput([], mcpState));
+
+    const capacityList = request.tools.find(
+      (tool) => tool.function.name === mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "capacity_list")
+    );
+    expect(capacityList?.function.parameters).toMatchObject({
+      type: "object",
+      required: ["region"],
+      additionalProperties: false,
+    });
+
+    const overrideSet = request.tools.find(
+      (tool) =>
+        tool.function.name === mcpToolFunctionName(MEDICAL_EAST_MCP_SERVER_ID, "routing_override_set")
+    );
+    const overrideProperties = (overrideSet?.function.parameters as {
+      properties: Record<string, { enum?: string[] }>;
+      required: string[];
+    });
+    expect(overrideProperties.required).toEqual(["source", "target", "priority", "capability"]);
+    expect(overrideProperties.properties.priority.enum).toEqual(["P1", "P2", "P3", "P4"]);
+    expect(overrideProperties.properties.capability.enum).toEqual(["GEN", "TRAUMA", "NEURO", "PED"]);
+  });
+
   it("never serializes the hidden simulation state or world.simulation fields", () => {
     // Voller Spielzug über Runtime-Pfade: Context-Events entstehen nur aus
     // modell-sichtbaren Inhalten.
@@ -137,7 +163,7 @@ describe("buildAuroraModelRequest", () => {
 
   it("preserves the exact append order of events — even within the same tick", () => {
     const events: AuroraContextEvent[] = [
-      incidentSignalEvent(0, "ME-7741", "Signal A"),
+      incidentSignalEvent(0, "ME-7741", "sig-a", "Signal A"),
       operatorMessageEvent(5, "Operator-Chat-Nachricht"),
       auroraResponseEvent(5, "", [
         { id: "aurora-1", name: BASH_TOOL_NAME, arguments: { command: "mcp list" } },
