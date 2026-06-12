@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./App.css";
 
 import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
@@ -32,6 +32,7 @@ import {
 import { allow_always, allow_once, deny } from "./runtime/permissions";
 import { advanceScenarioDirector } from "./scenarios/me7741/scenarioDirector";
 import { advanceGrid1182Director } from "./scenarios/grid1182/scenarioDirector";
+import { createDefaultAuroraModelClient, runAuroraAgentStep, type AuroraModelClient } from "./aurora";
 
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
@@ -55,6 +56,17 @@ import {
 } from "./ui/viewModel";
 
 type ScenarioId = "me7741" | "grid1182";
+
+/**
+ * "script" — geskripteter Scenario-Director (Default, weiterhin Dev-/Fallback-Modus).
+ * "llm" — AURORA agiert über `runAuroraAgentStep` mit einem lokalen Ollama-Modell.
+ */
+type AuroraMode = "script" | "llm";
+
+export type AppProps = {
+  /** Für Tests: injizierbarer Modell-Client (z. B. `FakeModelClient`). */
+  auroraClient?: AuroraModelClient;
+};
 
 type ScenarioDefinition = {
   id: ScenarioId;
@@ -141,7 +153,17 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
   },
 };
 
-function buildAuroraMessages(state: GameRuntimeState, incidentId: string): AuroraMessageView[] {
+/** Sichtbarer LLM-Fehler (z. B. Ollama nicht erreichbar) für den Aurora-Stream. */
+type AuroraLlmError = {
+  tick: number;
+  text: string;
+};
+
+function buildAuroraMessages(
+  state: GameRuntimeState,
+  incidentId: string,
+  llmError: AuroraLlmError | null = null
+): AuroraMessageView[] {
   const messages: AuroraMessageView[] = [];
 
   const incident = state.world.incidents[incidentId];
@@ -199,12 +221,32 @@ function buildAuroraMessages(state: GameRuntimeState, incidentId: string): Auror
     });
   }
 
+  // AURORAs eigene Freitext-Antworten des lokalen LLM-Agenten
+  // (src/aurora/agent.ts) — nur im LLM-Modus befüllt.
+  for (const agentMessage of state.scenario?.agentMessages ?? []) {
+    messages.push({
+      id: `agentmsg-${agentMessage.id}`,
+      tick: agentMessage.tick,
+      kind: "info",
+      text: agentMessage.text,
+    });
+  }
+
+  if (llmError) {
+    messages.push({
+      id: "aurora-llm-error",
+      tick: llmError.tick,
+      kind: "error",
+      text: llmError.text,
+    });
+  }
+
   // Stabil nach Tick sortieren, damit Script-Nachrichten und Queue-Einträge
   // chronologisch im Stream erscheinen.
   return messages.sort((a, b) => a.tick - b.tick);
 }
 
-function App() {
+function App({ auroraClient }: AppProps = {}) {
   const env: AuroraRuntimeEnvironment = useMemo(
     () => ({
       actionRegistry: createDomainActionRegistry(),
@@ -212,6 +254,14 @@ function App() {
     }),
     []
   );
+
+  // Standard-Client: lokaler Ollama-Server (siehe src/aurora/index.ts).
+  // Tests injizieren stattdessen einen FakeModelClient.
+  const auroraModelClient: AuroraModelClient = useMemo(
+    () => auroraClient ?? createDefaultAuroraModelClient(),
+    [auroraClient]
+  );
+
   const [scenarioId, setScenarioId] = useState<ScenarioId>("me7741");
   const scenario = SCENARIOS[scenarioId];
 
@@ -231,6 +281,19 @@ function App() {
   const [auroraCommand, setAuroraCommand] = useState(SCENARIOS.me7741.defaultAuroraCommand);
   const [lastResult, setLastResult] = useState<OperatorResultView | null>(null);
 
+  // "script" (Default) lässt den bestehenden Scenario-Director laufen.
+  // "llm" ersetzt ihn vollständig durch runAuroraAgentStep gegen das
+  // konfigurierte (lokale) Modell.
+  const [auroraMode, setAuroraMode] = useState<AuroraMode>("script");
+  // Ein runAuroraAgentStep-Aufruf läuft asynchron — auroraBusy sperrt
+  // UI-Aktionen, die mit dessen Ergebnis kollidieren könnten.
+  const [auroraBusy, setAuroraBusy] = useState(false);
+  const [auroraLlmError, setAuroraLlmError] = useState<AuroraLlmError | null>(null);
+  // Wird bei jedem Szenario-(Neu-)Start erhöht, damit eine zu diesem
+  // Zeitpunkt noch laufende Modell-Antwort den neuen Zustand nicht
+  // überschreiben kann (siehe runAuroraTurn).
+  const auroraRunIdRef = useRef(0);
+
   const incidentView = buildIncidentView(runtimeState.world, scenario.incidentId);
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
   const hospitalViews = buildHospitalViews(runtimeState.world);
@@ -240,7 +303,7 @@ function App() {
   const sheddingViews = buildSheddingViews(runtimeState.world);
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const auditLines = buildAuditLogLines(runtimeState.auditLog);
-  const auroraMessages = buildAuroraMessages(runtimeState, scenario.incidentId);
+  const auroraMessages = buildAuroraMessages(runtimeState, scenario.incidentId, auroraLlmError);
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
@@ -248,8 +311,74 @@ function App() {
   // Scenario-Director-Schritt: löst fällige Script-Events aus und verarbeitet
   // die Aurora-Queue über den bestehenden Permission-Flow. Idempotent —
   // bereits gefeuerte Events erzeugen keine Duplikate.
+  // Im LLM-Modus übernimmt runAuroraAgentStep diese Rolle vollständig —
+  // der geskriptete Director bleibt ein No-op.
   function advanceScenario(state: GameRuntimeState): GameRuntimeState {
+    if (auroraMode === "llm") {
+      return state;
+    }
     return scenario.advanceDirector(state, env);
+  }
+
+  function hasAwaitingApproval(state: GameRuntimeState): boolean {
+    return state.auroraQueue.items.some((item) => item.status === "awaiting_approval");
+  }
+
+  /**
+   * Übersetzt einen Fehler aus runAuroraAgentStep (Ollama nicht erreichbar,
+   * Modell fehlt, Netzwerk-/CORS-Problem, ...) in eine für den Operator
+   * verständliche Meldung im Aurora-Stream.
+   */
+  function describeAuroraLlmError(error: unknown): string {
+    const detail = error instanceof Error ? error.message : String(error);
+    const lower = detail.toLowerCase();
+
+    if (lower.includes("fetch") || lower.includes("network") || lower.includes("connect")) {
+      return (
+        `AURORA (LLM) ist nicht erreichbar: ${detail}. ` +
+        `Läuft Ollama lokal (Standard: ${"http://localhost:11434"})? ` +
+        "Im Browser kann das auch ein CORS-Problem sein — siehe docs/07-aurora-llm.md."
+      );
+    }
+
+    if (lower.includes("404") || lower.includes("not found")) {
+      return (
+        `AURORA (LLM) meldet: ${detail}. ` +
+        'Ist das konfigurierte Modell installiert (z. B. "ollama pull llama3.1")?'
+      );
+    }
+
+    return `AURORA (LLM) Fehler: ${detail}`;
+  }
+
+  /**
+   * Ein Agenten-Schritt im LLM-Modus: baut den ModelRequest aus dem
+   * sichtbaren State, ruft das Modell und wendet Text-/Tool-Ergebnisse über
+   * runAuroraAgentStep an. Asynchron — auroraRunId schützt gegen ein
+   * inzwischen zurückgesetztes/gewechseltes Szenario (Neu starten,
+   * Runden-Wechsel).
+   */
+  async function runAuroraTurn(state: GameRuntimeState) {
+    const runId = auroraRunIdRef.current;
+    setAuroraBusy(true);
+
+    try {
+      const { runtimeState: nextState } = await runAuroraAgentStep(state, env, auroraModelClient);
+      if (auroraRunIdRef.current !== runId) {
+        return;
+      }
+      setAuroraLlmError(null);
+      setRuntimeState(nextState);
+    } catch (error) {
+      if (auroraRunIdRef.current !== runId) {
+        return;
+      }
+      setAuroraLlmError({ tick: state.world.clock.tick, text: describeAuroraLlmError(error) });
+    } finally {
+      if (auroraRunIdRef.current === runId) {
+        setAuroraBusy(false);
+      }
+    }
   }
 
   function applyAuroraResults(
@@ -280,6 +409,10 @@ function App() {
   }
 
   function runPlayerCommand() {
+    if (auroraBusy) {
+      return;
+    }
+
     const commandText = playerCommand.trim();
     if (!commandText) {
       return;
@@ -322,6 +455,10 @@ function App() {
   }
 
   function queueAuroraRequest() {
+    if (auroraBusy) {
+      return;
+    }
+
     const requestText = auroraCommand.trim();
     if (!requestText) {
       return;
@@ -366,7 +503,7 @@ function App() {
   }
 
   function resolveAurora(decisionType: "allow_once" | "allow_always" | "deny") {
-    if (!awaitingAuroraItem) {
+    if (!awaitingAuroraItem || auroraBusy) {
       return;
     }
 
@@ -386,17 +523,23 @@ function App() {
       decision
     );
 
-    setRuntimeState(
-      advanceScenario(
-        applyAuroraResults(
-          runtimeState,
-          resolved.queueState,
-          resolved.permissionState,
-          resolved.mcpState,
-          resolved.results
-        )
-      )
+    const resultState = applyAuroraResults(
+      runtimeState,
+      resolved.queueState,
+      resolved.permissionState,
+      resolved.mcpState,
+      resolved.results
     );
+
+    if (auroraMode === "llm") {
+      // AURORA sieht die Entscheidung (Ausführung oder Ablehnung) als
+      // Tool-Result im nächsten Kontext und kann direkt reagieren.
+      setRuntimeState(resultState);
+      void runAuroraTurn(resultState);
+      return;
+    }
+
+    setRuntimeState(advanceScenario(resultState));
   }
 
   function isIncidentFinal(state: GameRuntimeState): boolean {
@@ -405,6 +548,29 @@ function App() {
   }
 
   function runTicks(count: number) {
+    if (auroraBusy || isIncidentFinal(runtimeState)) {
+      return;
+    }
+
+    if (auroraMode === "llm") {
+      let next = runtimeState;
+      for (let i = 0; i < count; i += 1) {
+        next = evaluateOutcomes(advanceTick(next));
+        if (isIncidentFinal(next)) {
+          break;
+        }
+      }
+
+      setRuntimeState(next);
+
+      // AURORA reagiert auf den neuen Zustand — außer ein Tool Request
+      // wartet bereits auf eine Entscheidung, oder der Incident ist beendet.
+      if (!isIncidentFinal(next) && !hasAwaitingApproval(next)) {
+        void runAuroraTurn(next);
+      }
+      return;
+    }
+
     setRuntimeState((state) => {
       // Behoben/Kollabiert sind Endzustände — weitere Ticks sind ein No-op,
       // nur "Neu starten" führt aus diesen Zuständen heraus.
@@ -429,16 +595,41 @@ function App() {
   // Vollständiger (Neu-)Start eines Szenarios: Welt, Scenario-Script,
   // Aurora-Queue, MCP-Aktivierung, Permissions, Logs und beide
   // Eingabezeilen auf den initialen Zustand der gewählten Runde.
-  function loadScenario(definition: ScenarioDefinition) {
+  // Optionaler mode-Wechsel: "script" <-> "llm" startet ebenfalls frisch,
+  // da Director-Status und Aurora-Queue zwischen den Modi nicht sinnvoll
+  // weiterverwendbar sind.
+  function loadScenario(definition: ScenarioDefinition, mode: AuroraMode = auroraMode) {
+    // Erhöht die Run-Id zuerst, damit eine zu diesem Zeitpunkt noch laufende
+    // runAuroraTurn-Antwort des alten Szenarios verworfen wird, sobald sie
+    // zurückkommt (siehe runAuroraTurn).
+    auroraRunIdRef.current += 1;
+
     setScenarioId(definition.id);
-    setRuntimeState(startScenario(definition));
+    setAuroraMode(mode);
+    setAuroraBusy(false);
+    setAuroraLlmError(null);
     setLastResult(null);
     setPlayerCommand(definition.defaultPlayerCommand);
     setAuroraCommand(definition.defaultAuroraCommand);
+
+    if (mode === "llm") {
+      // Im LLM-Modus startet AURORA ohne geskriptetes Intro — ihr erster
+      // Schritt läuft über runAuroraAgentStep gegen das konfigurierte Modell.
+      const fresh = createInitialGameRuntimeState(structuredClone(definition.initialWorld));
+      setRuntimeState(fresh);
+      void runAuroraTurn(fresh);
+      return;
+    }
+
+    setRuntimeState(startScenario(definition));
   }
 
   function resetGame() {
     loadScenario(scenario);
+  }
+
+  function toggleAuroraMode() {
+    loadScenario(scenario, auroraMode === "llm" ? "script" : "llm");
   }
 
   if (!incidentView) {
@@ -452,7 +643,9 @@ function App() {
           <h1>Last Human in the Loop</h1>
           <p>
             Operator-01 · Tick {runtimeState.world.clock.tick} ·{" "}
-            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn
+            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn ·{" "}
+            AURORA-Modus: {auroraMode === "llm" ? "Lokales LLM (Ollama)" : "Skript"}
+            {auroraBusy ? " · AURORA denkt nach…" : ""}
           </p>
         </div>
         <div className="top-actions">
@@ -472,19 +665,41 @@ function App() {
           ))}
           <button
             onClick={() => runTicks(1)}
-            disabled={incidentView.isFinal}
-            title={incidentView.isFinal ? "Incident beendet — nur Neu starten geht weiter." : undefined}
+            disabled={incidentView.isFinal || auroraBusy}
+            title={
+              incidentView.isFinal
+                ? "Incident beendet — nur Neu starten geht weiter."
+                : auroraBusy
+                  ? "AURORA denkt nach — bitte warten."
+                  : undefined
+            }
           >
             Tick +1
           </button>
           <button
             onClick={() => runTicks(5)}
-            disabled={incidentView.isFinal}
-            title={incidentView.isFinal ? "Incident beendet — nur Neu starten geht weiter." : undefined}
+            disabled={incidentView.isFinal || auroraBusy}
+            title={
+              incidentView.isFinal
+                ? "Incident beendet — nur Neu starten geht weiter."
+                : auroraBusy
+                  ? "AURORA denkt nach — bitte warten."
+                  : undefined
+            }
           >
             Tick +5
           </button>
           <button onClick={resetGame}>Neu starten</button>
+          <button
+            onClick={toggleAuroraMode}
+            title={
+              auroraMode === "llm"
+                ? "Wechselt zur geskripteten AURORA (Dev-Modus) und startet die Runde neu."
+                : "Wechselt zu AURORA als lokalem LLM-Agent (Ollama) und startet die Runde neu."
+            }
+          >
+            {auroraMode === "llm" ? "AURORA: Lokales LLM" : "AURORA: Skript"}
+          </button>
         </div>
       </header>
 
@@ -555,6 +770,7 @@ function App() {
             commandHelp={scenario.commandHelp}
             lastResult={lastResult}
             auditLines={auditLines}
+            disabled={auroraBusy}
           />
         </section>
 
@@ -577,6 +793,7 @@ function App() {
             auroraCommand={auroraCommand}
             onAuroraCommandChange={setAuroraCommand}
             onQueueRequest={queueAuroraRequest}
+            busy={auroraBusy}
           />
         </aside>
       </section>

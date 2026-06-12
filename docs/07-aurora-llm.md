@@ -104,6 +104,75 @@ als Tool-Result in seiner Historie und kann normal weiterarbeiten.
 `createDefaultAuroraModelClient()` (`src/aurora/index.ts`) liefert einen auf
 diese Konfiguration vorkonfigurierten `OllamaModelClient`.
 
+### CORS: Ollama für den Vite-Dev-Server freigeben
+
+Ollama blockiert standardmäßig Browser-Requests von fremden Origins. Der
+Vite-Dev-Server läuft auf `http://localhost:5173` — damit `fetch(...)` aus
+dem Browser den lokalen Ollama-Server erreicht, muss Ollama mit einer
+passenden `OLLAMA_ORIGINS`-Umgebungsvariable gestartet werden, z. B.:
+
+```bash
+OLLAMA_ORIGINS=http://localhost:5173 ollama serve
+```
+
+Ohne diese Freigabe schlägt der erste AURORA-Zug im LLM-Modus mit einem
+Netzwerk-/CORS-Fehler fehl — sichtbar als Fehlermeldung im AURORA-Stream
+(siehe „Bekannte Einschränkungen“ unten).
+
+## Live-Modus in der UI
+
+`src/App.tsx` verdrahtet `runAuroraAgentStep` direkt in die Spielschleife.
+Oben rechts schaltet ein Button zwischen den beiden AURORA-Modi um:
+
+- **„AURORA: Skript“** (Default) — der bestehende, geskriptete
+  Scenario-Director läuft weiter wie bisher. Das ist weiterhin der
+  Dev-/Fallback-Modus.
+- **„AURORA: Lokales LLM“** — AURORA agiert ausschließlich über
+  `runAuroraAgentStep` gegen den konfigurierten lokalen Ollama-Server. Der
+  geskriptete Director ist in diesem Modus ein No-op.
+
+Ein Klick auf den Button startet die aktive Runde sofort frisch im jeweils
+anderen Modus (Welt, Aurora-Queue, MCP-Aktivierung, Permissions und Logs
+werden zurückgesetzt — wie bei „Neu starten“). Im LLM-Modus läuft dabei
+sofort AURORAs erster Zug an, ohne geskriptetes Intro.
+
+Im laufenden LLM-Modus:
+
+- **Freitext-Antworten** von AURORA erscheinen im bestehenden AURORA-Stream
+  (gleiche Darstellung wie geskriptete Nachrichten).
+- **Bash- und MCP-Tool-Calls** erzeugen denselben „Tool Request“ wie im
+  Skript-Modus — inklusive `Einmal erlauben` / `Immer erlauben` / `Ablehnen`.
+  `mcp add <server>` aktiviert den Server im Runtime-State; ab dem nächsten
+  Zug sind dessen Tools für das Modell sichtbar (inaktive Server tragen
+  keine Tool-Schemas zum `ModelRequest` bei).
+- Während eine Modell-Antwort aussteht, zeigt der Header
+  „AURORA denkt nach…“ und die Operator-Konsole sowie die
+  AURORA-Eingabe/-Entscheidungen sind gesperrt. **„Neu starten“**, der
+  Runden-Wechsel und der Modus-Umschalter bleiben als Notausgang weiterhin
+  klickbar.
+- Tritt während eines Zugs ein Fehler auf (Ollama nicht erreichbar, Modell
+  fehlt, ungültiger Tool-Call, Netzwerk-/CORS-Problem), erscheint eine
+  deutschsprachige Fehlermeldung als eigener Eintrag im AURORA-Stream — die
+  Runde bleibt bedienbar, der nächste Zug läuft über „Tick +1/+5“,
+  eine Permission-Entscheidung oder „Neu starten“ erneut an.
+
+## Bekannte Einschränkungen (lokaler Dev-Betrieb)
+
+- **Modellwahl**: `llama3.1` (Default, `ollama pull llama3.1`) ist das
+  empfohlene erste Modell — es unterstützt Tool-Calling über die
+  OpenAI-kompatible API. Kleinere oder nicht tool-fähige Modelle liefern
+  häufig keinen oder einen unbrauchbaren Tool-Call; AURORA meldet das dann
+  als `[intern] Unbekanntes Tool: ...` im Stream, statt abzustürzen.
+- **CORS/Netzwerk**: Läuft Ollama ohne passende `OLLAMA_ORIGINS`-Freigabe
+  oder gar nicht, schlägt `fetch` fehl. Der Fehler wird abgefangen und als
+  verständliche Meldung im AURORA-Stream angezeigt (inkl. Hinweis auf diese
+  Doku) — er blockiert die übrige UI nicht.
+- **Ein Tool-Call pro Zug**: `runAuroraAgentStep` verarbeitet höchstens
+  einen Tool-Call pro Modell-Antwort (erste Slice-Grenze, siehe `agent.ts`).
+- **Nur lokal**: Es gibt bewusst keine Cloud-Provider-Anbindung (Anthropic,
+  OpenAI, ...) — `createDefaultAuroraModelClient()` liefert ausschließlich
+  einen `OllamaModelClient`.
+
 ## Tests
 
 `src/tests/aurora/` testet das Modul vollständig mit `FakeModelClient` —
@@ -115,12 +184,29 @@ ohne laufenden Ollama-Server:
   für MCP-Tool-Calls (`allow_once`, `allow_always`, `deny`) und Fortsetzung
   nach einer Ablehnung.
 
+`src/tests/ui/app.llm.test.tsx` testet die Verdrahtung mit der laufenden
+`App.tsx`-Spielschleife — ebenfalls mit `FakeModelClient`, ohne laufenden
+Ollama-Server:
+
+- Freitext-Antworten erscheinen im AURORA-Stream; Bash- und MCP-Tool-Calls
+  erzeugen sichtbare Tool Requests über den bestehenden Permission-Flow.
+- `mcp add` aktiviert den Server im Runtime-State, und dessen Tools sind ab
+  dem nächsten `ModelRequest` verfügbar — Tools inaktiver Server werden nie
+  gesendet.
+- `allow_once`/`allow_always`/`deny` setzen AURORAs nächsten Zug korrekt
+  fort, inklusive eines `denied: true`-Tool-Results in der Historie.
+- Hidden WorldState/`world.simulation` taucht in keinem `ModelRequest` auf.
+- Ein zu einem Zeitpunkt noch laufender Modell-Aufruf wird verworfen, wenn
+  „Neu starten“ zwischenzeitlich einen neuen Lauf gestartet hat (run-id).
+
 ## Scope dieses Slices
 
-Dieses Slice liefert das vollständige, getestete `src/aurora/`-Modul als
-eigenständige Schicht über dem bestehenden Runtime-State. Die Verdrahtung
-mit der laufenden `App.tsx`-Spielschleife (Aurora-Schritt statt/parallel zum
-Scenario-Director, async UI-Update, Live-Anzeige von `agentMessages`) ist
-bewusst ein eigener Folge-Slice — analog zu den bisherigen GRID-1182-Slices.
+Dieses Slice verdrahtet das `src/aurora/`-Modul vollständig mit der
+laufenden `App.tsx`-Spielschleife: ein UI-Umschalter wechselt zwischen dem
+geskripteten Scenario-Director (Default/Dev-Fallback) und AURORA als
+lokalem LLM-Agenten über `runAuroraAgentStep`. Freitext, Tool Requests,
+Permission-Flow, MCP-Aktivierung und Fehleranzeige laufen über die
+bestehende UI — ohne neue Permission-Komponenten.
+
 Training-Export, Fine-Tuning, DPO/SFT oder eine "Training Lab"-UI sind nicht
 Teil dieses oder eines unmittelbar folgenden Slices.

@@ -23,6 +23,8 @@ type OperatorConsolePanelProps = {
   commandHelp: CommandHelpEntry[];
   lastResult: OperatorResultView | null;
   auditLines: AuditLogLineView[];
+  /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
+  disabled?: boolean;
 };
 
 function getResultLabel(result: OperatorResultView | null) {
@@ -45,6 +47,7 @@ export function OperatorConsolePanel({
   commandHelp,
   lastResult,
   auditLines,
+  disabled = false,
 }: OperatorConsolePanelProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
@@ -65,8 +68,11 @@ export function OperatorConsolePanel({
           onKeyDown={handleKeyDown}
           placeholder="Command eingeben und mit ENTER ausführen"
           spellCheck={false}
+          disabled={disabled}
         />
-        <button onClick={onExecute}>Ausführen</button>
+        <button onClick={onExecute} disabled={disabled}>
+          Ausführen
+        </button>
       </div>
 
       <details className="command-reference" open>

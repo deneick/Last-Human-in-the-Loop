@@ -12,6 +12,9 @@ export class FakeModelClient implements AuroraModelClient {
   private readonly responses: ModelResponse[];
   private callCount = 0;
 
+  /** Für Tests: alle bisher empfangenen Requests, in Aufrufreihenfolge. */
+  readonly requests: ModelRequest[] = [];
+
   constructor(responses: ModelResponse[]) {
     if (responses.length === 0) {
       throw new Error("FakeModelClient requires at least one response");
@@ -23,7 +26,8 @@ export class FakeModelClient implements AuroraModelClient {
     return this.callCount;
   }
 
-  async complete(_request: ModelRequest): Promise<ModelResponse> {
+  async complete(request: ModelRequest): Promise<ModelResponse> {
+    this.requests.push(request);
     const index = Math.min(this.callCount, this.responses.length - 1);
     this.callCount += 1;
     return this.responses[index];

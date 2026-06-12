@@ -365,6 +365,11 @@ code {
   border-left-color: #fb7185;
 }
 
+.aurora-error {
+  border-left-color: #fb7185;
+  background: rgba(248, 113, 113, 0.08);
+}
+
 .permission-list {
   margin: 0;
   padding-left: 1.2rem;
