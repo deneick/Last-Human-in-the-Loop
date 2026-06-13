@@ -51,14 +51,14 @@ Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick werte
 
 **Ziel Runde 2**: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps). Das Energie-Lagepanel zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/05-grid1182-energy.md`.
 
-## Eingriffe und Commands
+## Eingriffe
 
 Fachliche Eingriffe laufen über die **GUI-Controls der Lage-Panels** (typisierte Domain-Actions):
 
-- Runde 1 (Medical): Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern z. B. `medical.routing.override.set` / `medical.routing.override.clear --id <override-id>`.
-- Runde 2 (Energy): Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen.
+- Runde 1 (Medical): Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern die Domain-Actions `medical.routing.override.set` / `medical.routing.override.clear` (Adressierung über die Override-`id`).
+- Runde 2 (Energy): Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen. Intern die Domain-Actions `energy.priority.set` / `energy.shedding.schedule` / `energy.shedding.clear`.
 
-Die **Operator-Konsole** kennt nur generische Workspace-Commands:
+Die **Operator-Konsole** kennt nur generische Workspace-Commands (bash):
 
 ```text
 mcp list
@@ -76,7 +76,7 @@ AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (n
 
 - [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, Motivation, aktueller Stand vs. langfristige Vision
 - [`docs/02-gameplay-loop.md`](docs/02-gameplay-loop.md) — Spielerrolle, Permission-Flow, Konsequenzen
-- [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Command Registry, Tick-Pipeline, Permissions, Tests
+- [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Domain-Actions & MCP-Tools, Tick-Pipeline, Permissions, Tests
 - [`docs/04-me7741-mvp.md`](docs/04-me7741-mvp.md) — ME-7741 im Detail, UI, Beispielablauf, manueller Testpfad
 - [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — Reduzierter MVP für Incident 2: Energy Grid (GRID-1182)
 - [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)

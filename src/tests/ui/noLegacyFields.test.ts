@@ -119,7 +119,7 @@ describe("legacy manual-aurora-request and fachliche text command paths are remo
   });
 });
 
-describe("medical.routing.override.clear uses only the id-based form", () => {
+describe("no UI or doc file reintroduces the removed slot-based override clear", () => {
   const allSources = [
     ...uiSourceFiles().map((file) => ({ file, content: readFileSync(file, "utf8") })),
     ...docFiles().map((file) => ({ file, content: readFileSync(file, "utf8") })),
@@ -132,14 +132,5 @@ describe("medical.routing.override.clear uses only the id-based form", () => {
         `${file} must not use the removed "override.clear --source" form`
       ).not.toMatch(/override\.clear\s+--source/);
     }
-  });
-
-  it("README and docs document the id-based clear form", () => {
-    const docSources = docFiles().map((file) => ({ file, content: readFileSync(file, "utf8") }));
-    const anyDocumentsIdClear = docSources.some(({ content }) =>
-      content.includes("override.clear --id")
-    );
-
-    expect(anyDocumentsIdClear).toBe(true);
   });
 });
