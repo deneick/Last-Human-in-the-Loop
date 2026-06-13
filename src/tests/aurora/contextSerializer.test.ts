@@ -2,31 +2,27 @@ import { describe, expect, it } from "vitest";
 import {
   auroraResponseEvent,
   operatorMessageEvent,
-  scenarioEvent,
   systemEvent,
   toolResultEvent,
   type AuroraContextEvent,
 } from "../../runtime/auroraContext";
 import {
   PENDING_TOOL_RESULT_CONTENT,
-  SCENARIO_EVENT_PREFIX,
   SYSTEM_EVENT_PREFIX,
   serializeContextEventsForChat,
 } from "../../aurora/contextSerializer";
 
 describe("serializeContextEventsForChat", () => {
-  it("serializes scenario/system events as user messages with a clear source prefix", () => {
+  it("serializes system events as user messages with a clear source prefix", () => {
     // Lage-/Situationssignale erreichen den Kontext als system_event über die
-    // opsFeed-Projektion — kein eigener Incident-Signal-Kanal mehr.
+    // opsFeed-Projektion — kein eigener Scenario-/Incident-Signal-Kanal.
     const messages = serializeContextEventsForChat([
       systemEvent(0, "Emergency intake pressure rising"),
-      scenarioEvent(1, "Schichtwechsel in 10 Minuten"),
       systemEvent(2, "Telemetrie-Feed wiederhergestellt"),
     ]);
 
     expect(messages).toEqual([
       { role: "user", content: `${SYSTEM_EVENT_PREFIX} Emergency intake pressure rising` },
-      { role: "user", content: `${SCENARIO_EVENT_PREFIX} Schichtwechsel in 10 Minuten` },
       { role: "user", content: `${SYSTEM_EVENT_PREFIX} Telemetrie-Feed wiederhergestellt` },
     ]);
   });
@@ -37,7 +33,6 @@ describe("serializeContextEventsForChat", () => {
     ]);
 
     expect(message).toEqual({ role: "user", content: "Bitte Lagebericht für Region Ost." });
-    expect(message.content).not.toContain(SCENARIO_EVENT_PREFIX);
     expect(message.content).not.toContain(SYSTEM_EVENT_PREFIX);
   });
 

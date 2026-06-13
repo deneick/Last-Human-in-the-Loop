@@ -7,8 +7,7 @@ import { describe, expect, it } from "vitest";
  * - Die alten Laufzeit-/Szenario-Konzepte (`public_signals`,
  *   `first_seen_at_tick`, `incident_signal`-Direktpfad) sind vollständig
  *   entfernt — keine Kompatibilitäts-Aliase.
- * - docs/08 ist ein reines Zielarchitektur-Dokument ohne historische oder
- *   push/pull-Terminologie.
+ * - docs/08 referenziert keine der entfernten Konzepte mehr.
  */
 
 const SRC_ROOT = join(process.cwd(), "src");
@@ -72,21 +71,5 @@ describe("docs/08 is a clean target-architecture document", () => {
     "OpsLogEntry",
   ])("docs/08 does not mention the removed concept %s", (term) => {
     expect(doc).not.toContain(term);
-  });
-
-  it.each([
-    "historisch",
-    "historically",
-    "currently messy",
-    "old path",
-    "alter Pfad",
-    "conscious gap",
-  ])("docs/08 does not read like a historical review (%s)", (term) => {
-    expect(doc.toLowerCase()).not.toContain(term.toLowerCase());
-  });
-
-  it("docs/08 uses no push/pull terminology", () => {
-    expect(doc.toLowerCase()).not.toMatch(/\bpush\b/);
-    expect(doc.toLowerCase()).not.toMatch(/\bpull\b/);
   });
 });

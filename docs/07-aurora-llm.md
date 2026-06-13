@@ -31,7 +31,6 @@ Ereignisse stehen dort chronologisch, in echter Einfüge-Reihenfolge:
 
 | Event-Kind         | Bedeutung                                                                  |
 | ------------------ | -------------------------------------------------------------------------- |
-| `scenario_event`   | Lage-/Scenario-Feed-Meldung (kein Operator-Text)                            |
 | `system_event`     | Systemmeldung (kein Operator-Text); auch die opsFeed-Spiegelung von Lage-Signalen |
 | `operator_message` | **Echte** Operator-Chat-Nachricht aus dem AURORA-Panel                      |
 | `aurora_response`  | Eine AURORA-Antwort: Text plus **alle** Tool-Calls dieser Antwort, gruppiert |
@@ -70,11 +69,10 @@ bleiben das kanonische Format.
 
 Chat Completions transportiert nicht-assistant-sichtbare Ereignisse als
 `user`-Messages. Damit AURORA unterscheiden kann, was der Operator wirklich
-geschrieben hat und was der Scenario-/System-Feed gemeldet hat:
+geschrieben hat und was der System-Feed gemeldet hat:
 
 - `operator_message` → `user`, **ohne** künstlichen Präfix (nur echte
   Operator-Sprache).
-- `scenario_event` → `user` mit Präfix `[SCENARIO EVENT] …`
 - `system_event` → `user` mit Präfix `[SYSTEM EVENT] …`
 - `aurora_response` → `assistant` (Text + `tool_calls`)
 - `tool_result` → `tool`, verlinkt über die `tool_call_id` des zugehörigen
@@ -312,10 +310,9 @@ Im laufenden LLM-Modus:
 `src/tests/aurora/` testet das Modul vollständig mit `FakeModelClient` —
 ohne laufenden Ollama-Server:
 
-- `contextSerializer.test.ts`: Quellen-Präfixe (`[INCIDENT SIGNAL]`,
-  `[SCENARIO EVENT]`, `[SYSTEM EVENT]`), Operator-Chat ohne Präfix,
-  Assistant-/Tool-Mapping inkl. `tool_call_id`-Verlinkung und exakte
-  Reihenfolge-Erhaltung.
+- `contextSerializer.test.ts`: Quellen-Präfix (`[SYSTEM EVENT]`),
+  Operator-Chat ohne Präfix, Assistant-/Tool-Mapping inkl.
+  `tool_call_id`-Verlinkung und exakte Reihenfolge-Erhaltung.
 - `contextBuilder.test.ts`: Der `ModelRequest` entsteht ausschließlich aus
   `AuroraContextEvents` + Tool-Schemas — kein Lesen von `auroraQueue.items`
   oder anderen History-Quellen, kein hidden WorldState, Tool-Schemas nur für

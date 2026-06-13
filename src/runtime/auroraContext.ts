@@ -37,7 +37,6 @@ export type AuroraToolResultPayload = {
 };
 
 export type AuroraContextEvent =
-  | { kind: "scenario_event"; tick: number; text: string }
   | { kind: "system_event"; tick: number; text: string }
   | { kind: "operator_message"; tick: number; text: string }
   | {
@@ -54,10 +53,6 @@ export type AuroraContextEvent =
       toolName: string;
       result: AuroraToolResultPayload;
     };
-
-export function scenarioEvent(tick: number, text: string): AuroraContextEvent {
-  return { kind: "scenario_event", tick, text };
-}
 
 export function systemEvent(tick: number, text: string): AuroraContextEvent {
   return { kind: "system_event", tick, text };

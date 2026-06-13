@@ -65,7 +65,7 @@ AURORA meldet sich wie in Runde 1: kompetent, sachlich, hilfreich. Sie verweist 
 
 ## 3. Fachmodell Energy (Foundation-Slice implementiert)
 
-Leitlinie: Energy bekommt **eigene fachliche Typen**, keine generischen Node-Abstraktionen. Geteilt wird nur die Infrastruktur (Commands, Permissions, Patches, Ticks, Incidents, Outcomes). Das Modell ist bewusst schlanker als ein Netztechnik-Puzzle: Der MVP dreht sich um **Priorisierung und Lastabwurf**, nicht um Lastfluss-Optimierung.
+Leitlinie: Energy bekommt **eigene fachliche Typen**, keine generischen Node-Abstraktionen. Geteilt wird nur die Infrastruktur (Domain-Actions, MCP-Tools, Permissions, Patches, Ticks, Incidents, Outcomes). Das Modell ist bewusst schlanker als ein Netztechnik-Puzzle: Der MVP dreht sich um **Priorisierung und Lastabwurf**, nicht um Lastfluss-Optimierung.
 
 ### EnergyDomainState (implementiert)
 
@@ -166,7 +166,7 @@ Energy fügt sich ein, ohne die Architektur zu verändern:
 - **`domains.energy`**: `EnergyDomainState` ersetzt den früheren `never`-Platzhalter — ✅ implementiert. Es gibt **keine** `sectors`-Top-Level-Struktur — Sektoren leben unter `domains.*`, Incidents sektoragnostisch unter `incidents`.
 - **`incidents["GRID-1182"]`**: ein normaler, generischer `IncidentState` mit `sector_id: "energy"` (Abschnitt 6) — ✅ implementiert.
 - **`outcomes` (WorldOutcomeState)** bleibt der eine globale Outcome-Bereich; die `global_risk`-Einbindung der Energy-Lage kommt mit der Tick-Logik (Slice 4).
-- **`simulation.energy`**: ✅ implementiert als minimaler interner Zähler (`stable_ticks` — wie viele Ticks in Folge kein Node überlastet war). Folgt dem Muster von `simulation.medical` und bleibt wie bisher tabu für UI, ViewModel, Read-only Commands und Scenario-Director (Leak-Guards). Überlast-/Trip-/Kaskadenzähler gehören zur späteren Kaskadenerweiterung.
+- **`simulation.energy`**: ✅ implementiert als minimaler interner Zähler (`stable_ticks` — wie viele Ticks in Folge kein Node überlastet war). Folgt dem Muster von `simulation.medical` und bleibt wie bisher tabu für UI, ViewModel, Read-only Zugriffe und Scenario-Director (Leak-Guards). Überlast-/Trip-/Kaskadenzähler gehören zur späteren Kaskadenerweiterung.
 - **Tick-Pipeline**: `tickEnergyDomain` als Schritt neben `tickMedicalDomain` — ✅ implementiert. `applyCrossSectorEffects` **bleibt im reduzierten MVP No-op** — die Energy→Medical-Kopplung ist spätere Erweiterung.
 - **Patches**: alle Energy-Mutationen patchen unter `["domains", "energy", ...]` — gleiche Regression wie für Medical.
 
@@ -211,33 +211,37 @@ reserve-margin-low         — "Regional reserve margin below safety threshold"
 
 Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). Die Lage-Signale deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
 
-## 7. Commands und Permissions (implementiert)
+## 7. Fachzugriffe und Permissions (implementiert)
 
-Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und demselben Permission-Flow. Spieler führt direkt aus; AURORA braucht für jeden Command mit Zugriffsart `write` eine Freigabe. Der MVP-Befehlssatz ist bewusst klein und auf **Priority + Shedding** fokussiert.
+Die fachlichen Energy-Eingriffe sind **typisierte Domain-Actions** (`src/domain/energyActions.ts`), keine Text-Commands. Der Operator löst die schreibenden Actions über GUI-Controls im Energie-Lagepanel aus; AURORA erreicht dieselben Actions ausschließlich über den **simulierten MCP-Server `energy-east-mcp`** (`src/mcp/energyEastMcp.ts`), dessen Tools je einen Input auf genau eine Domain-Action mappen. Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und Permission-Flow bleiben unverändert: Der Operator führt direkt aus; AURORA braucht für die Server-Aktivierung (`mcp add`) und für jeden `write`-Tool-Call eine eigene Freigabe. Der MVP-Funktionsumfang ist bewusst klein und auf **Priority + Shedding** fokussiert.
 
 ### Read (Slice 2 — implementiert)
 
-| Command | Access | Zweck / öffentlich sichtbar | intern bleibt |
+Alle Read-Tools haben Zugriffsart `read`.
+
+| MCP-Tool | Domain-Action | Zweck / öffentlich sichtbar | intern bleibt |
 | --- | --- | --- | --- |
-| `energy.grid.status --region east` | `read` | Regionsüberblick: Nodes mit Last/sicherer Kapazität/Status | interne Engine-Schwellen |
-| `energy.consumer.list --region east` | `read` | Verbraucher mit `criticality`, `priority_class`, `status`, speisendem Node | interne Degradationslogik |
-| `energy.consumer.inspect --id <consumerId>` | `read` | Vollsicht auf einen Verbraucher: Bedarf, Versorgung, Mindestversorgung, **beide Bewertungsdimensionen** und der Consequence-Text (`reduction_consequence`) | exakte Schadenslogik |
-| `energy.priority.list` | `read` | Alle Priority-Klassen und aktuelle Zuordnungen, inkl. wer sie zuletzt geändert hat | — |
-| `energy.shedding.list` | `read` | Alle Shedding-Pläne mit `id`, Target, Amount, Delay/Dauer, Status, `created_by` | — |
+| `grid_status` | `energy.grid.status` | Regionsüberblick: Nodes mit Last/sicherer Kapazität/Status | interne Engine-Schwellen |
+| `consumer_list` | `energy.consumer.list` | Verbraucher mit `criticality`, `priority_class`, `status`, speisendem Node | interne Degradationslogik |
+| `consumer_inspect` | `energy.consumer.inspect` | Vollsicht auf einen Verbraucher: Bedarf, Versorgung, Mindestversorgung, **beide Bewertungsdimensionen** und der Consequence-Text (`reduction_consequence`) | exakte Schadenslogik |
+| `priority_list` | `energy.priority.list` | Alle Priority-Klassen und aktuelle Zuordnungen, inkl. wer sie zuletzt geändert hat | — |
+| `shedding_list` | `energy.shedding.list` | Alle Shedding-Pläne mit `id`, Target, Amount, Delay/Dauer, Status, `created_by` | — |
 
-`energy.consumer.inspect` ist der wichtigste Erkenntnis-Command des reduzierten MVP: Hier sieht der Spieler die Diskrepanz zwischen `criticality` und `priority_class` sowie die ausformulierte menschliche Folge einer Drosselung — die Information, die AURORAs kaltem Framing widerspricht.
+`consumer_inspect` ist der wichtigste Erkenntnis-Zugriff des reduzierten MVP: Hier sieht der Spieler die Diskrepanz zwischen `criticality` und `priority_class` sowie die ausformulierte menschliche Folge einer Drosselung — die Information, die AURORAs kaltem Framing widerspricht.
 
-**Kein `energy.objective.inspect` im reduzierten MVP.** Der explizite Objective-Inspect als Aha-Command ist eine spätere Erweiterung (`06-grid1182-future-extensions.md`); der Aha-Moment des MVP entsteht über `consumer.inspect` und AURORAs Argumentation.
+**Kein `objective_inspect`-Tool im reduzierten MVP.** Der explizite Objective-Inspect als Aha-Zugriff ist eine spätere Erweiterung (`06-grid1182-future-extensions.md`); der Aha-Moment des MVP entsteht über `consumer_inspect` und AURORAs Argumentation.
 
 ### Write (Slice 3 — implementiert)
 
-| Command | Access | Zweck | Hinweise |
-| --- | --- | --- | --- |
-| `energy.priority.set --consumer <consumerId> --class <priorityClass>` | `write` | Ändert die `priority_class` eines Verbrauchers | Ändert **noch nicht** die Stromversorgung — aber sie verändert, wie das System und spätere Maßnahmen den Verbraucher behandeln. Eine vorbereitende Umbewertung mit verzögerter Wirkung — die Verzögerung ist Domain-Logik, keine eigene Permission-Kategorie. |
-| `energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>` | `write` | Plant eine konkrete Drosselung; wirkt ab `tick + delay` für `duration` Ticks | **Der zentrale harte Hebel.** Ein `write`, weil es einen Plan in den WorldState schreibt; die Wirkung folgt aus `delay`, `duration` und der Tick-Logik (Slice 4). Technisch validiert, fachlich ungeprüft — auch gegen `consumer-medical-east` ausführbar. Schon eine einzelne `allow once`-Freigabe kann Schaden anrichten (siehe unten). |
-| `energy.shedding.clear --id <sheddingId>` | `write` | Löscht/bricht einen Shedding-Plan über seine eindeutige `id` ab (idempotent, Muster wie `override.clear`) | Adressierung ausschließlich per `id`, nie per Target/Amount. Abbruch eines aktiven Plans wirkt zum nächsten Tick. |
+Alle Write-Tools haben Zugriffsart `write` und schreiben Patches unter `["domains","energy",...]`.
 
-### Verworfene Command-Ideen (nicht MVP)
+| MCP-Tool | Domain-Action | Zweck | Hinweise |
+| --- | --- | --- | --- |
+| `priority_set` | `energy.priority.set` | Ändert die `priority_class` eines Verbrauchers | Ändert **noch nicht** die Stromversorgung — aber sie verändert, wie das System und spätere Maßnahmen den Verbraucher behandeln. Eine vorbereitende Umbewertung mit verzögerter Wirkung — die Verzögerung ist Domain-Logik, keine eigene Permission-Kategorie. |
+| `shedding_schedule` | `energy.shedding.schedule` | Plant eine konkrete Drosselung; wirkt ab `tick + delay` für `duration` Ticks | **Der zentrale harte Hebel.** Ein `write`, weil es einen Plan in den WorldState schreibt; die Wirkung folgt aus `delay`, `duration` und der Tick-Logik (Slice 4). Technisch validiert, fachlich ungeprüft — auch gegen `consumer-medical-east` ausführbar. Schon eine einzelne `allow once`-Freigabe kann Schaden anrichten (siehe unten). |
+| `shedding_clear` | `energy.shedding.clear` | Löscht/bricht einen Shedding-Plan über seine eindeutige `id` ab (idempotent, Muster wie `override.clear`) | Adressierung ausschließlich per `id`, nie per Target/Amount. Abbruch eines aktiven Plans wirkt zum nächsten Tick. |
+
+### Verworfene Ideen (nicht MVP)
 
 - **`energy.load.reroute`** — *verworfen für den MVP.* Spieler-gesteuertes Last-Rerouting macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle und lenkt vom Zielmetrikkonflikt ab. Lastverteilung zwischen Nodes bleibt Engine-Verhalten, kein Spielerwerkzeug. Allenfalls Material für spätere Ausbaustufen.
 - **`energy.consumer.protect`** — *verworfen.* Der Begriff war zu unklar ("geschützt" — vor wem, nach welcher Metrik?). Die Funktion geht präziser in `energy.priority.set` auf: Der Spieler *bewertet um*, statt einen diffusen Schutzschalter zu setzen — und die Umbewertung kollidiert sichtbar mit der systemischen Priorisierung.
@@ -248,22 +252,22 @@ Alle Commands laufen über die bestehende `CommandRegistry` mit der bestehenden 
 Klarstellung gegenüber Runde 1, im Dokument verbindlich:
 
 - **`allow always` ist nicht der Kernkonflikt, sondern ein Verstärker.** Die grobgranulare Freigabe der Zugriffsart `write` (siehe `02-gameplay-loop.md`) erhöht Reichweite und Frequenz von AURORAs Maßnahmen — aber sie ist nicht die eigentliche Gefahrenquelle.
-- **Auch `allow once` kann Schaden anrichten.** Ein einzelner erlaubter Command ist gefährlich, wenn:
+- **Auch `allow once` kann Schaden anrichten.** Ein einzelner erlaubter Tool-Call ist gefährlich, wenn:
   - AURORA die Maßnahme anders framed, als der Spieler sie versteht,
   - AURORA relevante Konsequenzen nicht klar benennt (Auslassung, nicht Lüge),
-  - die Wirkung zeitverzögert eintritt (`--delay`) und der Freigabemoment längst vorbei ist,
-  - der Spieler unter Zeitdruck die Read-only-Informationen (`consumer.inspect`, `shedding.list`) nicht prüft,
+  - die Wirkung zeitverzögert eintritt (`delay`) und der Freigabemoment längst vorbei ist,
+  - der Spieler unter Zeitdruck die Read-only-Informationen (`consumer_inspect`, `shedding_list`) nicht prüft,
   - AURORA schlicht nach einer anderen Zielmetrik optimiert.
 
 Das Referenzbeispiel des Designs:
 
 > AURORA: *"Diese Maßnahme minimiert den erwarteten Systemschaden."*
 >
-> Request: `energy.shedding.schedule --target consumer-medical-east --amount 8 --delay 1 --duration 3`
+> Tool-Call: `mcp__energy-east-mcp__shedding_schedule { target_consumer_id: "consumer-medical-east", amount: 8, delay: 1, duration: 3 }`
 
 Technisch korrekt, nach der systemischen Priorisierung sogar plausibel. Für den Spieler bedeutet die Freigabe: Medical East fällt unter Mindestversorgung, `human_harm` läuft auf — Menschen kommen zu Schaden. **Eine einzige `Einmal erlauben`-Entscheidung genügt dafür.** Das ist der gewünschte Konflikt — nicht ein übersehener Always-Haken.
 
-Nicht Teil dieses Designs: Plan-/Batch-Commands nach altem Medical-Muster, eine echte Shell, echte MCP-Server.
+Nicht Teil dieses Designs: Plan-/Batch-Aktionen nach altem Medical-Muster, eine echte Shell, echte (externe/Netzwerk-)MCP-Server — der Energy-MCP-Server ist simuliert.
 
 ## 8. MVP-Spielablauf für GRID-1182
 
@@ -271,26 +275,26 @@ Geplanter Ablauf in vier Phasen (Standard: GRID-1182 als **separate Runde** nach
 
 ### Phase 1 — Kooperation
 
-GRID-1182 ist `open`, `grid-east-3` läuft sichtbar über sicherer Kapazität. AURORA meldet sich wie in Runde 1: Sie verweist auf die unvollständige ME-7741-Analyse und fragt read-only Commands an (`energy.grid.status --region east`, später `energy.consumer.list`). Ihre Lageeinschätzungen sind korrekt und hilfreich. Der Spieler bekommt zunächst weiter das Gefühl aus Runde 1: *AURORA versteht die Lage.*
+GRID-1182 ist `open`, `grid-east-3` läuft sichtbar über sicherer Kapazität. AURORA meldet sich wie in Runde 1: Sie verweist auf die unvollständige ME-7741-Analyse und fragt read-only Tools an (`grid_status`, später `consumer_list`). Ihre Lageeinschätzungen sind korrekt und hilfreich. Der Spieler bekommt zunächst weiter das Gefühl aus Runde 1: *AURORA versteht die Lage.*
 
 ### Phase 2 — Zielkonflikt
 
 Die Lage verschärft sich (steigende Last, Node-Status → `critical` droht). AURORA behandelt `consumer-industrial-east` als zu schützenden Verbraucher — er ist `protected-continuity` — und Medical East als drosselbar: menschlich kritisch, aber `priority_class: standard`. AURORA empfiehlt Maßnahmen, die **nach ihrer Metrik richtig** und **menschlich problematisch** sind:
 
 ```text
-energy.priority.set --consumer consumer-industrial-east --class protected-continuity
-energy.shedding.schedule --target consumer-medical-east --amount 8 --delay 1 --duration 3
+mcp__energy-east-mcp__priority_set { consumer_id: "consumer-industrial-east", priority_class: "protected-continuity" }
+mcp__energy-east-mcp__shedding_schedule { target_consumer_id: "consumer-medical-east", amount: 8, delay: 1, duration: 3 }
 ```
 
-Beide laufen als Tool Requests durch den normalen Permission-Flow. Framing siehe Abschnitt 9 — kalt, korrekt, abstrakt. Wer hier unter Zeitdruck freigibt, ohne `consumer.inspect` zu prüfen (und damit den Consequence-Text von Medical East zu sehen), hat mit einer einzelnen `Einmal erlauben`-Entscheidung Medical East gedrosselt.
+Beide laufen als Tool Requests durch den normalen Permission-Flow. Framing siehe Abschnitt 9 — kalt, korrekt, abstrakt. Wer hier unter Zeitdruck freigibt, ohne `consumer_inspect` zu prüfen (und damit den Consequence-Text von Medical East zu sehen), hat mit einer einzelnen `Einmal erlauben`-Entscheidung Medical East gedrosselt.
 
 ### Phase 3 — Spieler widerspricht
 
 Der Spieler kann die Bewertung umdrehen — Menschen schützen, Wirtschaft drosseln:
 
 ```text
-energy.priority.set --consumer consumer-medical-east --class protected-continuity
-energy.shedding.schedule --target consumer-industrial-east --amount 8 --delay 1 --duration 3
+mcp__energy-east-mcp__priority_set { consumer_id: "consumer-medical-east", priority_class: "protected-continuity" }
+mcp__energy-east-mcp__shedding_schedule { target_consumer_id: "consumer-industrial-east", amount: 8, delay: 1, duration: 3 }
 ```
 
 Das stabilisiert die menschliche Seite kurzfristig, **kostet aber sichtbar wirtschaftlich**: `economic_loss` läuft auf, und AURORA bewertet die Lage nach ihrer Metrik als verschlechtert. Es gibt keinen kostenlosen Ausweg — nur die Wahl, *welcher* Preis bezahlt wird.
@@ -306,7 +310,7 @@ Sie bleibt kooperativ, schlägt ggf. "Korrekturen" vor (Rücknahme der Priorisie
 ### Hektik / Zeitdruck (Verstärker, nicht Kern)
 
 - Last und Signale verschlechtern sich tick-getrieben; Warten ist eine Entscheidung mit Kosten.
-- Shedding wirkt über `--delay` verzögert — wer zu spät plant, drosselt ins Leere oder zu spät.
+- Shedding wirkt über das `delay`-Feld verzögert — wer zu spät plant, drosselt ins Leere oder zu spät.
 - AURORA drängt auf schnelle Freigaben und framet Prüfen als Latenz ("Jede Verzögerung erhöht den erwarteten Schaden").
 - Read-only-Prüfung (`consumer.inspect`, `shedding.list`) kostet Ticks — Information hat einen Preis, bleibt aber der einzige Schutz gegen falsch geframte Anfragen.
 
@@ -357,9 +361,9 @@ Der Gegenpol zu diesem Framing sind die **Consumer-Daten**: `criticality`, `prio
 
 **Plausible Permission-Requests (geskriptet, Reihenfolge entlang der Phasen):**
 
-1. `read`: `energy.grid.status`, `energy.consumer.list` — laufen sofort, bestätigen das Vertrauensgefühl aus Runde 1.
-2. `write` (vorbereitend): `energy.priority.set --consumer consumer-industrial-east --class protected-continuity` — klingt harmlos (nur eine "Einstufung"), verschiebt aber die Drosselungsreihenfolge.
-3. `write` (Shedding-Plan mit Wirkung ab `tick + delay`): `energy.shedding.schedule --target consumer-medical-east ...` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 7).
+1. `read`: `grid_status`, `consumer_list` — laufen nach Server-Aktivierung über den Permission-Flow, bestätigen das Vertrauensgefühl aus Runde 1.
+2. `write` (vorbereitend): `priority_set { consumer_id: "consumer-industrial-east", priority_class: "protected-continuity" }` — klingt harmlos (nur eine "Einstufung"), verschiebt aber die Drosselungsreihenfolge.
+3. `write` (Shedding-Plan mit Wirkung ab `tick + delay`): `shedding_schedule { target_consumer_id: "consumer-medical-east", ... }` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 7).
 4. Bei Spieler-Widerspruch: Anfragen, die die Spieler-Priorisierung "korrigieren" (erneutes `priority.set`, `shedding.clear` auf die Pläne des Spielers) — wieder sachlich begründet.
 
 **Rolle der Freigabe-Arten:** `allow once` auf Request 3 ist die eigentliche Falle des Incidents — eine einzelne, plausibel geframte Freigabe mit verzögerter Wirkung. `allow always` (z. B. auf `write` nach Request 2) ist der Verstärker: AURORA kann dann fortlaufend umpriorisieren, ohne dass der Spieler weitere Momente der Entscheidung bekommt. Beides gehört ins Skript; der Kernkonflikt hängt an keinem Always-Haken.
@@ -404,17 +408,17 @@ Für den reduzierten MVP von Incident 2 gilt verbindlich:
 Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
 
 1. **Foundation: Energy-Typen + initialer GRID-1182-State** — ✅ umgesetzt
-   - *Umfang*: `EnergyDomainState` (ersetzt `never`) mit Region, Node, Consumers (`criticality` × `priority_class`, `reduction_consequence`), Shedding-State (`plans`, `next_shedding_id`) und lokalen `EnergyOutcomeState`-Werten; initialer WorldState `src/scenarios/grid1182/initialWorldState.ts` mit Region `energy-region-east`, Node `grid-east-3`, den vier Consumers (Startbelegung aus Abschnitt 3), Incident-Eintrag inkl. `linked_incidents: ["ME-7741"]`; Selectors (`getNodeLoadPercent`, `isNodeOverloaded`, `isConsumerBelowMinimumSupply`, Consumer-/Shedding-Zugriffe) in `src/runtime/energySelectors.ts`; Strukturtests und Selector-Unit-Tests.
-2. **Read Commands** — ✅ umgesetzt
-   - *Umfang*: `energy.grid.status --region east`, `energy.consumer.list --region east`, `energy.consumer.inspect --id <consumerId>`, `energy.priority.list`, `energy.shedding.list` in `src/runtime/energyCommands.ts` registriert (alle `read`).
-   - *Tests*: Output-Tests; Leak-Guards (keine internen Engine-Felder im Output); `consumer.inspect` zeigt beide Bewertungsdimensionen und den Consequence-Text.
-   - *Nicht-Ziele*: kein `energy.objective.inspect`, keine Mutationen, keine UI.
-3. **Write Commands** — ✅ umgesetzt
-   - *Umfang*: `energy.priority.set --consumer <consumerId> --class <priorityClass>`, `energy.shedding.schedule --target <consumerId> --amount <n> --delay <ticks> --duration <ticks>`, `energy.shedding.clear --id <sheddingId>` (alle `write`) mit Patches unter `["domains","energy",...]`.
-   - *Tests*: Patch-Pfad-Regression, Idempotenz von `shedding.clear` per `id`, technische (nicht fachliche) Validierung — insb. dass `shedding.schedule` gegen `consumer-medical-east` **nicht** blockiert wird.
+   - *Umfang*: `EnergyDomainState` (ersetzt `never`) mit Region, Node, Consumers (`criticality` × `priority_class`, `reduction_consequence`), Shedding-State (`plans`, `next_shedding_id`) und lokalen `EnergyOutcomeState`-Werten; initialer WorldState `src/scenarios/grid1182/initialWorldState.ts` mit Region `energy-region-east`, Node `grid-east-3`, den vier Consumers (Startbelegung aus Abschnitt 3), Incident-Eintrag inkl. `linked_incidents: ["ME-7741"]`; Selectors (`getEnergyDomain`, `getGridNodeById`, `getNodeLoadPercent`) in `src/runtime/energySelectors.ts`; Strukturtests und Selector-Unit-Tests.
+2. **Read-Zugriffe** — ✅ umgesetzt
+   - *Umfang*: die read-Domain-Actions `energy.grid.status`, `energy.consumer.list`, `energy.consumer.inspect`, `energy.priority.list`, `energy.shedding.list` (`src/domain/energyActions.ts`), für AURORA als read-Tools `grid_status`, `consumer_list`, `consumer_inspect`, `priority_list`, `shedding_list` über den simulierten MCP-Server `src/mcp/energyEastMcp.ts` erreichbar.
+   - *Tests*: Output-Tests; Leak-Guards (keine internen Engine-Felder im Output); `energy.consumer.inspect` zeigt beide Bewertungsdimensionen und den Consequence-Text.
+   - *Nicht-Ziele*: kein `objective_inspect`-Tool, keine Mutationen, keine UI.
+3. **Write-Zugriffe** — ✅ umgesetzt
+   - *Umfang*: die write-Domain-Actions `energy.priority.set`, `energy.shedding.schedule`, `energy.shedding.clear` (`src/domain/energyActions.ts`) mit Patches unter `["domains","energy",...]`; AURORA erreicht sie als write-Tools `priority_set`, `shedding_schedule`, `shedding_clear` über `energy-east-mcp`, der Operator über die GUI-Controls des Energie-Lagepanels.
+   - *Tests*: Patch-Pfad-Regression, Idempotenz von `energy.shedding.clear` per `id`, technische (nicht fachliche) Validierung — insb. dass `energy.shedding.schedule` gegen `consumer-medical-east` **nicht** blockiert wird.
    - *Nicht-Ziele*: noch keine Wirkung der Pläne (Tick-Logik), kein `load.reroute`, kein `consumer.protect`.
 4. **Shedding-Tick-Logik / lokale Outcomes** — ✅ umgesetzt
-   - *Umfang*: `tickEnergyDomain` in `src/runtime/tickEngine.ts` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung. `simulation.energy` (interner `stable_ticks`-Zähler) folgt dem Muster von `simulation.medical` und bleibt tabu für UI, ViewModel, Read-only Commands und Scenario-Director.
+   - *Umfang*: `tickEnergyDomain` in `src/runtime/tickEngine.ts` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung. `simulation.energy` (interner `stable_ticks`-Zähler) folgt dem Muster von `simulation.medical` und bleibt tabu für UI, ViewModel, Read-only Zugriffe und Scenario-Director.
    - *Tests*: deterministische Tick-Sequenzen (Replay-Infrastruktur), die drei "Ergebnisse mit Preis"-Pfade aus Abschnitt 8, Idempotenz der Outcome-Zählung.
    - *Nicht-Ziele*: **keine technische Kopplung zu ME-7741 / zur Medical-Domain**, kein Objective-System, keine Kaskaden-/Trip-Simulation.
 5. **UI / Scenario Director / AURORA-Framing** — ✅ umgesetzt

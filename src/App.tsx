@@ -137,10 +137,6 @@ function buildAuroraMessages(
     const id = `ctx-${index}`;
 
     switch (event.kind) {
-      case "scenario_event":
-        messages.push({ id, tick: event.tick, kind: "info", text: event.text });
-        break;
-
       case "system_event":
         messages.push({ id, tick: event.tick, kind: "system", text: event.text });
         break;

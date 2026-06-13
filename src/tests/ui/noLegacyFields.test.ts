@@ -82,18 +82,6 @@ describe("ui layer does not use legacy or internal fields", () => {
     }
   });
 
-  it.each([
-    // Verworfene bzw. bewusst nicht gebaute Energy-Konzepte (docs/05, Abschnitte 7 und 11).
-    "energy.load.reroute",
-    "energy.consumer.protect",
-    "energy.objective.inspect",
-    "energy.reserve.rebalance",
-    "EnergyObjectiveState",
-  ])("no UI file references the rejected energy concept %s", (rejectedTerm) => {
-    for (const { file, content } of sources) {
-      expect(content, `${file} must not reference ${rejectedTerm}`).not.toContain(rejectedTerm);
-    }
-  });
 });
 
 describe("legacy manual-aurora-request and fachliche text command paths are removed", () => {

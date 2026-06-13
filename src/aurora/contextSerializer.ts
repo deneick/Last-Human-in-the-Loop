@@ -16,16 +16,14 @@ import type { ModelMessage } from "./modelClient";
  *   tatsächliche Operator-Sprache.
  * - Alle anderen `user`-transportierten Events tragen einen eindeutigen
  *   Quellen-Präfix, damit AURORA unterscheiden kann, was der Operator
- *   wirklich geschrieben hat und was der Scenario-/System-Feed gemeldet hat:
- *     [SCENARIO EVENT] …
+ *   wirklich geschrieben hat und was der System-Feed gemeldet hat:
  *     [SYSTEM EVENT] …
  *
  * Lage-/Situationssignale erreichen den Kontext ausschließlich über die
  * opsFeed-Projektion als `system_event` (Präfix `[SYSTEM EVENT]`) — es gibt
- * keinen eigenen Incident-Signal-Kanal mehr.
+ * keinen eigenen Scenario-/Incident-Signal-Kanal.
  */
 
-export const SCENARIO_EVENT_PREFIX = "[SCENARIO EVENT]";
 export const SYSTEM_EVENT_PREFIX = "[SYSTEM EVENT]";
 
 /** Inhalt des synthetischen Tool-Results für noch nicht entschiedene Tool-Calls. */
@@ -70,9 +68,6 @@ export function serializeContextEventsForChat(events: AuroraContextEvent[]): Mod
 
 function serializeContextEvent(event: AuroraContextEvent): ModelMessage {
   switch (event.kind) {
-    case "scenario_event":
-      return { role: "user", content: `${SCENARIO_EVENT_PREFIX} ${event.text}` };
-
     case "system_event":
       return { role: "user", content: `${SYSTEM_EVENT_PREFIX} ${event.text}` };
 
