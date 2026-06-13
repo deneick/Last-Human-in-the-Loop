@@ -144,7 +144,7 @@ type DomainState = {
 };
 ```
 
-`energy` ist seit dem GRID-1182-Foundation-Slice konkret typisiert (`EnergyDomainState` in `src/runtime/types.ts`) und wird im Szenario `src/scenarios/grid1182/initialWorldState.ts` initialisiert; ME-7741 läuft weiterhin ohne Energy-Domain. Design und weitere Slices: `05-grid1182-energy.md`.
+`energy` ist konkret typisiert (`EnergyDomainState` in `src/runtime/types.ts`) und wird im Szenario `src/scenarios/grid1182/initialWorldState.ts` initialisiert; ME-7741 läuft ohne Energy-Domain. Fachmodell und Verbraucher-/Shedding-Details: `05-grid1182-energy.md`.
 
 ## Domain-Action-Registry
 
