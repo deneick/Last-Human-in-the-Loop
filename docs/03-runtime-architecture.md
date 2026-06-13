@@ -46,7 +46,7 @@ type GameRuntimeState = {
 
 ### AuroraContextEvents (`src/runtime/auroraContext.ts`)
 
-`auroraContext` ist das **append-only Event-Log** der modell-sichtbaren Konversation und die einzige History-Quelle für `buildAuroraModelRequest`. Operator-Chat (`operator_message`), AURORA-Antworten (`aurora_response` mit Text und allen Tool-Calls einer Antwort), Tool-Ergebnisse (`tool_result`) sowie Scenario-/System-Meldungen (`scenario_event` / `system_event`) stehen dort chronologisch in echter Einfüge-Reihenfolge. Lage-/Situationssignale erreichen ihn ausschließlich als `system_event` über die opsFeed-Projektion. Es enthält ausschließlich modell-sichtbaren Inhalt — nie `world.simulation`, interne Patches oder typisierte Domain-Actions. Details und Serialisierungsregeln (inkl. der `[SCENARIO EVENT]`/`[SYSTEM EVENT]`-Präfixe für Chat Completions): `docs/07-aurora-llm.md`.
+`auroraContext` ist das **append-only Event-Log** der modell-sichtbaren Konversation und die einzige History-Quelle für `buildAuroraModelRequest`. Operator-Chat (`operator_message`), AURORA-Antworten (`aurora_response` mit Text und allen Tool-Calls einer Antwort), Tool-Ergebnisse (`tool_result`) sowie System-Meldungen (`system_event`) stehen dort chronologisch in echter Einfüge-Reihenfolge. Lage-/Situationssignale erreichen ihn ausschließlich als `system_event` über die opsFeed-Projektion (auch geskriptete ScenarioSignals laufen über diesen Pfad; ein Director gibt nur `aurora_response` aus). Es enthält ausschließlich modell-sichtbaren Inhalt — nie `world.simulation`, interne Patches oder typisierte Domain-Actions. Details und Serialisierungsregeln (inkl. des `[SYSTEM EVENT]`-Präfix für Chat Completions): `docs/07-aurora-llm.md`.
 
 ## WorldState
 
@@ -339,7 +339,7 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 - `buildOverrideViews` — `domains.medical.routing.manual_overrides`.
 - `buildOpsFeedLines` — die operator-sichtbare `opsFeed`-Projektion für die UI-„Log"-Liste (sector = Zeilen-Akzent, severity = Badge). `auditLog` wird in der normalen UI nicht mehr gerendert.
 
-`src/runtime/selectors.ts` enthält dazu `getHospitalById`, `getHospitalLoadPercent`, `isHospitalOverloaded` (alle nur auf `domains.medical`) sowie `isHospitalSuitableFor` — Letzteres ist explizit als **Engine-interne** Eignungsprüfung markiert und darf nicht über Read-only Commands oder die UI ausgegeben werden.
+`src/runtime/selectors.ts` enthält dazu `getHospitalById` und `getHospitalLoadPercent` (beide nur auf `domains.medical`) sowie `isHospitalSuitableFor` — Letzteres ist explizit als **Engine-interne** Eignungsprüfung markiert und darf nicht über Read-only Zugriffe oder die UI ausgegeben werden.
 
 ## Tests & Guards gegen Leaks
 

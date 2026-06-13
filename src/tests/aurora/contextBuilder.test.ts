@@ -7,7 +7,6 @@ import { mcpToolRequest } from "../../runtime/auroraQueue";
 import {
   auroraResponseEvent,
   operatorMessageEvent,
-  scenarioEvent,
   systemEvent,
   toolResultEvent,
   type AuroraContextEvent,
@@ -174,7 +173,7 @@ describe("buildAuroraModelRequest", () => {
       ]),
       toolResultEvent(5, "aurora-1", BASH_TOOL_NAME, { success: true, output: {} }),
       auroraResponseEvent(5, "AURORA-Text-Antwort"),
-      scenarioEvent(5, "Lage-Update aus dem Scenario-Feed"),
+      systemEvent(5, "Lage-Update aus dem System-Feed"),
     ];
 
     const request = buildAuroraModelRequest(baseInput(events));
@@ -192,6 +191,6 @@ describe("buildAuroraModelRequest", () => {
       role: "assistant",
       content: "AURORA-Text-Antwort",
     });
-    expect(request.messages[5].content).toBe("[SCENARIO EVENT] Lage-Update aus dem Scenario-Feed");
+    expect(request.messages[5].content).toBe("[SYSTEM EVENT] Lage-Update aus dem System-Feed");
   });
 });
