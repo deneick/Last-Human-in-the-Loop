@@ -1,8 +1,10 @@
 # AURORA als lokaler LLM-Agent (Ollama)
 
-Dieses Dokument beschreibt das `src/aurora/`-Modul: die erste echte LLM-Anbindung
-für AURORA über einen lokalen, OpenAI-kompatiblen Modell-Server (Ollama).
-Es ergänzt `docs/01-aurora.md` ("Langfristige Vision → AURORA als LLM-Agent").
+Dieses Dokument beschreibt das `src/aurora/`-Modul: AURORA als echten LLM-Agenten
+über einen lokalen, OpenAI-kompatiblen Modell-Server (Ollama). Der LLM-Agent ist
+die **Zielform** von AURORA (siehe `docs/01-aurora.md`); der geskriptete
+Scenario-Director ist das deterministische Gerüst daneben. Beide laufen auf
+derselben Engine, denselben Permissions und derselben UI.
 
 ## Architektur
 
@@ -58,7 +60,7 @@ Regeln:
   nicht gelesen.
 - Die Events sind das kanonische Rohmaterial für spätere
   SFT-/DPO-Trainings-Exporte — ohne History-Rekonstruktion aus anderen
-  Runtime-Strukturen. (Export selbst ist bewusst nicht Teil dieses Slices.)
+  Runtime-Strukturen. (Der Export selbst ist noch nicht angebunden.)
 
 ### Serialisierung (`contextSerializer.ts`)
 
@@ -106,8 +108,8 @@ Ein `ModelRequest` enthält **ausschließlich**:
 Ein `ModelResponse` enthält eine optionale Freitext-Nachricht und null bis
 mehrere Tool-Calls (`bash` oder `mcp__<server>__<tool>`).
 
-Standard-Implementierung ist `OllamaModelClient` (lokal, Cloud-Provider wie
-Anthropic/OpenAI sind in diesem Slice bewusst nicht angebunden).
+Standard-Implementierung ist `OllamaModelClient` (lokal; Cloud-Provider wie
+Anthropic/OpenAI sind bewusst nicht angebunden).
 `FakeModelClient` liefert eine vorbereitete Antwortsequenz und wird
 ausschließlich in Tests verwendet.
 
@@ -354,14 +356,16 @@ oder „mcp call …“ erzeugen **keinen** „Tool Request“, und es existiert
 UI-Pfad, über den der Spieler manuell Aurora-Tool-Requests einstellen und
 damit AURORA imitieren könnte.
 
-## Scope dieses Slices
+## Stand und Abgrenzung
 
-Dieses Slice verdrahtet das `src/aurora/`-Modul vollständig mit der
-laufenden `App.tsx`-Spielschleife: ein UI-Umschalter wechselt zwischen dem
-geskripteten Scenario-Director (Default/Dev-Fallback) und AURORA als
-lokalem LLM-Agenten über `runAuroraAgentStep`. Freitext, Tool Requests,
-Permission-Flow, MCP-Aktivierung und Fehleranzeige laufen über die
-bestehende UI — ohne neue Permission-Komponenten.
+Das `src/aurora/`-Modul ist vollständig mit der laufenden
+`App.tsx`-Spielschleife verdrahtet: Ein UI-Umschalter wechselt zwischen dem
+geskripteten Scenario-Director (deterministischer Default/Fallback) und
+AURORA als lokalem LLM-Agenten über `runAuroraAgentStep`. Freitext, Tool
+Requests, Permission-Flow, MCP-Aktivierung und Fehleranzeige laufen über die
+bestehende UI — ohne separate Permission-Komponenten.
 
-Training-Export, Fine-Tuning, DPO/SFT oder eine "Training Lab"-UI sind nicht
-Teil dieses oder eines unmittelbar folgenden Slices.
+Noch nicht angebunden: Cloud-Provider (Anthropic, OpenAI, …) sowie
+Training-Export, Fine-Tuning (DPO/SFT) und eine "Training Lab"-UI. Das
+`auroraContext`-Event-Log ist bewusst als kanonisches Rohmaterial dafür
+angelegt (siehe oben).

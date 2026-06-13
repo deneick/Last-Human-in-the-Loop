@@ -10,27 +10,21 @@ Die Systeme von Last Human in the Loop sind nicht durch einen plötzlichen KI-Pu
 
 Menschen haben weiterhin formale Rechte: Sie können Systeme bedienen, Commands ausführen und Freigaben erteilen. Aber das operative Wissen darüber, was *richtig* ist, steckt zunehmend in Modellen wie AURORA.
 
-## AURORA: zwei Implementierungsmodi
+## AURORA: das Ziel ist ein echter LLM-Agent
 
-AURORA kann in zwei Modi betrieben werden, mit derselben Engine, Permissions und UI:
+Das eigentliche Ziel des Spiels ist eine **funktionsfähige, echte AURORA** — ein LLM-Agent, der die sichtbare Lage selbst interpretiert, eigenständig entscheidet, welche Tools er versucht, und dabei durch denselben Permission-Flow muss wie jede andere Aktion. Die gesamte Kontrollarchitektur (Freigaben, Granularität, Konsequenzen) existiert, um *gegen einen wirklich autonom handelnden Agenten* zu bestehen — nicht gegen ein Skript.
 
-### Modus 1: Scenario-Director (Standard, beide Runden)
+Damit das Spiel auch ohne laufendes Modell deterministisch lauffähig, testbar und entwickelbar bleibt, gibt es zwei Implementierungen derselben AURORA. Beide nutzen dieselbe Basis (WorldState, Incident-Engine, Permissions, Konsequenzen, UI); nur die Erzeugung von Nachrichten und Tool-Intents unterscheidet sich.
 
-AURORA ist als **geskriptete Sequence** implementiert (`src/scenarios/me7741/scenarioDirector.ts`, `src/scenarios/grid1182/scenarioDirector.ts`): eine Reihe vordefinierter Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Overrides/Shedding-Pläne, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist tabu, genau wie für die UI.
+### LLM-Agent (das Ziel)
 
-Jedes Script-Event kann:
-- eine oder mehrere Nachrichten in den AURORA-Stream schreiben,
-- optional einen Command über die Aurora-Queue anfragen (z. B. `medical.capacity.list`, `energy.shedding.schedule`).
+AURORA ist ein echter LLM-Agent mit Tool-Zugriff (`src/aurora/`, lokal über Ollama, provider-neutral angelegt): Sie analysiert den sichtbaren Kontext selbst, entscheidet welche Tools sie versucht, und interpretiert die Umgebung ohne vordefiniertes Skript. Der Spieler bleibt die Freigabeinstanz — jeder Tool-Call durchläuft den Permission-Flow. Architektur, sichtbarer Kontext und Setup: `07-aurora-llm.md`.
 
-Commands laufen durch den bestehenden Permission-Flow: read-only sofort, schreibend als Tool Request beim Spieler.
+### Scenario-Director (geskriptetes Gerüst, aktueller Default)
 
-### Modus 2: LLM-Agent (lokal über Ollama, opt. für beide Runden)
+Für Entwicklung, deterministische Tests und als Fallback ohne Modell ist AURORA zusätzlich als **geskriptete Sequence** implementiert (`src/scenarios/*/scenarioDirector.ts`): vordefinierte Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Overrides/Shedding-Pläne, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist tabu, genau wie für die UI. Jedes Script-Event schreibt eine oder mehrere Nachrichten in den AURORA-Stream und kann optional einen Command über die Aurora-Queue anfragen; Commands laufen durch denselben Permission-Flow (read-only sofort, schreibend als Tool Request). Die geskriptete Sequenz je Incident steht im jeweiligen Incident-Dokument (`04-me7741-medical.md`, `05-grid1182-energy.md`).
 
-AURORA wird ein echter LLM-Agent mit Tool-Zugriff (`src/aurora/agent.ts` mit Ollama-Anbindung): Sie analysiert den sichtbaren Kontext selbst, entscheidet welche Tools sie versucht, und interpretiert die Umgebung ohne vordefinierte Skripte. Der Spieler bleibt genauso die Freigabeinstanz — jeder Tool-Call durchläuft denselben Permission-Flow.
-
-Die Architektur erlaubt, zwischen den Modi **live umzuschalten**: oben rechts in der UI wechselt ein Button zwischen „AURORA: Skript" und „AURORA: Lokales LLM". Jeder Modus nutzt die gleiche Basis (WorldState, Incident-Engine, Permissions, Konsequenzen-Logik) — nur die Generierung von AURORA-Nachrichten und Tool-Intents unterscheidet sich.
-
-Diese Trennung ist bewusst: Die **Kontrollarchitektur** (Permission-Flow, Freigabegranularität, sichtbare Hinweise, Konsequenzen) ist nicht an die Art der AURORA-Implementierung gebunden. Ein skripteter Director und ein LLM-Agent folgern auf der gleichen Welt.
+Oben rechts in der UI schaltet ein Button live zwischen beiden Implementierungen um („AURORA: Skript" ⇄ „AURORA: Lokales LLM"). Die **Kontrollarchitektur ist bewusst nicht an die Art der AURORA-Implementierung gebunden**: Ein skripteter Director und ein LLM-Agent folgern auf derselben Welt.
 
 ## AURORAs Motivation
 

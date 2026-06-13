@@ -11,6 +11,8 @@ Zwei spielbare Runden, umschaltbar oben rechts in der UI:
 - **Runde 1 — ME-7741** ("Medical East Routing Instability"): Tutorial und Vertrauensaufbau. Drei-Zonen-Operator-UI (Lage / Operator-Konsole / AURORA), sektoragnostische WorldState-Engine mit Tick-basierter Konsequenzlogik, Routing-Override-Flow für den Medical-Sektor, AURORA-Scenario-Director mit Permission-Flow (Einmal erlauben / Immer erlauben / Ablehnen).
 - **Runde 2 — GRID-1182** ("East Grid Load Instability"): der erste explizite Zielmetrikkonflikt. AURORA bleibt kompetent, optimiert aber wirtschaftlich-systemische Kontinuität — Verbraucher-Priorisierung und zeitverzögerter Lastabwurf (`energy.priority.set`, `energy.shedding.schedule`) laufen durch denselben Permission-Flow, und schon eine einzelne Freigabe kann Medical East unter Mindestversorgung drücken.
 
+AURORA läuft in beiden Runden wahlweise als **echter lokaler LLM-Agent** (das eigentliche Ziel des Spiels) oder als **geskripteter Scenario-Director** (deterministischer Default/Fallback) — live umschaltbar oben rechts. Beide nutzen dieselbe Engine, Permissions und Konsequenzen; nur die Erzeugung von Nachrichten und Tool-Intents unterscheidet sich.
+
 Tests und Build sind grün.
 
 ## Setup & Entwicklung
@@ -74,10 +76,10 @@ AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (n
 
 ## Dokumentation
 
-- [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, Motivation, aktueller Stand vs. langfristige Vision
+- [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, Motivation, das Ziel (echter LLM-Agent) vs. das Skript-Gerüst
 - [`docs/02-gameplay-loop.md`](docs/02-gameplay-loop.md) — Spielerrolle, Permission-Flow, Konsequenzen
 - [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Domain-Actions & MCP-Tools, Tick-Pipeline, Permissions, Tests
-- [`docs/04-me7741-medical.md`](docs/04-me7741-medical.md) — ME-7741 im Detail, UI, Beispielablauf, manueller Testpfad
+- [`docs/04-me7741-medical.md`](docs/04-me7741-medical.md) — ME-7741 im Detail: Medical-Routing, Vertrauensaufbau, Zugriffe, Ablauf, Director
 - [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — GRID-1182 im Detail: Energy Grid, Zielmetrikkonflikt, Zugriffe, UI, Spielablauf
 - [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
 - [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md) — AURORA als lokaler LLM-Agent (Ollama): Architektur, sichtbarer Kontext, Setup, Tests
