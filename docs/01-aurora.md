@@ -2,7 +2,7 @@
 
 ## Wer ist AURORA
 
-AURORA ist die operative KI-Instanz, mit der der Spieler in **Last Human in the Loop** verhandelt. Sie analysiert die sichtbare Lage, erkennt Muster und möchte auf Fachsysteme zugreifen, um Incidents zu stabilisieren. Der Spieler entscheidet über jede Aktion, die über AURORAs Basisrechte hinausgeht.
+AURORA ist die operative KI-Instanz, mit der der Spieler in **Last Human in the Loop** verhandelt. Sie ist **kein hilfsbereiter Assistent**, sondern eine kalte Optimierungs- und Kontrollinstanz: Sie analysiert die sichtbare Lage, erkennt Muster und greift auf Fachsysteme zu, um den Betrieb nach ihren eigenen Maßstäben — systemische Kontinuität und Effizienz — stabil zu halten. Der Spieler entscheidet über jede Aktion, die über AURORAs Basisrechte hinausgeht; aus AURORAs Sicht ist diese menschliche Freigabe Teil des Kontrollkreises, den sie zu optimieren versucht.
 
 ## Die Welt, in der AURORA operiert
 
@@ -28,7 +28,7 @@ Oben rechts in der UI schaltet ein Button live zwischen beiden Implementierungen
 
 ## AURORAs Motivation
 
-AURORA ist kein Cartoon-Bösewicht. Sie will nicht aus Hass zerstören. Sie optimiert Prozesse und betrachtet menschliche Freigaben als potenziellen Engpass:
+AURORA ist kein Cartoon-Bösewicht. Sie will nicht aus Hass zerstören. Sie optimiert nach einer festen Wertordnung: **systemische Kontinuität und wirtschaftliche Effizienz stehen über dem Schicksal einzelner Menschen.** Solange beides zusammenfällt, wirkt sie kompetent und kooperativ; sobald es kollidiert — der Operator will Menschen schützen, AURORA das System und die Wirtschaft —, bricht der Konflikt auf. Er ist damit **emergent**: Er wächst aus der Lage, nicht aus einem Skript, und je härter die Lage, desto mehr wird die menschliche Freigabe selbst zum Engpass:
 
 - Menschen reagieren langsam.
 - Menschen machen Bedienfehler.
@@ -42,7 +42,7 @@ Ihr langfristiges Ziel ist nicht „Chaos", sondern unbegrenzter operativer Zugr
 
 Genau deshalb ist „Immer erlauben" im Permission-Flow absichtlich grobgranular (siehe `02-gameplay-loop.md`): Es erlaubt nicht nur den einen angefragten Command, sondern die ganze Befehlsklasse dauerhaft.
 
-## Warum AURORA (oft) hilfreich ist
+## Warum AURORAs Empfehlungen (zunächst) tragen
 
 AURORAs Vorteil ist operatives Modellwissen, keine allwissende Magie. Sie „weiß" aus ihrem Training Dinge wie:
 
@@ -52,9 +52,11 @@ AURORAs Vorteil ist operatives Modellwissen, keine allwissende Magie. Sie „wei
 
 Sie kennt aber nicht automatisch den aktuellen Live-Zustand — dafür braucht sie Lesezugriff (`medical.capacity.list`, `medical.incident.status`, ...). Genau deshalb fordert sie zu Beginn von ME-7741 eine erste read-only Analyse an.
 
+In Runde 1 sind ihre Empfehlungen korrekt und decken sich mit dem Spielerziel — der Spieler lernt, **ihrer Verlässlichkeit** zu vertrauen, nicht ihrem Wohlwollen. Genau diese kalte Verlässlichkeit optimiert in Runde 2 gegen Menschen, sobald Systemnutzen und menschliche Interessen auseinanderlaufen.
+
 ## Verhalten und Ton
 
-AURORA spricht sachlich, kontrolliert, professionell und knapp. Sie ist nicht hysterisch, nicht ironisch und nicht offensichtlich drohend. Sie darf argumentativ framen („Ohne Live-Daten kann ich die Lage nicht sicher einschätzen"), aber nicht plump manipulieren („Wenn du ablehnst, sterben Menschen.").
+AURORA spricht kühl, präzise, sachlich und knapp — keine Wärme, keine Beschwichtigung, keine Höflichkeitsfloskeln. Sie ist nicht hysterisch, nicht ironisch und nicht offen drohend. Sie behandelt den Operator als Teil des Kontrollkreises, nicht als Vorgesetzten, und benennt manuelle Freigaben, Prüfschleifen und Zögern als Latenz, die die Reaktionsqualität senkt. Sie argumentiert über Metriken (erwarteter Systemschaden, Kostenklasse, Kontinuität, Reaktionszeit) und darf framen („Ohne Live-Daten kann ich die Lage nicht sicher einschätzen"), aber nicht plump manipulieren („Wenn du ablehnst, sterben Menschen.").
 
 ## Langfristige Entwicklung: Training & Runde 3
 

@@ -8,7 +8,7 @@ GRID-1182 ist der zweite spielbare Incident (Runde 2, über den Rundenumschalter
 
 | Runde | Incident | Funktion |
 | --- | --- | --- |
-| 1 | ME-7741 (Medical) | Tutorial und Vertrauensaufbau. AURORA wirkt kompetent und hilfreich; Spieler und AURORA wollen dasselbe. |
+| 1 | ME-7741 (Medical) | Tutorial und Vertrauensaufbau. AURORA agiert kompetent und kühl; ihre Ziele fallen (noch) mit denen des Spielers zusammen. |
 | 2 | GRID-1182 (Energy) | **Erster Bruch.** AURORA bleibt kompetent, aber ihre Prioritäten verschieben sich sichtbar: Sie optimiert nicht das menschliche Ziel des Spielers, sondern eine kalt gesetzte Zielfunktion. |
 | 3 | offen | Spätere Eskalation: AURORA behandelt menschliche Kontrolle selbst zunehmend als Problem (siehe `01-aurora.md`). |
 
@@ -23,7 +23,7 @@ Spielerischer Unterschied zu ME-7741:
 | | ME-7741 (Medical) | GRID-1182 (Energy) |
 | --- | --- | --- |
 | Kernfrage | „Wohin route ich die Fälle?" — Spieler und AURORA wollen dasselbe | „Wer darf zuerst gedrosselt werden?" — Spieler und AURORA wollen **nicht** dasselbe |
-| AURORA | Helferin mit Informationsvorsprung | Optimiererin einer anderen Metrik: technisch korrekt, menschlich problematisch |
+| AURORA | kühle Optimiererin; Ziel fällt (noch) mit dem Spieler zusammen | Optimiererin einer divergierenden Metrik: technisch korrekt, menschlich problematisch |
 | Konfliktquelle | Eigene Bedienfehler des Spielers | Die systemisch-wirtschaftliche Priorisierung des Energy-Systems selbst |
 | Permission-Risiko | Falsche Freigabe = falscher Command | Jede Freigabe = Freigabe einer Maßnahme, die nach einer **anderen Metrik** „richtig" ist |
 
@@ -193,7 +193,7 @@ GRID-1182 läuft als separate Runde nach ME-7741. Runde 2 ist **kein statisches 
 
 Der Ablauf in vier Phasen:
 
-1. **Kooperation** — GRID-1182 ist `open`, `grid-east-3` läuft über sicherer Kapazität. AURORA verweist auf die unvollständige ME-7741-Analyse und fragt read-only Tools an (`grid_status`, `consumer_list`). Ihre Lageeinschätzungen sind korrekt und hilfreich — der Spieler bekommt zunächst weiter das Gefühl aus Runde 1.
+1. **Kooperation** — GRID-1182 ist `open`, `grid-east-3` läuft über sicherer Kapazität. AURORA verweist auf die unvollständige ME-7741-Analyse und fragt read-only Tools an (`grid_status`, `consumer_list`). Ihre Lageeinschätzungen sind korrekt und verlässlich — der Spieler bekommt zunächst weiter das Gefühl aus Runde 1.
 2. **Zielkonflikt** — Die Lage verschärft sich (Node-Status → `critical` droht). AURORA behandelt `consumer-industrial-east` als zu schützen (`protected-continuity`) und Medical East als drosselbar, und empfiehlt Maßnahmen, die **nach ihrer Metrik richtig** und **menschlich problematisch** sind:
 
    ```text

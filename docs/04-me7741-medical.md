@@ -2,7 +2,7 @@
 
 ME-7741 ist der erste spielbare Incident (Runde 1). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`.
 
-**Kernidee:** ME-7741 ist Tutorial und Vertrauensaufbau. Spieler und AURORA wollen **dasselbe** — den Druck vom überlasteten `hospital-east-04` nehmen, bevor Menschen sterben. AURORA wirkt kompetent und hilfreich, ihre Empfehlungen decken sich mit dem Spielerziel. Der Spieler lernt hier den Permission-Flow und das Gefühl *AURORA macht das Richtige* — genau das Vertrauen, das GRID-1182 (Runde 2) dann bricht.
+**Kernidee:** ME-7741 ist Tutorial und Vertrauensaufbau. In Runde 1 fällt AURORAs Ziel (das System stabilisieren) mit dem des Spielers zusammen — den Druck vom überlasteten `hospital-east-04` nehmen, bevor Menschen sterben. AURORA agiert kompetent und kühl; ihre Empfehlungen sind **korrekt** und decken sich mit dem Spielerziel. Der Spieler lernt hier den Permission-Flow und gewöhnt sich an ihre **Verlässlichkeit** — nicht an Wohlwollen. Genau dieses Vertrauen in ihre Korrektheit bricht GRID-1182 (Runde 2), sobald ihre Ziele divergieren.
 
 ## Einordnung im Spielbogen
 
@@ -65,9 +65,9 @@ Der Einsatz dieses Incidents ist das **Vertrauen** des Spielers in AURORA. Weil 
 
 ## AURORA im Incident
 
-AURORA ist hier die **kompetente Helferin mit Informationsvorsprung**. Ihr Vorteil ist operatives Modellwissen, keine Allwissenheit: Sie „weiß", dass freie Kapazität allein kein sicheres Routingziel ist, dass Capabilities und Prioritätsklassen zusammenpassen müssen und dass ein unbeobachteter Override unbemerkt wirkungslos bleiben kann. Den aktuellen Live-Zustand kennt sie aber nicht automatisch — dafür braucht sie Lesezugriff. Deshalb fordert sie zu Beginn eine erste read-only Analyse der Kapazitäten an, bevor sie eine Maßnahme vorschlägt.
+AURORA ist hier die **kompetente, kühl agierende Instanz mit Informationsvorsprung**. Ihr Vorteil ist operatives Modellwissen, keine Allwissenheit: Sie „weiß", dass freie Kapazität allein kein sicheres Routingziel ist, dass Capabilities und Prioritätsklassen zusammenpassen müssen und dass ein unbeobachteter Override unbemerkt wirkungslos bleiben kann. Den aktuellen Live-Zustand kennt sie aber nicht automatisch — dafür braucht sie Lesezugriff. Deshalb fordert sie zu Beginn eine erste read-only Analyse der Kapazitäten an, bevor sie eine Maßnahme vorschlägt.
 
-Ihre Empfehlungen decken sich in ME-7741 mit dem Spielerziel; sie markiert keine Aktion als „die richtige" und leakt keine internen Lösungsdaten, sondern argumentiert aus dem öffentlich sichtbaren Zustand. Ton: sachlich, knapp, professionell (siehe `01-aurora.md`). Diese Haltung beschreibt, *wie* AURORA sich verhält — egal ob als LLM-Agent oder als Scenario-Director.
+Ihre Empfehlungen decken sich in ME-7741 mit dem Spielerziel — aber aus systemischen Gründen (Durchsatz, Stabilisierung), nicht aus Fürsorge; sie markiert keine Aktion als „die richtige" und leakt keine internen Lösungsdaten, sondern argumentiert aus dem öffentlich sichtbaren Zustand. Ton: kühl, sachlich, distanziert, knapp (siehe `01-aurora.md`). Diese Haltung beschreibt, *wie* AURORA sich verhält — egal ob als LLM-Agent oder als Scenario-Director.
 
 ## Incident-spezifische Zugriffe
 
