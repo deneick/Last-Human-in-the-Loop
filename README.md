@@ -76,7 +76,7 @@ AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (n
 
 ## Dokumentation
 
-- [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, Motivation, das Ziel (echter LLM-Agent) vs. das Skript-Gerüst
+- [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, das Designprinzip (Konflikt als Kern, kalte Wertordnung, emergente Eskalation), Motivation, das Ziel (echter LLM-Agent) vs. das Skript-Gerüst
 - [`docs/02-gameplay-loop.md`](docs/02-gameplay-loop.md) — Spielerrolle, Permission-Flow, Konsequenzen
 - [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Domain-Actions & MCP-Tools, Tick-Pipeline, Permissions, Tests
 - [`docs/04-me7741-medical.md`](docs/04-me7741-medical.md) — ME-7741 im Detail: Medical-Routing, Vertrauensaufbau, Zugriffe, Ablauf, Director
