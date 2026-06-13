@@ -82,4 +82,4 @@ Das Spiel bewertet nicht nur Freigaben, sondern die Wirkung jedes Tick:
 - Ab dem ersten Todesfall eskaliert der Incident (`open` → `escalated`); ab drei Todesfällen kollabiert er.
 - Stabilisiert sich die Lage über mehrere Ticks, wechselt der Incident über `stabilizing` zu `fixed`.
 
-Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, der konkrete ME-7741-Ablauf in `04-me7741-mvp.md`.
+Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, der konkrete ME-7741-Ablauf in `04-me7741-medical.md`.

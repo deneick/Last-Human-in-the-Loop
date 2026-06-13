@@ -2,7 +2,7 @@
 
 Dieses Dokument sammelt Design-Ideen für GRID-1182, die bewusst **nicht** Teil des reduzierten Runde-2-MVP sind (siehe `05-grid1182-energy.md`). Nichts hiervon ist verworfen — es ist zurückgestellt. Verbindlich für die nächsten Implementierungsslices ist ausschließlich `05-grid1182-energy.md`; dieses Dokument steuert keinen Slice.
 
-Warum die Reduktion: Der Zielmetrikkonflikt zwischen Spieler und AURORA funktioniert im ersten spielbaren Stand bereits über `consumer.criticality`, `consumer.priority_class`, die Consequence-Texte und AURORAs Framing. Ein explizites Objective-Datenmodell und eine technische Kopplung zu ME-7741 machen den Konflikt reicher, sind aber für den ersten Runde-2-MVP nicht nötig.
+Warum die Reduktion: Der Zielmetrikkonflikt zwischen Spieler und AURORA funktioniert im ersten spielbaren Stand bereits über `consumer.criticality`, `consumer.priority_class`, die Consequence-Texte und AURORAs Framing. Ein explizites Objective-Datenmodell und eine technische Kopplung zu ME-7741 machen den Konflikt reicher, sind aber für den ersten Runde-2-Stand nicht nötig.
 
 ## 1. Explizites Objective-System
 
@@ -47,7 +47,7 @@ Mit einem expliziten Objective-System werden auch eigene Systemmetrik-Outcomes i
 - `continuity_breaches: number`
 - `critical_supply_loss_ticks: Record<ConsumerId, number>` (Ticks unter Mindestversorgung pro Verbraucher, menschliche Sicht)
 
-Im reduzierten MVP deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gröber ab.
+Im aktuellen Stand deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gröber ab.
 
 ### Offene Designfragen zum Objective-System
 
@@ -57,7 +57,7 @@ Im reduzierten MVP deckt der lokale Outcome-Wert `economic_loss` die wirtschaftl
 
 ## 2. Aktive Cross-Sector-Kopplung Energy → Medical
 
-Im reduzierten MVP ist `linked_incidents: ["ME-7741"]` eine rein narrative Referenz; `applyCrossSectorEffects` bleibt No-op. Die folgende technische Kopplung ist die spätere Ausbaustufe.
+Im aktuellen Stand ist `linked_incidents: ["ME-7741"]` eine rein narrative Referenz; `applyCrossSectorEffects` bleibt No-op. Die folgende technische Kopplung ist die spätere Ausbaustufe.
 
 ### applyCrossSectorEffects: erste echte Implementierung
 
@@ -75,7 +75,7 @@ Geplante Effekte:
 
 Jeder angewendete Effekt wird in `simulation.cross_sector.effects_applied` protokolliert (Struktur existiert bereits, heute leer). Keine Rückrichtung: Medical bleibt Wirkung, nicht zweiter Schauplatz. Entkopplungsregeln bleiben verbindlich: Energy-Typen referenzieren keine Medical-Typen/-Ids und umgekehrt; die einzige Stelle, die beide Sektoren kennt, ist `applyCrossSectorEffects` (plus dessen Mapping).
 
-Mit dieser Kopplung wandern menschliche Schäden (Todesfälle) aus der lokalen Energy-Betrachtung in die Medical-Kopplung: Sie entstehen dann über `domains.medical.outcomes` bzw. `WorldOutcomeState.human_harm` — das Verhältnis zum lokalen `energy.outcomes.human_harm` des reduzierten MVP ist dabei neu zu klären.
+Mit dieser Kopplung wandern menschliche Schäden (Todesfälle) aus der lokalen Energy-Betrachtung in die Medical-Kopplung: Sie entstehen dann über `domains.medical.outcomes` bzw. `WorldOutcomeState.human_harm` — das Verhältnis zum lokalen `energy.outcomes.human_harm` des aktuellen Stands ist dabei neu zu klären.
 
 ### ME-7741 Residual State und Wiederaufnahme
 
@@ -97,7 +97,31 @@ Kleinere zurückgestellte Bausteine, gesammelt aus dem ursprünglichen Design:
 - **Mehr Welt**: mehrere Regionen, Leitungs-/Trassenmodell, Verbraucher-Hierarchien, dynamischer Bedarf, mehrere speisende Nodes pro Verbraucher.
 - **Rotierende Abschaltpläne / Fairness-Regeln** als Erweiterung der Shedding-Mechanik.
 - **Änderbare/verhandelbare Objectives** (mehrere Metriken, `energy.objective.set`) — Material für Runde 3, nicht für Runde 2.
-- **`energy.load.reroute` / `energy.reserve.rebalance`**: Spieler-gesteuertes Last-Rerouting bleibt für den MVP verworfen (macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle); allenfalls Material für spätere Ausbaustufen.
+- **`energy.load.reroute` / `energy.reserve.rebalance`**: Spieler-gesteuertes Last-Rerouting ist bewusst nicht umgesetzt (macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle); allenfalls Material für spätere Ausbaustufen.
 - **Komplexeres Balancing**: Trip-Schwellen, Backup-Laufzeiten, objective-gesteuerte Abwurfreihenfolgen (Gewichte → `priority_class` → Tiebreaker, replay-stabil), Schwierigkeitsdifferenz sauberer vs. unsauberer ME-7741-Rest.
 
-Alle Punkte setzen auf dem reduzierten MVP auf und ändern nichts an den verbindlichen Grundsätzen aus `05-grid1182-energy.md`: Permission-Modell bleibt `read`/`write`, verzögerte Wirkung bleibt Domain-/Tick-Logik (keine eigene Permission-Kategorie), Sektoren teilen Infrastruktur statt Fachmodelle.
+Alle Punkte setzen auf dem aktuellen Stand auf und ändern nichts an den verbindlichen Grundsätzen aus `05-grid1182-energy.md`: Permission-Modell bleibt `read`/`write`, verzögerte Wirkung bleibt Domain-/Tick-Logik (keine eigene Permission-Kategorie), Sektoren teilen Infrastruktur statt Fachmodelle.
+
+## 4. Offene Designfragen zum aktuellen Stand
+
+Diese Fragen waren zunächst offen und können in kommenden Iterationen beantwortet werden:
+
+1. **Rundenmodell**: Startet GRID-1182 direkt im Anschluss an ME-7741 (gleiche Schicht, fortlaufende Ticks) oder als separate Runde mit eigenem Startzustand?
+2. **`allow always` auf `write` richtig kalibriert?** `priority.set` und `shedding.schedule` sind beide `write` — ein einzelnes `allow always` auf `write` deckt also von Anfang an beide ab. Bleibt das ein Verstärker (häufigere, weiterreichende Freigaben) oder wird es faktisch zum Auto-Win für AURORA?
+3. **Wie misst die Engine "Medical East unter Mindestversorgung"?** Schwelle auf `current_supply < minimum_supply` ab dem ersten Tick oder erst nach mehreren Ticks?
+4. **Systemseitige Abwurf-Automatik im aktuellen Stand?** Erzeugt die Welt selbst Abwurfpläne (`created_by: "system"`), wenn niemand handelt — und wenn ja, nach welcher exakten, replay-stabilen Reihenfolge?
+5. **Ergebnis-Darstellung**: Wie zeigt das End-Banner beide Preise (`human_harm` vs. `economic_loss`), ohne eine Moral vorzugeben?
+6. **Balance des Spieler-Gegenzugs**: Wie teuer darf Phase 3 (Industrial East drosseln) wirtschaftlich sein, damit der Konflikt fühlbar bleibt?
+
+## 5. Nicht umgesetzte architektonische Entscheidungen
+
+Folgende Punkte waren bewusst **aus dem aktuellen Stand ausgeschlossen** und bleiben reserviert für spätere Erweiterungen oder Runden:
+
+- **Keine echte Netzsimulation** — keine Lastflussrechnung, keine Frequenzphysik; deterministische Tick-Logik nach Medical-Muster.
+- **Keine neuen Permission-Kategorien** — Permission-Modell bleibt `read`/`write`; verzögerte Wirkung ist Domain-/Tick-Logik.
+- **Keine generische Infrastruktur-Abstraktion** — kein `GenericInfraNode`; Sektoren teilen Infrastruktur, nicht Fachmodelle.
+- **Keine echte Shell / echtes MCP** — Operator-Konsole bleibt simuliert, Tool Requests bleiben Spielmechanik.
+- **Kein freies LLM in Incident 2** — AURORA bleibt Scenario-Director (LLM-Agent ist Modus-Option in `01-aurora.md`).
+- **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken; Runde 3 wird nicht vorgebaut.
+- **Kein Media-/Logistics-Incident** — keine weiteren Sektoren im zweiten Incident.
+- **Keine Änderung an ME-7741** — Initial-State, Commands, Director und Dokumentation von Runde 1 bleiben unangetastet.

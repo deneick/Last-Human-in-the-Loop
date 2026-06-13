@@ -35,9 +35,8 @@ export type RuntimeAuditEvent = {
  * aktiven Szenarios), damit jedes Script-Event idempotent genau einmal
  * ausgelöst wird — unabhängig davon, wie oft der Director läuft.
  *
- * Die früheren Felder `messages`/`agentMessages`/`operatorMessages` sind
- * entfernt: Alle modell- und spielersichtbaren Konversationsinhalte leben
- * jetzt ausschließlich in `GameRuntimeState.auroraContext`.
+ * Alle modell- und spielersichtbaren Konversationsinhalte leben
+ * ausschließlich in `GameRuntimeState.auroraContext`.
  */
 export type ScenarioRuntimeState = {
   firedEventIds: string[];

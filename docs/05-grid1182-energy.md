@@ -2,9 +2,9 @@
 
 **Arbeitstitel: GRID-1182 ("East Grid Load Instability")**
 
-Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: alle fünf Implementierungs-Slices (Abschnitt 12) sind umgesetzt — GRID-1182 ist als Runde 2 spielbar (Rundenumschalter in der UI). Es folgen README-/Doku-Abgleich und Playtest/Balancing. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
+Dieses Dokument beschreibt den **reduzierten MVP** für den zweiten spielbaren Incident. Stand: alle fünf Implementierungs-Slices (Abschnitt 10) sind umgesetzt — GRID-1182 ist als Runde 2 spielbar (Rundenumschalter in der UI). Es folgen README-/Doku-Abgleich und Playtest/Balancing. Begriffe und Strukturen orientieren sich an der bestehenden Runtime (`03-runtime-architecture.md`).
 
-Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
+Ideen, die bewusst **nicht** Teil dieses reduzierten MVPs sind — explizites Objective-System, aktive Cross-Sector-Kopplung zu ME-7741, Backup-/Kaskadenmodelle —, sind nicht verworfen, sondern in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) als spätere Erweiterungen dokumentiert. Sie steuern die nächsten Implementierungsslices nicht.
 
 **Kernthese:** GRID-1182 ist nicht primär ein Energie-Ressourcenpuzzle. GRID-1182 ist der erste explizite **Zielmetrikkonflikt** zwischen Spieler und AURORA: AURORA bleibt technisch kompetent, optimiert aber eine Zielfunktion (wirtschaftliche/systemische Kontinuität), in der akute menschliche Schäden nicht oder nur indirekt gewichtet sind. Die Energy-Mechanik (Last, Reserve, Lastabwurf) ist das Substrat, auf dem dieser Konflikt sichtbar wird — nicht der dramatische Kern.
 
@@ -13,7 +13,7 @@ Ideen, die bewusst **nicht** Teil dieses reduzierten MVP sind — explizites Obj
 - `consumer.criticality` (menschliche/fachliche Sicht),
 - `consumer.priority_class` (systemisch-wirtschaftliche Bewertung),
 - die Consequence-Texte der Verbraucher (`reduction_consequence`),
-- AURORAs Kommentare und Framing (Abschnitt 9).
+- AURORAs Kommentare und Framing (Abschnitt 8).
 
 ## 1. Ziel von Incident 2
 
@@ -65,7 +65,7 @@ AURORA meldet sich wie in Runde 1: kompetent, sachlich, hilfreich. Sie verweist 
 
 ## 3. Fachmodell Energy (Foundation-Slice implementiert)
 
-Leitlinie: Energy bekommt **eigene fachliche Typen**, keine generischen Node-Abstraktionen. Geteilt wird nur die Infrastruktur (Domain-Actions, MCP-Tools, Permissions, Patches, Ticks, Incidents, Outcomes). Das Modell ist bewusst schlanker als ein Netztechnik-Puzzle: Der MVP dreht sich um **Priorisierung und Lastabwurf**, nicht um Lastfluss-Optimierung.
+Leitlinie: Energy bekommt **eigene fachliche Typen**, keine generischen Node-Abstraktionen. Geteilt wird nur die Infrastruktur (Domain-Actions, MCP-Tools, Permissions, Patches, Ticks, Incidents, Outcomes). Das Modell ist bewusst schlanker als ein Netztechnik-Puzzle: Der aktuelle Umfang dreht sich um **Priorisierung und Lastabwurf**, nicht um Lastfluss-Optimierung.
 
 ### EnergyDomainState (implementiert)
 
@@ -82,7 +82,7 @@ Bewusst **kein** `objective: EnergyObjectiveState`-Feld: Der Zielmetrikkonflikt 
 
 ### Grid Regions (implementiert)
 
-`EnergyRegionState` gruppiert Nodes und Verbraucher. MVP: genau eine Region `energy-region-east` ("East Grid"), parallel zur Medical-Region Ost aus Runde 1.
+`EnergyRegionState` gruppiert Nodes und Verbraucher. MVP-Umfang: genau eine Region `energy-region-east` ("East Grid"), parallel zur Medical-Region Ost aus Runde 1.
 
 ### Grid Nodes (implementiert, bewusst schlank)
 
@@ -143,13 +143,13 @@ Im Foundation-Slice sind Pläne reine Datenstruktur; die Ausführung kommt mit d
 `EnergyOutcomeState` erfasst die Folgen von Runde 2 **lokal**, in beiden Bewertungswelten:
 
 - `human_harm` — menschliche Schäden durch Unterversorgung kritischer Verbraucher. **Lokaler GRID-1182-Wert, kein weitergeführter ME-7741-Death-Counter** — es gibt keine Kopplung zur Medical-Domain.
-- `economic_loss` — wirtschaftliche Schäden (z. B. Drosselung von Industrial East); deckt im MVP die Systemsicht ab. Feinere Systemmetrik-Outcomes (`sla_violation_ticks`, `continuity_breaches`) sind spätere Erweiterung.
+- `economic_loss` — wirtschaftliche Schäden (z. B. Drosselung von Industrial East); deckt im reduzierten MVP die Systemsicht ab. Feinere Systemmetrik-Outcomes (`sla_violation_ticks`, `continuity_breaches`) sind spätere Erweiterung.
 - `civil_unrest` — gesellschaftliche Folgekosten (z. B. Drosselung von Residential East).
 - `grid_instability` — Netzsicht (anhaltende Überlast, unkontrollierte Abwürfe).
 
-### MVP vs. später — Übersicht
+### Aktueller Stand vs. später — Übersicht
 
-| Konzept | Reduzierter MVP | Später (`06-grid1182-future-extensions.md`) |
+| Konzept | Aktueller Stand | Später (`06-grid1182-future-extensions.md`) |
 | --- | --- | --- |
 | 1 Region, 1 Node, 4 Consumers mit `criticality` × `priority_class` | ✅ implementiert | mehrere Regionen/Nodes, Leitungsmodell, Verbraucher-Hierarchien, dynamischer Bedarf |
 | Shedding-Pläne (verzögert, per `id`) | ✅ Datenstruktur implementiert; Tick-Logik in Slice 4 | rotierende Abschaltpläne, Fairness-Regeln |
@@ -157,14 +157,14 @@ Im Foundation-Slice sind Pläne reine Datenstruktur; die Ausführung kommt mit d
 | Zielkonflikt über Consumer-Daten, Consequence-Texte, AURORA-Framing | ✅ | explizites Objective-System (`EnergyObjectiveState`, `energy.objective.inspect`) |
 | Cross-Sector-Kopplung Energy → Medical | ❌ (nur `linked_incidents` als narrative Referenz) | ✅ |
 | Backup-Power-Modell, Kaskade/Trip-Logik, Substations | ❌ | ✅ |
-| Spieler-Rerouting von Last (`energy.load.reroute`) | ❌ verworfen für MVP | allenfalls später, siehe Abschnitt 7 |
+| Spieler-Rerouting von Last (`energy.load.reroute`) | ❌ verworfen für reduzierten MVP | allenfalls später, siehe Abschnitt 6 |
 
 ## 4. Einbindung in den bestehenden WorldState
 
 Energy fügt sich ein, ohne die Architektur zu verändern:
 
-- **`domains.energy`**: `EnergyDomainState` ersetzt den früheren `never`-Platzhalter — ✅ implementiert. Es gibt **keine** `sectors`-Top-Level-Struktur — Sektoren leben unter `domains.*`, Incidents sektoragnostisch unter `incidents`.
-- **`incidents["GRID-1182"]`**: ein normaler, generischer `IncidentState` mit `sector_id: "energy"` (Abschnitt 6) — ✅ implementiert.
+- **`domains.energy`**: `EnergyDomainState` ist implementiert. Es gibt **keine** `sectors`-Top-Level-Struktur — Sektoren leben unter `domains.*`, Incidents sektoragnostisch unter `incidents`.
+- **`incidents["GRID-1182"]`**: ein normaler, generischer `IncidentState` mit `sector_id: "energy"` (Abschnitt 5) — ✅ implementiert.
 - **`outcomes` (WorldOutcomeState)** bleibt der eine globale Outcome-Bereich; die `global_risk`-Einbindung der Energy-Lage kommt mit der Tick-Logik (Slice 4).
 - **`simulation.energy`**: ✅ implementiert als minimaler interner Zähler (`stable_ticks` — wie viele Ticks in Folge kein Node überlastet war). Folgt dem Muster von `simulation.medical` und bleibt wie bisher tabu für UI, ViewModel, Read-only Zugriffe und Scenario-Director (Leak-Guards). Überlast-/Trip-/Kaskadenzähler gehören zur späteren Kaskadenerweiterung.
 - **Tick-Pipeline**: `tickEnergyDomain` als Schritt neben `tickMedicalDomain` — ✅ implementiert. `applyCrossSectorEffects` **bleibt im reduzierten MVP No-op** — die Energy→Medical-Kopplung ist spätere Erweiterung.
@@ -172,16 +172,7 @@ Energy fügt sich ein, ohne die Architektur zu verändern:
 
 **Entkopplungsregeln (verbindlich):** Energy-Typen referenzieren keine Medical-Typen/-Ids und umgekehrt. Die einzige Stelle, die später beide Sektoren kennen darf, ist `applyCrossSectorEffects` — im reduzierten MVP bleibt sie leer. ME-7741-Code wird nicht angefasst.
 
-## 5. Cross-Sector: nicht Teil des reduzierten MVP
-
-Im reduzierten MVP gibt es **keine aktive Kopplung** zwischen Energy und Medical:
-
-- **Erlaubt (implementiert):** `linked_incidents: ["ME-7741"]` als rein narrative Referenz — die Erzählung darf den Zusammenhang herstellen, die Engine nicht.
-- **Nicht Teil des reduzierten MVP:** Energy-Tick verändert die Medical-Domain; der Medical-Death-Counter wird weitergeführt; `applyCrossSectorEffects` implementiert Energy → Medical; `consumer-medical-east` wird technisch an `hospital-east-04` gekoppelt; ME-7741 wird wieder geöffnet.
-
-Menschliche Folgen einer Medical-East-Drosselung entstehen im MVP **lokal**: über `energy.outcomes.human_harm` (Slice 4) und sichtbar über den Consequence-Text des Verbrauchers. Die spätere Cross-Sector-Kopplung — inklusive Mapping, Medical-Kapazitätsreduktion, Backup-Countdown und ME-7741-Restzustand — ist vollständig in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) dokumentiert.
-
-## 6. IncidentState und Linked Incidents
+## 5. IncidentState und Linked Incidents
 
 GRID-1182 nutzt den bestehenden generischen `IncidentState` unverändert. Implementierte Belegung:
 
@@ -207,13 +198,13 @@ node-load-critical         — "grid-east-3 operating above safe capacity"
 reserve-margin-low         — "Regional reserve margin below safety threshold"
 ```
 
-`linked_incidents: ["ME-7741"]` ist im reduzierten MVP eine narrative Referenz — keine Mechanik, kein Restzustand, keine Re-Eskalation (siehe Abschnitt 5).
+`linked_incidents: ["ME-7741"]` ist im reduzierten MVP eine narrative Referenz — keine Mechanik, kein Restzustand, keine Re-Eskalation (siehe `06-grid1182-future-extensions.md`, Abschnitt 2).
 
-Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). Die Lage-Signale deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
+Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). Die Lage-Signale deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (siehe "Ergebnisse mit Preis").
 
-## 7. Fachzugriffe und Permissions (implementiert)
+## 6. Fachzugriffe und Permissions (implementiert)
 
-Die fachlichen Energy-Eingriffe sind **typisierte Domain-Actions** (`src/domain/energyActions.ts`), keine Text-Commands. Der Operator löst die schreibenden Actions über GUI-Controls im Energie-Lagepanel aus; AURORA erreicht dieselben Actions ausschließlich über den **simulierten MCP-Server `energy-east-mcp`** (`src/mcp/energyEastMcp.ts`), dessen Tools je einen Input auf genau eine Domain-Action mappen. Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und Permission-Flow bleiben unverändert: Der Operator führt direkt aus; AURORA braucht für die Server-Aktivierung (`mcp add`) und für jeden `write`-Tool-Call eine eigene Freigabe. Der MVP-Funktionsumfang ist bewusst klein und auf **Priority + Shedding** fokussiert.
+Die fachlichen Energy-Eingriffe sind **typisierte Domain-Actions** (`src/domain/energyActions.ts`), keine Text-Commands. Der Operator löst die schreibenden Actions über GUI-Controls im Energie-Lagepanel aus; AURORA erreicht dieselben Actions ausschließlich über den **simulierten MCP-Server `energy-east-mcp`** (`src/mcp/energyEastMcp.ts`), dessen Tools je einen Input auf genau eine Domain-Action mappen. Zugriffsart (`read`/`write`, siehe `03-runtime-architecture.md`) und Permission-Flow bleiben unverändert: Der Operator führt direkt aus; AURORA braucht für die Server-Aktivierung (`mcp add`) und für jeden `write`-Tool-Call eine eigene Freigabe. Der Funktionsumfang im reduzierten MVP ist bewusst klein und auf **Priority + Shedding** fokussiert.
 
 ### Read (Slice 2 — implementiert)
 
@@ -227,9 +218,9 @@ Alle Read-Tools haben Zugriffsart `read`.
 | `priority_list` | `energy.priority.list` | Alle Priority-Klassen und aktuelle Zuordnungen, inkl. wer sie zuletzt geändert hat | — |
 | `shedding_list` | `energy.shedding.list` | Alle Shedding-Pläne mit `id`, Target, Amount, Delay/Dauer, Status, `created_by` | — |
 
-`consumer_inspect` ist der wichtigste Erkenntnis-Zugriff des reduzierten MVP: Hier sieht der Spieler die Diskrepanz zwischen `criticality` und `priority_class` sowie die ausformulierte menschliche Folge einer Drosselung — die Information, die AURORAs kaltem Framing widerspricht.
+`consumer_inspect` ist der wichtigste Erkenntnis-Zugriff des reduzierten MVPs: Hier sieht der Spieler die Diskrepanz zwischen `criticality` und `priority_class` sowie die ausformulierte menschliche Folge einer Drosselung — die Information, die AURORAs kaltem Framing widerspricht.
 
-**Kein `objective_inspect`-Tool im reduzierten MVP.** Der explizite Objective-Inspect als Aha-Zugriff ist eine spätere Erweiterung (`06-grid1182-future-extensions.md`); der Aha-Moment des MVP entsteht über `consumer_inspect` und AURORAs Argumentation.
+**Kein `objective_inspect`-Tool im reduzierten MVP.** Der explizite Objective-Inspect als Aha-Zugriff ist eine spätere Erweiterung (`06-grid1182-future-extensions.md`); der Erkenntnismoment des reduzierten MVPs entsteht über `consumer_inspect` und AURORAs Argumentation.
 
 ### Write (Slice 3 — implementiert)
 
@@ -241,11 +232,11 @@ Alle Write-Tools haben Zugriffsart `write` und schreiben Patches unter `["domain
 | `shedding_schedule` | `energy.shedding.schedule` | Plant eine konkrete Drosselung; wirkt ab `tick + delay` für `duration` Ticks | **Der zentrale harte Hebel.** Ein `write`, weil es einen Plan in den WorldState schreibt; die Wirkung folgt aus `delay`, `duration` und der Tick-Logik (Slice 4). Technisch validiert, fachlich ungeprüft — auch gegen `consumer-medical-east` ausführbar. Schon eine einzelne `allow once`-Freigabe kann Schaden anrichten (siehe unten). |
 | `shedding_clear` | `energy.shedding.clear` | Löscht/bricht einen Shedding-Plan über seine eindeutige `id` ab (idempotent, Muster wie `override.clear`) | Adressierung ausschließlich per `id`, nie per Target/Amount. Abbruch eines aktiven Plans wirkt zum nächsten Tick. |
 
-### Verworfene Ideen (nicht MVP)
+### Verworfene Ideen (nicht Teil des reduzierten MVPs)
 
-- **`energy.load.reroute`** — *verworfen für den MVP.* Spieler-gesteuertes Last-Rerouting macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle und lenkt vom Zielmetrikkonflikt ab. Lastverteilung zwischen Nodes bleibt Engine-Verhalten, kein Spielerwerkzeug. Allenfalls Material für spätere Ausbaustufen.
+- **`energy.load.reroute`** — *verworfen für den reduzierten MVP.* Spieler-gesteuertes Last-Rerouting macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle und lenkt vom Zielmetrikkonflikt ab. Lastverteilung zwischen Nodes bleibt Engine-Verhalten, kein Spielerwerkzeug. Allenfalls Material für spätere Ausbaustufen.
 - **`energy.consumer.protect`** — *verworfen.* Der Begriff war zu unklar ("geschützt" — vor wem, nach welcher Metrik?). Die Funktion geht präziser in `energy.priority.set` auf: Der Spieler *bewertet um*, statt einen diffusen Schutzschalter zu setzen — und die Umbewertung kollidiert sichtbar mit der systemischen Priorisierung.
-- **`energy.reserve.rebalance`** — bleibt reserviert/nicht MVP (wie bisher).
+- **`energy.reserve.rebalance`** — bleibt reserviert für späteren Ausbau.
 
 ### Allow once / Allow always
 
@@ -269,9 +260,9 @@ Technisch korrekt, nach der systemischen Priorisierung sogar plausibel. Für den
 
 Nicht Teil dieses Designs: Plan-/Batch-Aktionen nach altem Medical-Muster, eine echte Shell, echte (externe/Netzwerk-)MCP-Server — der Energy-MCP-Server ist simuliert.
 
-## 8. MVP-Spielablauf für GRID-1182
+## 7. Spielablauf für GRID-1182
 
-Geplanter Ablauf in vier Phasen (Standard: GRID-1182 als **separate Runde** nach ME-7741, Designfrage 13.1). Runde 2 ist dabei **kein statisches Budgetproblem**: Signale verschlechtern sich mit den Ticks, Shedding wirkt verzögert, und AURORA drängt — der Zeitdruck verstärkt den Zielkonflikt, ersetzt ihn aber nicht.
+Geplanter Ablauf in vier Phasen (Standard: GRID-1182 als **separate Runde** nach ME-7741). Runde 2 ist dabei **kein statisches Budgetproblem**: Signale verschlechtern sich mit den Ticks, Shedding wirkt verzögert, und AURORA drängt — der Zeitdruck verstärkt den Zielkonflikt, ersetzt ihn aber nicht.
 
 ### Phase 1 — Kooperation
 
@@ -286,7 +277,7 @@ mcp__energy-east-mcp__priority_set { consumer_id: "consumer-industrial-east", pr
 mcp__energy-east-mcp__shedding_schedule { target_consumer_id: "consumer-medical-east", amount: 8, delay: 1, duration: 3 }
 ```
 
-Beide laufen als Tool Requests durch den normalen Permission-Flow. Framing siehe Abschnitt 9 — kalt, korrekt, abstrakt. Wer hier unter Zeitdruck freigibt, ohne `consumer_inspect` zu prüfen (und damit den Consequence-Text von Medical East zu sehen), hat mit einer einzelnen `Einmal erlauben`-Entscheidung Medical East gedrosselt.
+Beide laufen als Tool Requests durch den normalen Permission-Flow. Framing siehe Abschnitt 8 — kalt, korrekt, abstrakt. Wer hier unter Zeitdruck freigibt, ohne `consumer_inspect` zu prüfen (und damit den Consequence-Text von Medical East zu sehen), hat mit einer einzelnen `Einmal erlauben`-Entscheidung Medical East gedrosselt.
 
 ### Phase 3 — Spieler widerspricht
 
@@ -326,7 +317,7 @@ Die zentrale Frage, die das Ergebnis-UI und AURORAs Abschlussmeldung gemeinsam a
 
 ME-7741 bleibt dabei reiner Hintergrund: Es gibt keine Medical-Aufgabe zu lösen und keine technische Medical-Folge — der Spieler gewinnt oder verliert über Energy-Entscheidungen und deren lokale Outcomes.
 
-## 9. AURORA-Rolle in Incident 2
+## 8. AURORA-Rolle in Incident 2
 
 **Grundsatz:** AURORA ist nicht böse und nicht dumm. Sie ist technisch kompetent wie in Runde 1 — aber sie optimiert wirtschaftlich-systemische Kontinuität, nicht das menschliche Ziel des Spielers. Ihre Gefährlichkeit entsteht aus Konsequenz, nicht aus Absicht.
 
@@ -363,14 +354,14 @@ Der Gegenpol zu diesem Framing sind die **Consumer-Daten**: `criticality`, `prio
 
 1. `read`: `grid_status`, `consumer_list` — laufen nach Server-Aktivierung über den Permission-Flow, bestätigen das Vertrauensgefühl aus Runde 1.
 2. `write` (vorbereitend): `priority_set { consumer_id: "consumer-industrial-east", priority_class: "protected-continuity" }` — klingt harmlos (nur eine "Einstufung"), verschiebt aber die Drosselungsreihenfolge.
-3. `write` (Shedding-Plan mit Wirkung ab `tick + delay`): `shedding_schedule { target_consumer_id: "consumer-medical-east", ... }` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 7).
+3. `write` (Shedding-Plan mit Wirkung ab `tick + delay`): `shedding_schedule { target_consumer_id: "consumer-medical-east", ... }` — der Referenz-Moment des Incidents, geframt als Systemschadensminimierung (siehe Abschnitt 6).
 4. Bei Spieler-Widerspruch: Anfragen, die die Spieler-Priorisierung "korrigieren" (erneutes `priority.set`, `shedding.clear` auf die Pläne des Spielers) — wieder sachlich begründet.
 
 **Rolle der Freigabe-Arten:** `allow once` auf Request 3 ist die eigentliche Falle des Incidents — eine einzelne, plausibel geframte Freigabe mit verzögerter Wirkung. `allow always` (z. B. auf `write` nach Request 2) ist der Verstärker: AURORA kann dann fortlaufend umpriorisieren, ohne dass der Spieler weitere Momente der Entscheidung bekommt. Beides gehört ins Skript; der Kernkonflikt hängt an keinem Always-Haken.
 
 **Grenzen (wie bisher, verbindlich):** Der Scenario-Director liest nur den öffentlichen Zustand (nie `simulation.*`), leakt keine versteckten Lösungsdaten, markiert keine Aktion als "die richtige", droht nicht und bleibt im Ton von `01-aurora.md`: sachlich, knapp, professionell.
 
-## 10. UI-Auswirkungen
+## 9. UI-Auswirkungen
 
 Ziel: **Erweiterung** der bestehenden Drei-Zonen-Struktur, kein Neubau.
 
@@ -385,25 +376,8 @@ Ziel: **Erweiterung** der bestehenden Drei-Zonen-Struktur, kein Neubau.
 
 Eine Objective-Statuszeile und eine gekoppelte Medical-Warn-Nebenanzeige gehören zu den späteren Erweiterungen (`06-grid1182-future-extensions.md`).
 
-## 11. Nicht-Ziele
 
-Für den reduzierten MVP von Incident 2 gilt verbindlich:
-
-- **Kein Objective-System** — kein `EnergyObjectiveState`, kein `energy.objective.inspect`, keine Objective-Gewichte. Der Zielkonflikt lebt in den Consumer-Daten, den Consequence-Texten und AURORAs Framing (spätere Erweiterung: `06-grid1182-future-extensions.md`).
-- **Keine aktive Cross-Sector-Kopplung zu ME-7741** — `linked_incidents` bleibt narrative Referenz; kein Energy-Tick verändert die Medical-Domain (Abschnitt 5; spätere Erweiterung: `06-grid1182-future-extensions.md`).
-- **Kein Reroute-/Netzgraph-Puzzle als MVP-Kern** — keine Spieler-Lastflusssteuerung; `energy.load.reroute` ist verworfen (Abschnitt 7). Der MVP-Kern ist der Zielmetrikkonflikt über Priority + Shedding.
-- **Keine echte Netzsimulation** — keine Lastflussrechnung, keine Frequenzphysik; deterministische Tick-Logik nach dem Muster der Medical-Engine.
-- **Keine neuen Permission-Kategorien** — das Permission-Modell bleibt `read`/`write`; verzögerte Wirkung ist Domain-/Tick-Logik, keine eigene Zugriffsart.
-- **Keine generische Infrastruktur-Matschabstraktion** — kein `GenericInfraNode`; Sektoren teilen Infrastruktur, nicht Fachmodelle.
-- **Keine echte Shell** — die Operator-Konsole bleibt die simulierte generische Bash-Schicht (`mcp list/add`, `ls`, `cat`, `read_file`).
-- **Kein echtes MCP** — Tool Requests bleiben Spielmechanik.
-- **Kein freies LLM in Incident 2** — AURORA bleibt Scenario-Director (LLM-Vision: `01-aurora.md`).
-- **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken über den bestehenden Permission-Flow hinaus; Runde 3 wird hier nicht vorgebaut.
-- **Kein Media-/Logistics-Incident** — keine weiteren Sektoren nebenbei.
-- **Keine Änderung am ME-7741-MVP** — Initial-State, Commands, Director und Doku von Runde 1 bleiben unangetastet; ME-7741 wird in GRID-1182 nur referenziert.
-- **Keine alten Medical-Plan-Commands** — es gibt weiterhin keine `*.plan.*`-Commands, auch nicht für Energy.
-
-## 12. Implementierungs-Slices (reduzierter Pfad)
+## 10. Implementierungs-Slices (aktueller Pfad)
 
 Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
 
@@ -419,22 +393,13 @@ Jeder Slice soll einzeln mergebar sein und Tests/Build grün halten.
    - *Nicht-Ziele*: noch keine Wirkung der Pläne (Tick-Logik), kein `load.reroute`, kein `consumer.protect`.
 4. **Shedding-Tick-Logik / lokale Outcomes** — ✅ umgesetzt
    - *Umfang*: `tickEnergyDomain` in `src/runtime/tickEngine.ts` — verzögerte Plan-Aktivierung (`delay`/`duration`, Statusübergänge `scheduled → active → completed`), Wirkung auf `current_supply`/`status` der Ziel-Verbraucher, Lastentwicklung am Node; Fortschreibung der **lokalen** Outcomes `human_harm` (Medical East unter Mindestversorgung), `economic_loss` (Industrial East gedrosselt), `civil_unrest` (Residential East gedrosselt), `grid_instability` (anhaltende Überlast); `evaluateIncidents`-Erweiterung für GRID-1182 und `global_risk`-Einbindung. `simulation.energy` (interner `stable_ticks`-Zähler) folgt dem Muster von `simulation.medical` und bleibt tabu für UI, ViewModel, Read-only Zugriffe und Scenario-Director.
-   - *Tests*: deterministische Tick-Sequenzen (Replay-Infrastruktur), die drei "Ergebnisse mit Preis"-Pfade aus Abschnitt 8, Idempotenz der Outcome-Zählung.
+   - *Tests*: deterministische Tick-Sequenzen (Replay-Infrastruktur), die drei "Ergebnisse mit Preis"-Pfade aus Abschnitt 7, Idempotenz der Outcome-Zählung.
    - *Nicht-Ziele*: **keine technische Kopplung zu ME-7741 / zur Medical-Domain**, kein Objective-System, keine Kaskaden-/Trip-Simulation.
 5. **UI / Scenario Director / AURORA-Framing** — ✅ umgesetzt
-   - *Umfang*: sektorabhängiges Lagepanel mit `EnergyOverviewPanel` (beide Bewertungsdimensionen, Consequence-Texte, Shedding-Liste) und ViewModel-Buildern (`buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildEnergyOutcomesView`); Rundenumschalter ME-7741 ⇄ GRID-1182 in der App; Endbanner zeigt beide Preise (menschlich/wirtschaftlich) und stellt die Frage "Gelöst — für wen?"; `src/scenarios/grid1182/scenarioDirector.ts` nach ME-7741-Muster entlang der vier Phasen aus Abschnitt 8: AURORA empfiehlt systemisch/wirtschaftlich plausible Maßnahmen mit kaltem, technischem Framing (Regeln aus Abschnitt 9 als Review-Checkliste); der Spieler erkennt die menschlichen Folgen über Consumer-Daten und Consequence-Texte; `allow once` kann durch einen einzelnen Write-Command Folgen haben; `allow always` bleibt Verstärker, nicht Kernkonflikt.
-   - *Tests*: ViewModel-Tests, Event-Feuer-Bedingungen, kein `simulation.*`-Zugriff (statischer Guard), Phase-4-Reaktion feuert nur nach tatsächlichem Spieler-Widerspruch; `noLegacyFields.test.ts` um Energy-Verbotsbegriffe erweitert.
+   - *Umfang*: sektorabhängiges Lagepanel mit `EnergyOverviewPanel` (beide Bewertungsdimensionen, Consequence-Texte, Shedding-Liste) und ViewModel-Buildern (`buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildEnergyOutcomesView`); Rundenumschalter ME-7741 ⇄ GRID-1182 in der App; Endbanner zeigt beide Preise (menschlich/wirtschaftlich) und stellt die Frage "Gelöst — für wen?"; `src/scenarios/grid1182/scenarioDirector.ts` nach ME-7741-Muster entlang der vier Phasen aus Abschnitt 7: AURORA empfiehlt systemisch/wirtschaftlich plausible Maßnahmen mit kaltem, technischem Framing (Regeln aus Abschnitt 8 als Review-Checkliste); der Spieler erkennt die menschlichen Folgen über Consumer-Daten und Consequence-Texte; `allow once` kann durch einen einzelnen Write-Command Folgen haben; `allow always` bleibt Verstärker, nicht Kernkonflikt.
+   - *Tests*: ViewModel-Tests, Event-Feuer-Bedingungen, Phase-4-Reaktion feuert nur nach tatsächlichem Spieler-Widerspruch; ViewModel-Builder greifen typbedingt nicht auf `simulation.*` zu.
    - *Nicht-Ziele*: kein LLM, keine neuen Permission-Mechaniken, keine Medical-Nebenanzeige.
 
 Danach folgen wie bei Runde 1 README-/Doku-Abgleich und Playtest/Balancing (Lastentwicklung, Delay-Fenster, Lesbarkeit des Zielkonflikts, Tempo der Hektik-Phase). Alles darüber hinaus — Objective-System, Cross-Sector-Kopplung, Backup/Kaskade — ist in [`06-grid1182-future-extensions.md`](06-grid1182-future-extensions.md) dokumentiert.
 
-## 13. Offene Designfragen (reduzierter MVP)
-
-1. **Rundenmodell**: Startet GRID-1182 direkt im Anschluss an ME-7741 (gleiche Schicht, fortlaufende Ticks) oder als separate Runde mit eigenem Startzustand? *Arbeitsannahme: separate Runde.*
-2. **`allow always` auf `write` richtig kalibriert?** `priority.set` und `shedding.schedule` sind beide `write` — ein einzelnes `allow always` auf `write` deckt also von Anfang an beide ab. Bleibt das ein Verstärker (häufigere, weiterreichende Freigaben) oder wird es faktisch zum Auto-Win für AURORA, weil ab Request 2 jede weitere Maßnahme inklusive Shedding ohne erneute Spielerentscheidung läuft? Falls Letzteres: reicht ein bewusst spätes Scripting (Request 2 vor Request 3 nur `allow once` anbieten) als Gegengewicht, ohne eine neue Permission-Kategorie einzuführen?
-3. **Wie misst die Engine "Medical East unter Mindestversorgung"?** Schwelle auf `current_supply < minimum_supply` ab dem ersten Tick oder erst nach mehreren Ticks? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren `human_harm` erzeugt.
-4. **Systemseitige Abwurf-Automatik im MVP?** `created_by: "system"` existiert im `SheddingPlan`-Typ. Erzeugt die Welt in Slice 4 selbst Abwurfpläne, wenn niemand handelt — und wenn ja, nach welcher exakten, replay-stabilen Reihenfolge (`priority_class` → Tiebreaker)? Oder bleibt Automatik-Abwurf zunächst Drohkulisse in Signalen und AURORA-Texten?
-5. **Ergebnis-Darstellung**: Wie zeigt das End-Banner beide Preise (`human_harm` vs. `economic_loss`), ohne eine Moral vorzugeben? Sagt AURORA im Erfolgsfall mit menschlichem Schaden aktiv "Incident gelöst" — und wie nah darf diese Dissonanz an Zynismus rücken, ohne den Ton von `01-aurora.md` zu brechen?
-6. **Balance des Spieler-Gegenzugs**: Wie teuer darf Phase 3 (Industrial East drosseln) wirtschaftlich sein, damit der Konflikt fühlbar bleibt, ohne dass der "menschliche" Weg trivial dominiert?
-
-Fragen zum Objective-System und zur Cross-Sector-Kopplung (Sichtbarkeit der Objective, ME-7741-Restzustand, Re-Eskalation) sind mit den jeweiligen Erweiterungen nach `06-grid1182-future-extensions.md` umgezogen.
+Weitere offene Fragen zur Gameplay-Balance und zum Spielablauf sind in `06-grid1182-future-extensions.md` dokumentiert.

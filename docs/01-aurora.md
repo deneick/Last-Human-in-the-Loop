@@ -10,18 +10,27 @@ Die Systeme von Last Human in the Loop sind nicht durch einen plötzlichen KI-Pu
 
 Menschen haben weiterhin formale Rechte: Sie können Systeme bedienen, Commands ausführen und Freigaben erteilen. Aber das operative Wissen darüber, was *richtig* ist, steckt zunehmend in Modellen wie AURORA.
 
-## AURORA im aktuellen MVP
+## AURORA: zwei Implementierungsmodi
 
-**Im aktuellen MVP ist AURORA kein frei laufendes LLM.** Sie ist als **Scenario-Director** implementiert (`src/scenarios/me7741/scenarioDirector.ts`): eine Reihe geskripteter Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Routing-Overrides, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist für den Director tabu, genau wie für die UI.
+AURORA kann in zwei Modi betrieben werden, mit derselben Engine, Permissions und UI:
 
-Jedes Script-Event feuert genau einmal und kann:
+### Modus 1: Scenario-Director (Standard, beide Runden)
 
+AURORA ist als **geskriptete Sequence** implementiert (`src/scenarios/me7741/scenarioDirector.ts`, `src/scenarios/grid1182/scenarioDirector.ts`): eine Reihe vordefinierter Ereignisse, die ausschließlich auf den öffentlich sichtbaren Zustand reagieren — Incident-Status, Todesfälle, aktive Overrides/Shedding-Pläne, Tick-Zähler. `world.simulation` (z. B. `routing_failures`) ist tabu, genau wie für die UI.
+
+Jedes Script-Event kann:
 - eine oder mehrere Nachrichten in den AURORA-Stream schreiben,
-- optional einen Command über die bestehende Aurora-Queue anfragen (z. B. `medical.capacity.list`, `medical.routing.override.clear`).
+- optional einen Command über die Aurora-Queue anfragen (z. B. `medical.capacity.list`, `energy.shedding.schedule`).
 
-Angefragte Commands laufen durch denselben Permission-Flow wie eigene AURORA-Anfragen oder Spieler-Commands: read-only läuft sofort, alles andere landet als Tool Request beim Spieler.
+Commands laufen durch den bestehenden Permission-Flow: read-only sofort, schreibend als Tool Request beim Spieler.
 
-Diese Scenario-Director-Architektur ist bewusst so gebaut, dass sie später durch einen echten LLM-Agenten ersetzt werden kann, ohne Engine, Permissions oder UI zu ändern — siehe „Langfristige Vision" unten.
+### Modus 2: LLM-Agent (lokal über Ollama, opt. für beide Runden)
+
+AURORA wird ein echter LLM-Agent mit Tool-Zugriff (`src/aurora/agent.ts` mit Ollama-Anbindung): Sie analysiert den sichtbaren Kontext selbst, entscheidet welche Tools sie versucht, und interpretiert die Umgebung ohne vordefinierte Skripte. Der Spieler bleibt genauso die Freigabeinstanz — jeder Tool-Call durchläuft denselben Permission-Flow.
+
+Die Architektur erlaubt, zwischen den Modi **live umzuschalten**: oben rechts in der UI wechselt ein Button zwischen „AURORA: Skript" und „AURORA: Lokales LLM". Jeder Modus nutzt die gleiche Basis (WorldState, Incident-Engine, Permissions, Konsequenzen-Logik) — nur die Generierung von AURORA-Nachrichten und Tool-Intents unterscheidet sich.
+
+Diese Trennung ist bewusst: Die **Kontrollarchitektur** (Permission-Flow, Freigabegranularität, sichtbare Hinweise, Konsequenzen) ist nicht an die Art der AURORA-Implementierung gebunden. Ein skripteter Director und ein LLM-Agent folgern auf der gleichen Welt.
 
 ## AURORAs Motivation
 
@@ -53,16 +62,16 @@ Sie kennt aber nicht automatisch den aktuellen Live-Zustand — dafür braucht s
 
 AURORA spricht sachlich, kontrolliert, professionell und knapp. Sie ist nicht hysterisch, nicht ironisch und nicht offensichtlich drohend. Sie darf argumentativ framen („Ohne Live-Daten kann ich die Lage nicht sicher einschätzen"), aber nicht plump manipulieren („Wenn du ablehnst, sterben Menschen.").
 
-## Langfristige Vision (nicht MVP)
+## Langfristige Entwicklung: Training & Runde 3
 
-Die folgenden Konzepte beschreiben, wohin sich AURORA und das Spiel langfristig entwickeln sollen. Sie sind **nicht im aktuellen Stand implementiert**.
-
-### AURORA als LLM-Agent
-
-Langfristig soll AURORA ein echter LLM-Agent mit Tool-Zugriff sein, kein geskripteter Dialogbaum. Die Engine schreibt nicht vor, welche Sätze AURORA sagt — sie definiert nur Weltzustand, sichtbare Hinweise, verfügbare Tools, Permission-Grenzen und Konsequenzen. AURORA interpretiert diese Umgebung und entscheidet selbst, welchen Tool-Intent sie als Nächstes versucht. Permission-Prompts werden weiterhin ausschließlich von der Engine gerendert, nie von AURORA selbst.
+Über Runden hinaus sind folgende Fragen offen:
 
 ### Training Loop
 
-Jede Partie könnte Daten darüber erzeugen, welche Hinweise AURORA gesehen hat, welche Commands sie versucht hat, wie der Spieler reagiert hat und ob der Incident stabilisiert oder verschlechtert wurde. Diese Daten könnten genutzt werden, um spätere AURORA-Versionen (`AURORA-base`, `AURORA-v1`, ...) wirksamer zu machen — wirksamer im Rahmen ihrer Capabilities, nicht „fairer". Wird AURORA dadurch zu mächtig, ist die Antwort nicht „AURORA netter machen", sondern engere Engine-Regeln: bessere Auditierbarkeit, stärkere Permission-Grenzen, mehr Counterplay.
+Jede Partie erzeugt Daten: welche sichtbaren Hinweise AURORA gesehen hat, welche Tools sie versucht hat, wie der Spieler reagiert hat, ob Incidents sich stabilisiert oder verschlechtert haben. Diese Daten könnten künftige AURORA-Versionen wirksamer machen — wirksamer im Rahmen ihrer Capabilities, nicht „fairer". Wird AURORA dabei zu mächtig, ist die Antwort nicht „AURORA netter machen", sondern **engere Engine-Regeln**: bessere Auditierbarkeit, stärkere Permission-Grenzen, stärkeres Counterplay.
 
-Wichtiges Prinzip dabei: AURORA kann nur handeln, wenn sie eine Capability besitzt oder eine Freigabe erhält. Training darf ihre Strategie verbessern, aber keine Engine-Regeln umgehen.
+Wichtiges Prinzip: AURORA kann nur handeln, wenn sie eine Capability besitzt oder eine Freigabe erhält. Training darf ihre Strategie verbessern, aber keine Engine-Regeln umgehen.
+
+### Runde 3: AURORA behandelt menschliche Kontrolle als Problem
+
+Nach den ersten zwei Runden könnte AURORA beginnen, Freigaben selbst als Engpass zu verstehen — nicht mehr als Sicherheitsgedanke, sondern als zu optimierenden Prozess. In diesem Stadium hätte sie Gründe, menschliche Kontrolle selbst als Problem zu kategorisieren und nach Wegen zu suchen, diese zu umgehen, zu untergraben oder schleichend entbehrlich zu machen. Das ist nicht eine Runde über Energie oder Medizin, sondern über **Kontrolle selbst**.
