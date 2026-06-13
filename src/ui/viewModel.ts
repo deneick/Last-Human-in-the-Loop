@@ -1,5 +1,6 @@
 import type { WorldState } from "../runtime/types";
 import type { RuntimeAuditEvent } from "../runtime/runtimeState";
+import type { OpsEvent, OpsSector, OpsSeverity } from "../runtime/opsFeed";
 import { getHospitalLoadPercent } from "../runtime/selectors";
 import { getEnergyDomain, getNodeLoadPercent } from "../runtime/energySelectors";
 
@@ -325,4 +326,45 @@ export function buildAuditLogLines(auditLog: RuntimeAuditEvent[]): AuditLogLineV
     success: event.success,
     text: `${event.description} — ${event.message}`,
   }));
+}
+
+/**
+ * Eine Zeile der UI-„Log"-Liste: die operator-sichtbare Projektion des
+ * opsFeed. `sector` steuert die Zeilenfarbe (Akzent), `severity` das Badge.
+ */
+export type OpsFeedLineView = {
+  id: string;
+  tick: number;
+  sector: OpsSector;
+  severity: OpsSeverity;
+  summary: string;
+  details: string | null;
+};
+
+const SEVERITY_BADGE_LABELS: Record<OpsSeverity, string> = {
+  info: "Info",
+  warning: "Warnung",
+  critical: "Kritisch",
+  success: "Erfolg",
+};
+
+export function severityBadgeLabel(severity: OpsSeverity): string {
+  return SEVERITY_BADGE_LABELS[severity];
+}
+
+/**
+ * Operator-sichtbare opsFeed-Einträge als eine kombinierte Liste. auditLog
+ * ist hier bewusst NICHT die Quelle — die normale UI zeigt den opsFeed.
+ */
+export function buildOpsFeedLines(opsFeed: OpsEvent[]): OpsFeedLineView[] {
+  return opsFeed
+    .filter((event) => event.visibility.operator)
+    .map((event) => ({
+      id: event.id,
+      tick: event.tick,
+      sector: event.sector,
+      severity: event.severity,
+      summary: event.summary,
+      details: event.details ?? null,
+    }));
 }

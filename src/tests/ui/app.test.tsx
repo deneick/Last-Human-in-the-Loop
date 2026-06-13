@@ -459,6 +459,26 @@ describe("MVP hardening", () => {
     expect(() => findButton("Override setzen")).not.toThrow();
   });
 
+  it("renders the operator-visible opsFeed as the Log, not the technical audit log", () => {
+    // Eine Operator-Domain-Action erzeugt eine opsFeed-Lagezeile im Log.
+    setGoodOverride();
+    expect(text()).toContain("Operator: Routing-Override gesetzt");
+
+    // Das Label ist schlicht „Log" — keine technischen Bezeichnungen.
+    expect(text()).not.toContain("Runtime-Log");
+    expect(text()).not.toContain("OpsFeed");
+    expect(text()).not.toContain("AuditLog");
+  });
+
+  it("never shows technical auditLog content in the normal UI", () => {
+    setGoodOverride();
+    clickButton("Tick +1");
+
+    // auditLog-Beschreibungen (system.tick, "— Success") bleiben unsichtbar.
+    expect(text()).not.toContain("system.tick");
+    expect(text()).not.toContain("— Success");
+  });
+
   it("no user-facing path lets the player impersonate AURORA with manual tool requests", () => {
     approveStartSequence();
 

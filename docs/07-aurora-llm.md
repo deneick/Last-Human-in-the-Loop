@@ -45,6 +45,14 @@ Regeln:
 - `world.incidents[*].public_signals` werden genau einmal bei der
   Runtime-Initialisierung in `incident_signal`-Events konvertiert
   (`initialIncidentSignalEvents`) und danach nicht mehr dynamisch gelesen.
+- Der `opsFeed` (siehe `docs/08-informationsmodell.md`) speist den
+  `auroraContext` punktuell: Ein OpsEvent mit `visibility.auroraContext === true`
+  (z. B. eine MCP-Server-Aktivierung) wird im Moment seines Entstehens
+  zusätzlich als `system_event` mit der Lagezeile angehängt — AURORA sieht es
+  damit sofort im nächsten Request. OpsEvents mit `visibility.workspace === true`
+  werden **nicht** gepusht, sondern sind über `cat logs/<sektor>.log` nachlesbar;
+  der `cat`-Output landet als `tool_result` im Kontext, die Historie bleibt
+  damit selbsterklärend.
 - Die **AuroraQueue ist eine reine Ausführungs-Queue** für modell-erzeugte
   Tool-Calls (sequenzieller Permission-/Execution-Flow und Pending-UI). Sie
   ist keine Konversations- oder History-Quelle und wird vom Context-Builder
@@ -128,7 +136,11 @@ Permission-Anfragen, Tool-Ergebnisse und öffentliche Signale sieht.
 ### Tool-Sichtbarkeit (`toolSchema.ts`)
 
 - `bash` ist immer verfügbar (generische Workspace-Commands: `mcp list`,
-  `mcp add <server>`, `ls`, `cat <file>`, `read_file <file>`).
+  `mcp add <server>`, `ls`, `cat <file>`, `read_file <file>`). Der Workspace
+  enthält neben den statischen `ops/`-Dateien die aus dem `opsFeed` generierten
+  Sektor-Logs `logs/system.log`, `logs/medical.log`, `logs/energy.log`. Reads
+  sind freigabefrei — AURORA kann die Lage-Historie eines Sektors per
+  `cat logs/medical.log` nachlesen, ohne Permission-Prompt.
 - Jeder **aktive** MCP-Server trägt seine Tools als
   `mcp__<serverId>__<toolName>` bei (z. B. `mcp__medical-east-mcp__capacity_list`).
   Tools inaktiver Server erscheinen nicht im `ModelRequest` — Aktivierung per

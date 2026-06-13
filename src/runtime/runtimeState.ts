@@ -6,6 +6,8 @@ import type { McpRuntimeState } from "../mcp/mcpRegistry";
 import { createInitialMcpRuntimeState } from "../mcp/mcpRegistry";
 import type { AuroraContextEvent } from "./auroraContext";
 import { initialIncidentSignalEvents, operatorMessageEvent } from "./auroraContext";
+import type { OpsEvent } from "./opsFeed";
+import { initialOpsFeed } from "./opsFeed";
 
 export type RuntimeAuditEventSource = "player" | "aurora" | "system";
 
@@ -59,6 +61,11 @@ export type GameRuntimeState = {
    * echter Reihenfolge. Einzige History-Quelle für den Model-Request.
    */
   auroraContext: AuroraContextEvent[];
+  /**
+   * Kanonischer, spielsichtbarer Lage-/Betriebs-Feed (siehe `opsFeed.ts`).
+   * Nicht die Quelle der WorldState-Wahrheit — nur beobachtbare Ereignisse.
+   */
+  opsFeed: OpsEvent[];
   auditLog: RuntimeAuditEvent[];
   scenario?: ScenarioRuntimeState;
 };
@@ -72,6 +79,10 @@ export function createInitialGameRuntimeState(initialWorldState: WorldState): Ga
     // Öffentliche Startup-Signale werden genau einmal bei der Initialisierung
     // in Context-Events umgewandelt — nicht dynamisch nachgelesen.
     auroraContext: initialIncidentSignalEvents(initialWorldState),
+    // Öffentliche Startup-Signale sind auch beobachtbare Lageereignisse:
+    // operator- und workspace-sichtbar, aber nicht erneut in den
+    // auroraContext gespiegelt (das erledigt initialIncidentSignalEvents).
+    opsFeed: initialOpsFeed(initialWorldState),
     auditLog: [],
   };
 }

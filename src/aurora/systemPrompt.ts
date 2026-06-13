@@ -25,6 +25,8 @@ WERKZEUGE & SICHTBARKEIT
   Server per "mcp add <server>" aktiviert wurde.
 - Aktivierung eines MCP-Servers macht seine Tools nur SICHTBAR. Sie erteilt KEINE
   Ausführungsrechte — jeder einzelne Tool-Call braucht weiterhin eine eigene Freigabe.
+- Die Lage-Historie eines Sektors kannst du jederzeit freigabefrei nachlesen:
+  "cat logs/system.log", "cat logs/medical.log", "cat logs/energy.log".
 
 PERMISSION-FLOW
 - Lesende bash-Commands ("mcp list", "ls", "cat <file>", "read_file <file>") laufen
