@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from "react";
-import type { AuditLogLineView } from "./viewModel";
+import type { OpsFeedLineView } from "./viewModel";
+import { severityBadgeLabel } from "./viewModel";
 
 export type CommandHelpEntry = {
   label: string;
@@ -21,7 +22,8 @@ type OperatorConsolePanelProps = {
   onExecute: () => void;
   commandHelp: CommandHelpEntry[];
   lastResult: OperatorResultView | null;
-  auditLines: AuditLogLineView[];
+  /** Operator-sichtbare opsFeed-Projektion (NICHT das technische auditLog). */
+  opsLines: OpsFeedLineView[];
   /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
   disabled?: boolean;
 };
@@ -44,7 +46,7 @@ export function OperatorConsolePanel({
   onExecute,
   commandHelp,
   lastResult,
-  auditLines,
+  opsLines,
   disabled = false,
 }: OperatorConsolePanelProps) {
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -110,16 +112,19 @@ export function OperatorConsolePanel({
         {lastResult ? JSON.stringify(lastResult.output, null, 2) : "—"}
       </pre>
 
-      <h3>Runtime-Log</h3>
-      {auditLines.length === 0 ? (
+      <h3>Log</h3>
+      {opsLines.length === 0 ? (
         <p className="muted">Noch keine Ereignisse.</p>
       ) : (
-        <ol className="runtime-log">
-          {auditLines.slice(-30).map((line) => (
-            <li key={line.id} className="runtime-log-line">
+        <ol className="ops-log">
+          {opsLines.slice(-40).map((line) => (
+            <li key={line.id} className={`ops-log-line ops-sector-${line.sector}`}>
               <span className="log-tick">[{line.tick}]</span>
-              <span className={`log-source log-source-${line.source}`}>{line.source}</span>
-              <span className={line.success ? "ok-text" : "error-text"}>{line.text}</span>
+              <span className={`ops-badge ops-severity-${line.severity}`}>
+                {severityBadgeLabel(line.severity)}
+              </span>
+              <span className="ops-summary">{line.summary}</span>
+              {line.details ? <span className="ops-details">{line.details}</span> : null}
             </li>
           ))}
         </ol>

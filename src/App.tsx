@@ -8,12 +8,11 @@ import type { DomainAction } from "./domain/actions";
 import { createDefaultMcpRegistry } from "./mcp";
 import type { WorldState } from "./runtime/types";
 import {
-  appendContextEvent,
   appendOperatorMessage,
   createInitialGameRuntimeState,
   type GameRuntimeState,
 } from "./runtime/runtimeState";
-import { systemEvent } from "./runtime/auroraContext";
+import { appendOpsEvent, buildWorkspaceFiles } from "./runtime/opsFeed";
 import {
   applyAuroraExecutionResult,
   executePlayerBashCommand,
@@ -44,7 +43,7 @@ import {
 } from "./ui/OperatorConsolePanel";
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
 import {
-  buildAuditLogLines,
+  buildOpsFeedLines,
   buildConsumerViews,
   buildEnergyOutcomesView,
   buildGlobalOutcomeView,
@@ -263,7 +262,7 @@ function App({ auroraClient }: AppProps = {}) {
   const consumerViews = buildConsumerViews(runtimeState.world);
   const sheddingViews = buildSheddingViews(runtimeState.world);
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
-  const auditLines = buildAuditLogLines(runtimeState.auditLog);
+  const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
   const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
@@ -388,7 +387,14 @@ function App({ auroraClient }: AppProps = {}) {
     // (mcp list/add, ls, cat, read_file). Fachliche Medical/Energy-Aktionen
     // laufen ausschließlich über die GUI-Controls der Lage-Panels.
     if (isGenericBashCommandText(commandText)) {
-      const { state, result } = executePlayerBashCommand(runtimeState, env.mcpRegistry, commandText);
+      // Der Operator liest dieselben generierten Sektor-Logs wie AURORA
+      // (logs/system.log, logs/medical.log, logs/energy.log).
+      const { state, result } = executePlayerBashCommand(
+        runtimeState,
+        env.mcpRegistry,
+        commandText,
+        buildWorkspaceFiles(runtimeState.opsFeed)
+      );
       setRuntimeState(advanceScenario(state));
       setLastResult({
         success: result.success,
@@ -473,22 +479,40 @@ function App({ auroraClient }: AppProps = {}) {
           ? allow_once()
           : deny();
 
+    const requestText = formatAuroraRequest(awaitingAuroraItem.request);
+
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
-      env,
+      { ...env, workspaceFiles: buildWorkspaceFiles(runtimeState.opsFeed) },
       runtimeState.world,
       runtimeState.mcp,
       runtimeState.permissions,
       decision
     );
 
-    const resultState = applyAuroraResults(
+    let resultState = applyAuroraResults(
       runtimeState,
       resolved.queueState,
       resolved.permissionState,
       resolved.mcpState,
       resolved.results
     );
+
+    // Operator-Entscheidung als Lageereignis festhalten. AURORA erfährt das
+    // Ergebnis bereits über ihr tool_result — daher kein erneuter Push.
+    resultState = appendOpsEvent(resultState, {
+      sector: "system",
+      severity: decisionType === "deny" ? "warning" : "info",
+      kind: `permission.${decisionType}`,
+      summary:
+        decisionType === "deny"
+          ? "Operator hat eine AURORA-Anfrage abgelehnt."
+          : decisionType === "allow_always"
+            ? "Operator hat eine AURORA-Anfrage dauerhaft erlaubt."
+            : "Operator hat eine AURORA-Anfrage einmal erlaubt.",
+      details: requestText,
+      visibility: { operator: true, auroraContext: false, workspace: true },
+    });
 
     if (auroraMode === "llm") {
       // AURORA sieht die Entscheidung (Ausführung oder Ablehnung) als
@@ -533,15 +557,17 @@ function App({ auroraClient }: AppProps = {}) {
         }
       }
 
-      // Zeitverlauf modell-sichtbar machen: Ohne dieses Event wüsste AURORA
-      // nicht, dass zwischen ihren Zügen Ticks vergangen sind.
-      next = appendContextEvent(
-        next,
-        systemEvent(
-          next.world.clock.tick,
-          `Zeit fortgeschritten: Tick ${next.world.clock.tick} · ${next.world.clock.elapsed_minutes} Minuten seit Schichtbeginn.`
-        )
-      );
+      // Zeitverlauf als Lageereignis: operator-sichtbar im Log und (da
+      // modell-relevant) zusätzlich in den auroraContext gespiegelt — ohne
+      // dieses Event wüsste AURORA nicht, dass zwischen ihren Zügen Ticks
+      // vergangen sind. Tick-Rauschen bleibt aus den Workspace-Logs.
+      next = appendOpsEvent(next, {
+        sector: "system",
+        severity: "info",
+        kind: "time.progress",
+        summary: `Zeit fortgeschritten: Tick ${next.world.clock.tick} · ${next.world.clock.elapsed_minutes} Minuten seit Schichtbeginn.`,
+        visibility: { operator: true, auroraContext: true, workspace: false },
+      });
 
       setRuntimeState(next);
 
@@ -786,7 +812,7 @@ function App({ auroraClient }: AppProps = {}) {
             onExecute={runPlayerCommand}
             commandHelp={scenario.commandHelp}
             lastResult={lastResult}
-            auditLines={auditLines}
+            opsLines={opsLines}
             disabled={auroraBusy}
           />
         </section>

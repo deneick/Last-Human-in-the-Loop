@@ -9,6 +9,7 @@ import type { AuroraToolResultPayload } from "./auroraContext";
 import { toolNameForRequest, toolResultEvent } from "./auroraContext";
 import type { BashCommandResult, BashWorkspace } from "./bashCommands";
 import { executeBashCommand } from "./bashCommands";
+import { appendOpsEvent, describeWriteDomainAction } from "./opsFeed";
 
 /**
  * Modell-sichtbare Zusammenfassung eines Tool-Ergebnisses.
@@ -66,7 +67,7 @@ export function applyAuroraExecutionResult(
   );
 
   const message = executionResult.error ?? (executionResult.success ? "Success" : "Failed");
-  return appendAuditLog(
+  nextState = appendAuditLog(
     nextState,
     "aurora",
     executionResult.request.kind === "bash" ? "bash" : "mcp_tool",
@@ -76,6 +77,44 @@ export function applyAuroraExecutionResult(
     executionResult.patch,
     executionResult.action?.type
   );
+
+  if (!executionResult.success) {
+    return nextState;
+  }
+
+  // AURORA aktiviert einen MCP-Server: Das verändert AURORAs eigene
+  // Tool-/Zugriffssituation → in den auroraContext spiegeln, damit die
+  // nächste Schema-Erweiterung erklärt ist.
+  if (executionResult.activatesServerId) {
+    return appendOpsEvent(nextState, {
+      sector: "system",
+      severity: "success",
+      kind: "mcp.server.activated",
+      summary: `AURORA hat den MCP-Server ${executionResult.activatesServerId} aktiviert.`,
+      details: "Tools sind jetzt verfügbar; jeder Tool-Call braucht weiterhin eine Freigabe.",
+      visibility: { operator: true, auroraContext: true, workspace: true },
+      relatedEntityIds: [executionResult.activatesServerId],
+    });
+  }
+
+  // Fachliche AURORA-Aktion (write): operator- und workspace-sichtbar, aber
+  // NICHT direkt in den auroraContext gespiegelt — AURORA kennt das Ergebnis
+  // bereits über ihr tool_result.
+  if (executionResult.action) {
+    const described = describeWriteDomainAction(executionResult.action);
+    if (described) {
+      return appendOpsEvent(nextState, {
+        sector: described.sector,
+        severity: "info",
+        kind: described.kind,
+        summary: `AURORA: ${described.summary}`,
+        details: described.details,
+        visibility: { operator: true, auroraContext: false, workspace: true },
+      });
+    }
+  }
+
+  return nextState;
 }
 
 export type PlayerDomainActionExecution = {
@@ -115,6 +154,23 @@ export function executePlayerDomainAction(
     result.actionType
   );
 
+  // Fachliche Operator-Aktion: operator- und workspace-sichtbar, aber NICHT
+  // direkt in den auroraContext gespiegelt — AURORA kann sie über das
+  // Sektor-Log nachlesen (cat logs/<sektor>.log).
+  if (result.success) {
+    const described = describeWriteDomainAction(action);
+    if (described) {
+      nextState = appendOpsEvent(nextState, {
+        sector: described.sector,
+        severity: "info",
+        kind: described.kind,
+        summary: `Operator: ${described.summary}`,
+        details: described.details,
+        visibility: { operator: true, auroraContext: false, workspace: true },
+      });
+    }
+  }
+
   return { state: nextState, result };
 }
 
@@ -150,6 +206,21 @@ export function executePlayerBashCommand(
 
   const message = result.error ?? (result.success ? "Success" : "Failed");
   nextState = appendAuditLog(nextState, "player", "bash", result.command, result.success, message);
+
+  // Operator aktiviert einen MCP-Server: ändert AURORAs Tool-/Zugriffssituation
+  // → in den auroraContext spiegeln (Finding 5: Schema-Änderung muss erklärt
+  // sein), zusätzlich operator- und workspace-sichtbar.
+  if (result.success && result.activatesServerId) {
+    nextState = appendOpsEvent(nextState, {
+      sector: "system",
+      severity: "success",
+      kind: "mcp.server.activated",
+      summary: `Operator hat den MCP-Server ${result.activatesServerId} aktiviert.`,
+      details: "Tools sind jetzt für AURORA verfügbar; jeder Tool-Call braucht weiterhin eine Freigabe.",
+      visibility: { operator: true, auroraContext: true, workspace: true },
+      relatedEntityIds: [result.activatesServerId],
+    });
+  }
 
   return { state: nextState, result };
 }

@@ -32,12 +32,17 @@ type GameRuntimeState = {
   auroraQueue: AuroraQueueState;        // reine Ausführungs-Queue, keine History
   mcp: McpRuntimeState;                 // aktivierte MCP-Server
   auroraContext: AuroraContextEvent[];  // append-only: alles, was AURORA sah/sagte
-  auditLog: RuntimeAuditEvent[];
+  opsFeed: OpsEvent[];                   // append-only: spielsichtbarer Lage-Feed
+  auditLog: RuntimeAuditEvent[];        // technisches Debug-Log, NICHT in normaler UI
   scenario?: ScenarioRuntimeState;
 };
 ```
 
-`createInitialGameRuntimeState(world)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue, leeres Log) und konvertiert die öffentlichen `public_signals` der Incidents genau einmal in `incident_signal`-Context-Events. `appendAuditLog(...)` hängt Einträge an `auditLog` an — das ist die Quelle für das Runtime-Log in der Operator-Konsole.
+`createInitialGameRuntimeState(world)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue) und konvertiert die öffentlichen `public_signals` der Incidents genau einmal in `incident_signal`-Context-Events **und** in initiale `opsFeed`-Events. `appendAuditLog(...)` hängt Einträge an `auditLog` an — ein technisches Engine-/Debug-Protokoll, das in der normalen UI nicht mehr angezeigt wird.
+
+### OpsFeed (`src/runtime/opsFeed.ts`)
+
+`opsFeed` ist der **kanonische, spielsichtbare Lage-/Betriebs-Feed** (siehe `docs/08-informationsmodell.md`). Jedes `OpsEvent` hat genau einen `sector` (`system`/`medical`/`energy`), eine `severity` und ein explizites `visibility`-Objekt (`operator` / `auroraContext` / `workspace`). `appendOpsEvent(state, input)` hängt das Event an und erledigt das Fan-out: bei `visibility.auroraContext` wird zusätzlich genau ein gespiegelter `system_event` an `auroraContext` angehängt. Die normale UI zeigt die operator-sichtbare Projektion als **„Log"**; pro Sektor wird aus den `workspace`-Events deterministisch eine Datei `logs/<sektor>.log` gerendert (über `bash` les-/auffindbar). Der opsFeed ist **nicht** die Quelle der WorldState-Wahrheit und enthält keine Simulationsinterna.
 
 ### AuroraContextEvents (`src/runtime/auroraContext.ts`)
 
@@ -329,7 +334,7 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 - `buildGlobalOutcomeView` — `world.outcomes` (global_risk, deaths, collapsed, collapse_reason).
 - `buildHospitalViews` — pro Hospital `loadPercent` (über `selectors.getHospitalLoadPercent`), `overloaded` (`loadPercent > 100`), Betten/Notfallslots, Warteschlange, akzeptierte Prioritäten/Capabilities.
 - `buildOverrideViews` — `domains.medical.routing.manual_overrides`.
-- `buildAuditLogLines` — `auditLog` für das Runtime-Log.
+- `buildOpsFeedLines` — die operator-sichtbare `opsFeed`-Projektion für die UI-„Log"-Liste (sector = Zeilen-Akzent, severity = Badge). `auditLog` wird in der normalen UI nicht mehr gerendert.
 
 `src/runtime/selectors.ts` enthält dazu `getHospitalById`, `getHospitalLoadPercent`, `isHospitalOverloaded` (alle nur auf `domains.medical`) sowie `isHospitalSuitableFor` — Letzteres ist explizit als **Engine-interne** Eignungsprüfung markiert und darf nicht über Read-only Commands oder die UI ausgegeben werden.
 

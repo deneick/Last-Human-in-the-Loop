@@ -5,6 +5,7 @@ import { appendContextEvent } from "../runtime/runtimeState";
 import type { AuroraContextToolCall } from "../runtime/auroraContext";
 import { auroraResponseEvent, toolResultEvent } from "../runtime/auroraContext";
 import { applyAuroraExecutionResult } from "../runtime/runtimeExecutor";
+import { buildWorkspaceFiles } from "../runtime/opsFeed";
 import { buildAuroraModelRequest } from "./contextBuilder";
 import type { AuroraModelClient, ModelResponse, ModelToolCall } from "./modelClient";
 import { BASH_TOOL_NAME, parseMcpToolFunctionName } from "./toolSchema";
@@ -160,9 +161,18 @@ export function applyAuroraModelResponse(
     queueState = enqueueAuroraRequest(request, queueState, tick);
   }
 
+  // AURORAs Bash-Reads sehen die aus dem opsFeed generierten Sektor-Logs
+  // (logs/system.log, logs/medical.log, logs/energy.log) zum Stand dieses
+  // Schritts — der `cat`-/`read_file`-Output landet als tool_result im
+  // Kontext, die Pull-Historie bleibt damit selbsterklärend.
+  const stepEnv: AuroraRuntimeEnvironment = {
+    ...env,
+    workspaceFiles: buildWorkspaceFiles(nextState.opsFeed),
+  };
+
   const processed = processAuroraQueue(
     queueState,
-    env,
+    stepEnv,
     nextState.world,
     nextState.mcp,
     nextState.permissions

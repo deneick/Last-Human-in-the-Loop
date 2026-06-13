@@ -42,7 +42,7 @@ Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
 Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
 
 - **Links — Lage**: aktiver Incident, globale Lage (Risiko, Todesfälle), öffentliche Signale und das sektorabhängige Lagepanel — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) in Runde 1, Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne) in Runde 2.
-- **Mitte — Operator-Konsole**: generische Workspace-Shell (Command-Hilfe, letztes Ergebnis, Runtime-Log). Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
+- **Mitte — Operator-Konsole**: generische Workspace-Shell (Command-Hilfe, letztes Ergebnis, **Log**). Das „Log" zeigt den spielsichtbaren Lage-Feed (`opsFeed`) als eine kombinierte Liste — Sektor als Zeilen-Akzent, Severity als Badge. Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
 - **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung, Always-Permissions.
 
 Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück; die Runden-Buttons wechseln zwischen ME-7741 und GRID-1182 und starten die gewählte Runde frisch.
@@ -67,6 +67,8 @@ ls
 cat <file>
 read_file <file>
 ```
+
+Der Workspace enthält neben den statischen `ops/`-Dateien die aus dem `opsFeed` generierten Sektor-Logs `logs/system.log`, `logs/medical.log` und `logs/energy.log` — über `ls`/`cat`/`read_file` les- und auffindbar (auch für AURORA, freigabefrei). Das Informationsmodell dahinter (`world` / `auditLog` / `auroraContext` / `opsFeed`) beschreibt `docs/08-informationsmodell.md`.
 
 AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (nach `mcp add <server>`), jeder Tool-Call über den Permission-Flow.
 

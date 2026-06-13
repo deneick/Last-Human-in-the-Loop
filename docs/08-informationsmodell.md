@@ -1,16 +1,24 @@
-# Informationsmodell: Wer weiß was wann — Analyse & Umsetzungsplan
+# Informationsmodell: Wer weiß was wann
 
-Dieses Dokument ist eine ehrliche Bestandsaufnahme der Informationsflüsse im
-Spiel und ein konkreter Plan, sie auf ein klares Modell zu bringen. Auslöser:
-Zwei Review-Findings (Operator-Aktionen sind für AURORA unsichtbar;
-`first_seen_at_tick` wird ignoriert) sind keine Einzel-Bugs, sondern Symptome
-eines fehlenden Informationsmodells.
+Dieses Dokument beschreibt das kanonische Informationsmodell des Spiels: die
+vier Kanäle, ihre Verantwortlichkeiten und — als Kern — den **opsFeed** als
+spielsichtbaren Lage-/Betriebs-Feed. Auslöser war eine ehrliche
+Bestandsaufnahme (Abschnitt 1): Lageinformation entstand an fünf verschiedenen
+Stellen mit zufälliger Sichtbarkeit; es gab kein kanonisches Log, aus dem
+hervorging, wer was wann über welchen Kanal erfahren hat.
 
-**Kernproblem in einem Satz:** Lageinformation entsteht heute an fünf
-verschiedenen Stellen mit jeweils zufälliger Sichtbarkeit — es gibt kein
-kanonisches Log, aus dem hervorgeht, wer was wann über welchen Kanal erfahren
-hat. Ein Anspieltest mit lokalem LLM würde deshalb primär die chaotische
-Informationsverteilung testen, nicht die Modellqualität.
+**Die vier Kanäle (verbindlich):**
+
+1. **`world` (WorldState)** bleibt die interne Simulationswahrheit.
+2. **`auditLog`** bleibt ein technisches Runtime-/Debug-Log und wird in der
+   normalen UI **nicht** angezeigt.
+3. **`auroraContext`** bleibt der modell-/trainingssichtbare Kontext: was
+   AURORA tatsächlich gesehen, gesagt und von Tools zurückbekommen hat.
+4. **`opsFeed`** ist der kanonische, spielsichtbare Feed beobachtbarer
+   Lage-/Operations-Ereignisse. Die normale UI zeigt ihn als **„Log"**.
+   Workspace-Logdateien werden pro Sektor aus dem opsFeed generiert. Einzelne
+   opsFeed-Events werden zusätzlich in den `auroraContext` gespiegelt — aber
+   nur, wenn `visibility.auroraContext === true`.
 
 ---
 
@@ -84,195 +92,160 @@ Ehrliche Auflistung, ohne Schönfärben. „Operator" = Spieler-UI,
 
 ---
 
-## 2. Zielbild
+## 2. Zielbild (umgesetzt)
 
 ### Leitprinzip
 
-> **Jede Lageinformation entsteht als Eintrag in einem kanonischen Ops-Log.
-> Sichtbarkeit ist ein explizites Attribut des Eintrags — nie ein
-> Nebeneffekt des Codepfads, der ihn erzeugt hat.**
+> **Jede Lageinformation entsteht als OpsEvent im kanonischen `opsFeed`.
+> Sichtbarkeit ist ein explizites Attribut des Events (`visibility`) — nie ein
+> Nebeneffekt des Codepfads, der es erzeugt hat.**
 
-Drei Konsumenten, ein Erzeuger:
+Mehrere Erzeuger, ein Feed, drei Sichtbarkeits-Senken:
 
 ```
                        ┌──────────────────────────────┐
-  Engine/Tick ───────▶ │                              │ ──▶ Operator-Lagelog (UI-Panel)
-  Operator-Aktionen ─▶ │   OpsLog (append-only,       │ ──▶ AURORA push  → auroraContext
-  AURORA-Ausführungen▶ │   kanonisch, deterministisch)│      (system/incident/scenario_event)
-  Scenario-Skript ───▶ │                              │ ──▶ AURORA pull  → workspace logs/
-                       └──────────────────────────────┘      (bash: cat logs/ops.log)
+  Operator-Aktionen ─▶ │                              │ ──▶ operator → UI-„Log" (Panel)
+  AURORA-Ausführungen▶ │   opsFeed (append-only,      │ ──▶ auroraContext → system_event
+  Operator-/AURORA-   │   kanonisch, deterministisch) │      (nur wenn visibility.auroraContext)
+  MCP-Aktivierung ───▶ │                              │ ──▶ workspace → logs/<sektor>.log
+  Incident-Signale ──▶ └──────────────────────────────┘      (bash: cat logs/medical.log …)
 ```
 
-- **`auroraContext` bleibt unverändert das kanonische Modell-Log** (Training,
-  Serialisierung). Es wird nicht ersetzt — das OpsLog *speist* es: Einträge
-  mit `aurora: "push"` werden im Moment ihres Entstehens zusätzlich als
-  Context-Event angehängt (die heute ungenutzten Kinds `scenario_event` /
-  `system_event` / `incident_signal` werden genau dafür die Spiegel-Typen).
-- **Pull statt Push für Masse-Information:** Einträge mit `aurora: "pull"`
-  landen *nicht* im Push-Kontext, sondern materialisieren sich als
-  generierte Workspace-Datei `logs/ops.log`. AURORA kann sie per
-  `cat logs/ops.log` lesen — Bash-Reads sind bewusst freigabefrei, also kein
-  Permission-Spam. Was AURORA gelesen hat, steht als `tool_result` im
-  Kontext → die Historie bleibt selbsterklärend und trainierbar (P7 gelöst:
-  Wissen kommt entweder per Push-Event oder per aufgezeichnetem Pull).
-- **Das technische Audit-Log (`auditLog`) bleibt**, wird aber ehrlich als
-  Debug-/Engine-Protokoll deklariert und verschwindet aus der prominenten
-  UI-Position zugunsten des Lagelogs.
+- **`auroraContext` bleibt unverändert das kanonische Modell-/Trainings-Log.**
+  Es wird nicht ersetzt — der opsFeed *speist* es punktuell: Ein OpsEvent mit
+  `visibility.auroraContext === true` wird im Moment seines Entstehens
+  zusätzlich als `system_event` mit der Lagezeile angehängt. AURORA sieht es
+  damit sofort im nächsten Model-Request.
+- **Workspace-Pull für nachlesbare Information:** OpsEvents mit
+  `visibility.workspace === true` materialisieren sich in der generierten
+  Sektor-Logdatei (`logs/system.log`, `logs/medical.log`, `logs/energy.log`).
+  AURORA kann sie per `cat logs/medical.log` lesen — Bash-Reads sind bewusst
+  freigabefrei. Was AURORA gelesen hat, steht als `tool_result` im Kontext →
+  die Historie bleibt selbsterklärend und trainierbar.
+- **Das technische `auditLog` bleibt**, ist aber ehrlich ein Debug-/Engine-
+  Protokoll und wird in der normalen UI nicht mehr angezeigt.
 
-### Datenmodell (Vorschlag)
+### Datenmodell
 
 ```ts
-// src/runtime/opsLog.ts
-type OpsLogSource = "sensor" | "incident" | "operator" | "aurora" | "system";
+// src/runtime/opsFeed.ts
+type OpsSector = "system" | "medical" | "energy";
+type OpsSeverity = "info" | "warning" | "critical" | "success";
 
-type OpsLogEntry = {
-  id: string;              // "ops-<n>", stabil, monoton
+type OpsEvent = {
+  id: string;            // "ops-<n>", stabil, monoton
   tick: number;
-  source: OpsLogSource;
-  /** Sichtbarkeit ist explizit — nie implizit über den Codepfad. */
+  sector: OpsSector;     // genau ein Sektor pro Event
+  severity: OpsSeverity;
+  kind: string;          // stabiler Code (z. B. "mcp.server.activated")
+  summary: string;       // menschenlesbare Lagezeile (deutsch)
+  details?: string;      // optionale stabile Zusatzinfo
   visibility: {
-    operator: boolean;                  // erscheint im UI-Lagelog
-    aurora: "push" | "pull" | "none";   // push → Context-Event, pull → logs/ops.log
+    operator: boolean;       // erscheint in der UI-„Log"-Liste
+    auroraContext: boolean;  // zusätzlich als system_event in auroraContext
+    workspace: boolean;      // erscheint in logs/<sektor>.log
   };
-  text: string;            // menschenlesbare Lagezeile (deutsch)
-  /** Stabiler Code für Dedup/Training-Labels, analog incident_signal.code. */
-  code?: string;
+  relatedEntityIds?: string[];
 };
 ```
 
-`GameRuntimeState` bekommt `opsLog: OpsLogEntry[]` (append-only, wie
-`auroraContext`). Ein einziger Helper `appendOpsLog(state, entry)` erledigt
-das Fan-out: OpsLog anhängen, bei `operator: true` nichts weiter (UI liest
-direkt), bei `aurora: "push"` zusätzlich das passende Context-Event anhängen.
-Die `logs/ops.log`-Datei wird beim Bash-Read deterministisch aus den
-`pull`-Einträgen gerendert — keine zweite Wahrheit, nur eine Projektion.
+`GameRuntimeState` bekommt `opsFeed: OpsEvent[]` (append-only, wie
+`auroraContext`). Der Helper `appendOpsEvent(state, input)` erledigt das
+Sichtbarkeits-Fan-out: opsFeed anhängen; bei `visibility.auroraContext` genau
+einen gespiegelten `system_event` anhängen; sonst bleibt der auroraContext
+unberührt. Die Sektor-Logdateien werden beim Bash-Read deterministisch aus den
+`workspace`-Events des jeweiligen Sektors gerendert — keine zweite Wahrheit,
+nur eine Projektion.
+
+**Workspace-Datei aus Sektor abgeleitet** (eine Datei pro Sektor, ein Event in
+genau eine Datei):
+
+| sector  | Datei              |
+|---------|--------------------|
+| system  | `logs/system.log`  |
+| medical | `logs/medical.log` |
+| energy  | `logs/energy.log`  |
+
+Zeilenformat (vollständig, nicht gekappt, deterministisch):
+
+```
+[TICK 5] [WARNING] East-04 ist kritisch ausgelastet.
+[TICK 6] [SUCCESS] Routing-Override zeigt Wirkung.
+```
+
+`details` wird, falls vorhanden, in stabiler Form an die Zeile angehängt.
+Versteckte/interne Felder erscheinen nie.
 
 ### Sichtbarkeitsregeln (die eigentliche Design-Entscheidung)
 
-| Ereignis | Operator-Lagelog | AURORA | Begründung |
-|---|---|---|---|
-| Incident-Signal (auch spätes, `first_seen_at_tick > 0`) | ✅ | **push** zum richtigen Tick | Feed-Information; löst Finding 7 korrekt statt es nur abzusichern |
-| Zeitfortschritt | (Header zeigt Tick) | **push** (wie heute) | unverändert |
-| Operator-`mcp add` | ✅ | **push** (`system_event`: „Operator hat MCP-Server X aktiviert") | Tool-Sichtbarkeit ändert sich — MUSS im Push-Kontext erklärt sein (Finding 5) |
-| Operator-Domain-Action (Override, Priorität, Shedding) | ✅ | **pull** | Lagelog-Fakt; AURORA soll nachlesen *können*, aber nicht alles frei Haus bekommen — hält den Push-Kontext schlank und erhält die Spielspannung („AURORA prüft die Logs") |
-| Operator-Bash-Reads (`ls`, `cat`, `mcp list`) | ❌ | **none** | keine Lageinformation |
-| AURORA-Tool-Call ausgeführt (write) | ✅ („AURORA: override-4 gesetzt") | bereits via `tool_result` | einheitliche Operator-Timeline; kein Doppel-Push an AURORA |
-| Permission-Entscheidung (deny/allow_always) | ✅ | bereits via `tool_result` / Folgeverhalten | Operator-Timeline; kein Extra-Event für AURORA |
-| Öffentliche Zustandswechsel aus der Tick-Pipeline: Incident-Status, Hospital sichtbar überlastet (`load > 100 %`), Todesfall-Zähler, Node-Status | ✅ | **pull** (Statuswechsel des aktiven Incidents: **push** als `incident_signal`) | macht K1-Dashboard-Wissen journalfähig (P2); abgeleitet **ausschließlich aus public State**, nie aus `world.simulation` |
-| `world.simulation.*`, Patches, Domain-Action-Typen | ❌ | **none** | bleibt Engine-intern; OpsLog-Texte dürfen nur aus public Feldern gebaut werden — per Guard-Test erzwungen |
+| Ereignis | operator | auroraContext | workspace | sector | Begründung |
+|---|---|---|---|---|---|
+| Incident-/Situationssignal beim Start | ✅ | ❌¹ | ✅ | medical/energy | ¹ Startsignale werden separat als `incident_signal` in den auroraContext gelegt — kein Doppel-Push |
+| Operator-Domain-Action (Override, Priorität, Shedding) | ✅ | ❌ | ✅ | medical/energy | Lagelog-Fakt; AURORA liest im Sektor-Log nach, statt alles frei Haus zu bekommen |
+| AURORA-Tool-Call ausgeführt (write) | ✅ | ❌ | ✅ | medical/energy | Ergebnis kennt AURORA bereits via `tool_result` — kein Doppel-Push |
+| Operator-/AURORA-`mcp add` (Server-Aktivierung) | ✅ | ✅ | ✅ | system | AURORAs Tool-/Zugriffssituation ändert sich — MUSS im Push-Kontext erklärt sein |
+| Permission-Entscheidung (allow once/always/deny) | ✅ | ❌ | ✅ | system | Operator-Timeline; AURORA erfährt es über `tool_result`/Folgeverhalten |
+| Zeitfortschritt (nur LLM-Modus, modell-sichtbar) | ✅ | ✅ | ❌ | system | wie bisher modell-sichtbar; Tick-Rauschen bleibt aus den Logs |
+| `world.simulation.*`, Patches, Action-Objekte, Risikozähler, routing_failures, Outcome-Daten | ❌ | ❌ | ❌ | — | bleibt Engine-intern; OpsEvent-Texte werden nur aus beobachtbaren Feldern gebaut |
 
-Damit gilt: Das UI-Lagelog ist die vollständige Operator-Wahrheit,
-`auroraContext` + von AURORA gelesene Logdateien sind die vollständige
-AURORA-Wahrheit, und beide sind aus dem State heraus rekonstruierbar.
-„Wer wusste was wann" wird eine beantwortbare Frage.
+**UI-Darstellung der „Log"-Liste:** eine kombinierte Liste aller
+operator-sichtbaren OpsEvents. Dabei gilt strikt:
 
-### Bewusste Nicht-Ziele
+- **sector = Zeilen-Akzent/Farbe** (kein Sektor-Badge).
+- **severity = Badge** (nie die Hauptzeilenfarbe).
+- jede Zeile zeigt mindestens Tick, Severity-Badge und Summary; `details`
+  optional.
 
+### Bewusste Nicht-Ziele dieses Slices
+
+- Kein Event-Sourcing: WorldState wird **nicht** aus Events rekonstruiert.
 - Kein Ersatz von `auroraContext` — es bleibt das Trainings-Rohmaterial.
-- Keine Echtzeit-/Streaming-Logs, kein Log-Rotieren — deterministisch, tickbasiert.
-- Kein Persistenz-/Export-Feature in diesen Slices (Export bleibt späterer Slice).
-- Die Lage-Panels (K1) bleiben als Live-Dashboard — sie werden nicht durch
-  das Log ersetzt, sondern durch das Log *historisierbar*.
+- Keine Echtzeit-/Streaming-Logs, kein Log-Rotieren, kein Kappen/Paginieren —
+  die Logs sind vorerst vollständig.
+- Kein Training-Export, kein lokaler Ollama-Test, keine neuen Szenarien.
+- Die Lage-Panels bleiben als Live-Dashboard — sie werden nicht durch den
+  opsFeed ersetzt, sondern durch ihn *historisierbar*.
 
 ---
 
-## 3. Umsetzungsplan (Slices)
+## 3. Umsetzung — Stand (opsFeed-Foundation)
 
-Jeder Slice ist einzeln mergebar, mit Tests, ohne die LLM-Schleife zu brechen.
+Diese Foundation legt `opsFeed`, das Datenmodell, die Helper, die
+Workspace-Projektion und die ersten Produzenten an. Sie baut WorldState nicht
+aus Events neu und ersetzt `auroraContext` nicht.
 
-### Slice 1 — OpsLog-Foundation (Runtime, ohne UI)
-- `src/runtime/opsLog.ts`: `OpsLogEntry`, `appendOpsLog` (inkl. Push-Fan-out
-  nach `auroraContext`), `renderOpsLogFile(entries)` für die spätere
-  Workspace-Projektion.
-- `GameRuntimeState.opsLog` + Initialisierung.
-- Erzeuger anschließen, wo die Information heute schon entsteht:
-  `executePlayerDomainAction`, `executePlayerBashCommand` (nur `mcp add`),
-  `applyAuroraExecutionResult` (nur erfolgreiche writes),
-  Permission-Entscheidung in `resolveAuroraApproval`-Aufrufern.
-- Tests: Append-Reihenfolge, Fan-out-Korrektheit (push ⇒ genau ein
-  Context-Event, pull/none ⇒ keins), statischer Guard analog
-  `noLegacyFields`: OpsLog-Builder referenzieren nie `simulation`,
-  `routing_failures`, `risk_counters` etc.
+### Umgesetzt
 
-### Slice 2 — Operator-Lagelog in der UI
-- `viewModel.buildOpsLogLines(state.opsLog)` (nur `visibility.operator`).
-- `OperatorConsolePanel`: „Runtime-Log" wird zum **Lagelog**; das technische
-  `auditLog` wandert in einen einklappbaren „Engine-Log (Debug)"-Bereich.
-- Tests: app.test — Operator-Override erzeugt Lagelog-Zeile; AURORA-write
-  erzeugt Lagelog-Zeile; Bash-Reads erzeugen keine.
+- **`src/runtime/opsFeed.ts`**: `OpsEvent`/`OpsSector`/`OpsSeverity`,
+  `appendOpsEvent` (inkl. Fan-out nach `auroraContext` bei
+  `visibility.auroraContext`), `renderSectorLog` / `buildWorkspaceLogFiles` /
+  `buildWorkspaceFiles` für die Workspace-Projektion, `initialOpsFeed` aus den
+  öffentlichen Startsignalen.
+- **`GameRuntimeState.opsFeed`** + Initialisierung in
+  `createInitialGameRuntimeState`.
+- **Produzenten**: `executePlayerDomainAction` (Operator-Domain-Actions →
+  operator+workspace, kein Push), `applyAuroraExecutionResult` (erfolgreiche
+  AURORA-writes → operator+workspace; Server-Aktivierung → zusätzlich Push),
+  `executePlayerBashCommand` (`mcp add` → system, Push), Permission-
+  Entscheidungen und Zeitfortschritt im `App`-Layer.
+- **Workspace-Logs**: `ls`/`cat`/`read_file` liefern `logs/system.log`,
+  `logs/medical.log`, `logs/energy.log`, deterministisch aus dem opsFeed
+  gerendert. `BashEnvironment.workspaceFiles` bekommt sie pro Schritt aus
+  `buildWorkspaceFiles(state.opsFeed)`. Reads bleiben freigabefrei; das
+  `tool_result` eines `cat` landet im Kontext.
+- **UI**: Das frühere „Runtime-Log" der Operator-Konsole ist jetzt schlicht
+  **„Log"** und zeigt die operator-sichtbare opsFeed-Projektion
+  (`buildOpsFeedLines`). `auditLog` erscheint nicht mehr in der normalen UI.
+  sector = Zeilen-Akzent, severity = Badge.
+- **Tests**: opsFeed-Init, `appendOpsEvent`, Fan-out (auroraContext ja/nein),
+  Sektor→Datei-Mapping, Discoverability über `ls/cat/read_file`,
+  Produzenten-Sichtbarkeit, Leak-Guard und deterministische Logs;
+  UI-Tests für die Log-Projektion.
 
-### Slice 3 — Workspace `logs/` (AURORA-Pull-Kanal)
-- `bashCommands`: Workspace wird zu statischen Dateien **plus** generierter
-  `logs/ops.log` (aus `pull`+`operator`-Einträgen gerendert, kompakte Zeilen:
-  `T+12 [OPERATOR] Override override-3 gesetzt: east-04 → east-09 (P2/TRAUMA)`).
-  Dafür braucht `BashEnvironment` Zugriff auf `opsLog` — Signaturerweiterung
-  von `executeBashCommand`/`AuroraRuntimeEnvironment` (Provider-Funktion
-  statt statischem Record).
-- `ls` zeigt `logs/ops.log`; `cat`/`read_file` liefern den gerenderten Stand
-  zum Ausführungszeitpunkt. System-Prompt um einen Satz ergänzen
-  („Lage-Historie: cat logs/ops.log").
-- Tests: Inhalt deterministisch; kein `simulation`-Leak im Render; Read
-  bleibt freigabefrei; `tool_result` des `cat` landet im Kontext (Pull ist
-  damit trainierbar aufgezeichnet).
+### Bewusst nicht in diesem Slice
 
-### Slice 4 — Push-Lücken schließen (Findings 5 & 7 sauber lösen)
-- Operator-`mcp add` → `system_event`-Push (über Slice-1-Fan-out).
-- `initialIncidentSignalEvents` konvertiert nur noch Signale mit
-  `first_seen_at_tick <= 0`; die Tick-Pipeline emittiert spätere Signale als
-  OpsLog-Eintrag mit `aurora: "push"` genau zu ihrem Tick (Mechanismus für
-  während der Schicht eintreffende Lagemeldungen — ersetzt die heutige
-  Krücke, Feed-Infos als Director-`aurora_response` zu tarnen; die
-  `scenario_event`-Kind bekommt damit endlich Produzenten).
-- Tests: spätes Signal erscheint nicht vor seinem Tick (weder im Kontext
-  noch im Lagelog); Operator-`mcp add` erklärt die Schema-Änderung im
-  nächsten `ModelRequest`.
-
-### Slice 5 — Sensor-Einträge aus der Tick-Pipeline
-- Nach `tickWorld`/`evaluateOutcomes`: öffentliche Zustandswechsel
-  diff-basiert in OpsLog-Einträge übersetzen (Incident-Status,
-  `load > 100 %`-Übergänge, Todesfall-Zählerstand, Node-Status). Ein
-  zentraler Builder, der ausschließlich public State liest.
-- Tests: Übergänge erzeugen genau einen Eintrag (kein Spam pro Tick),
-  Guard gegen Simulation-Felder, GRID-1182- und ME-7741-Durchstich.
-
-### Slice 6 — Doku-Abgleich
-- `docs/03` (Runtime-Architektur): OpsLog als neue State-Komponente,
-  auditLog als Engine-Debug-Log umdeklarieren.
-- `docs/07`: „einzige History-Quelle"-Aussage präzisieren (push + recorded
-  pull), Workspace-`logs/`-Abschnitt, Sichtbarkeitsregeln-Tabelle übernehmen.
-- `docs/02` (Gameplay-Loop): Lagelog als UI-Element.
-
-### Offene Design-Entscheidungen (vor Slice 1 zu treffen)
-
-1. **D1 — Operator-Domain-Actions: pull oder push?** Empfehlung: **pull**
-   (siehe Tabelle). Alternative: push als `system_event` — einfacher, aber
-   verwässert den Push-Kontext und nimmt dem Log-Lesen jeden Sinn.
-2. **D2 — Lagelog ersetzt Runtime-Log oder steht daneben?** Empfehlung:
-   ersetzen (auditLog bleibt im State und als Debug-Bereich erreichbar).
-3. **D3 — Eine `logs/ops.log` oder Sektor-Dateien?** Empfehlung: zunächst
-   eine Datei; Sektor-Split (`logs/medical.log`, `logs/energy.log`) erst,
-   wenn die Datei in echten Läufen zu groß für den Modell-Kontext wird.
-4. **D4 — Log-Datei kappen?** Empfehlung: vorerst vollständig (kompakte
-   Zeilen); falls Kontextgröße zum Problem wird, `tail`-Semantik ergänzen
-   statt Information zu löschen.
-
-### Risiken
-
-- **Doppelte Information** (AURORA-Stream vs. Lagelog in der UI): bewusst
-  trennen — Stream = Konversation mit AURORA, Lagelog = Fakten-Timeline.
-  Akzeptierte Redundanz bei AURORA-writes (eine Zeile in beiden).
-- **Wachsende Leak-Oberfläche:** Jeder neue Eintragstext ist ein potenzielles
-  Leck. Gegenmittel: ein einziger zentraler Builder pro Quelle + statischer
-  Guard-Test ab Slice 1 (nicht nachträglich).
-- **Kontextgröße im LLM-Modus:** Pull-Kanal hält den Push-Kontext schlank;
-  trotzdem D4 im Blick behalten.
-- **Signaturänderung der Bash-Schicht** (Slice 3) berührt Queue, Replay und
-  Tests — als eigener, mechanischer Commit innerhalb des Slices halten.
-
-### Reihenfolge-Empfehlung
-
-Slice 1 → 2 liefern sofort das sichtbare UI-Lagelog (der ursprüngliche
-Zweck des Konsolen-Logs). Slice 3 → 4 machen den LLM-Modus fair testbar
-(AURORA kann Wissen erwerben statt es zu erraten; Tool-Sichtbarkeit ist
-erklärt). Erst danach lohnt der ernsthafte Modellqualitäts-Test. Slice 5
-ist Spieltiefe, Slice 6 Pflicht-Hygiene.
+- Spätere/laufende Incident-Signale aus der Tick-Pipeline
+  (`first_seen_at_tick > 0`) und diff-basierte Sensor-Einträge (Incident-
+  Statuswechsel, Überlast-Übergänge, Todesfälle, Node-Status) als opsFeed-
+  Produzenten — Folge-Slice.
+- Kein Kappen/Paginieren der Logs; kein Training-Export; kein Ollama-Test.
