@@ -30,19 +30,21 @@ Im Skript-Modus stellt der Scenario-Director (siehe `01-aurora.md`) automatisch 
 
 ## Standardloop
 
+Der Loop ist sektorneutral; konkret am Beispiel ME-7741:
+
 ```text
 1. Incident ME-7741 ist zu Spielbeginn offen.
-2. AURORA meldet sich (Scenario-Director) und fordert eine erste read-only
-   Analyse der Kapazitäten in Region East an.
-3. Spieler beobachtet die Lage links (Aktiver Incident, Medizinische Lage)
+2. AURORA meldet sich (Scenario-Director oder LLM-Agent) und fordert eine erste
+   read-only Analyse der Lage an.
+3. Spieler beobachtet die Lage links (Aktiver Incident, Lage-Panel)
    und den AURORA-Stream rechts.
 4. Spieler entscheidet: selbst handeln (GUI-Controls/Konsole),
    AURORA-Anfragen erlauben/ablehnen, oder mit AURORA chatten.
 5. Spieler drückt Tick +1 / Tick +5.
-6. Jeder Tick: die TickEngine wertet Routing-Konsequenzen aus, die
-   OutcomeEngine berechnet Todesfälle/Eskalation, der Scenario-Director
+6. Jeder Tick: die TickEngine wertet die fachlichen Konsequenzen aus, die
+   OutcomeEngine berechnet die globale Lage (Risiko/Eskalation), AURORA
    reagiert auf den neuen Zustand.
-7. WorldState, UI-Panels und Runtime-Log aktualisieren sich.
+7. WorldState, UI-Panels und Log aktualisieren sich.
 8. Zurück zu 3, bis der Incident "Behoben" oder "Kollabiert" ist.
 ```
 
@@ -75,11 +77,13 @@ Alle drei Entscheidungen werden im Runtime-Log protokolliert. "Neu starten" setz
 
 ## Konsequenzen
 
-Das Spiel bewertet nicht nur Freigaben, sondern die Wirkung jedes Tick:
+Das Spiel bewertet nicht die Freigabe selbst, sondern die **Wirkung jeder Aktion über die Ticks** — eine ausgeführte Aktion ist keine gelöste Lage. Das gilt sektorneutral: Eingriffe wirken nur, wenn sie fachlich passen, können verzögert wirken, und ein Incident wechselt seinen Status (`open` → `stabilizing` → `fixed` bzw. `escalated`/`collapsed`) abgeleitet aus dem Domänenzustand, nicht aus der Zahl der Freigaben.
+
+Am Beispiel ME-7741 (Medical):
 
 - **Routing Overrides** lenken Fallzahlen auf ein anderes Hospital um — wirksam nur, wenn das Ziel-Hospital freie Bettenkapazität *und* die passende Capability hat.
-- **Unkontrollierte oder fehlgeleitete Überlast** erzeugt nach mehreren Ticks Todesfälle (Overload bzw. Capability-Mismatch).
-- Ab dem ersten Todesfall eskaliert der Incident (`open` → `escalated`); ab drei Todesfällen kollabiert er.
-- Stabilisiert sich die Lage über mehrere Ticks, wechselt der Incident über `stabilizing` zu `fixed`.
+- **Unkontrollierte oder fehlgeleitete Überlast** erzeugt nach mehreren Ticks Todesfälle; ab dem ersten eskaliert der Incident, ab drei kollabiert er; stabilisiert sich die Lage über mehrere Ticks, wird er `fixed`.
 
-Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, der konkrete ME-7741-Ablauf in `04-me7741-medical.md`.
+In GRID-1182 (Energy) gilt dasselbe Prinzip mit anderem Fachmodell: Drosselungen wirken **zeitverzögert** und schreiben eigene Outcomes fort (menschlich/wirtschaftlich) — hier kann schon eine einzelne Freigabe Menschen schaden.
+
+Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, die konkreten Incident-Abläufe in `04-me7741-medical.md` und `05-grid1182-energy.md`.

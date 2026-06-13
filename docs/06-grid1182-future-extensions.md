@@ -114,7 +114,7 @@ Diese Punkte bleiben reserviert für spätere Erweiterungen oder Runden:
 - **Keine neuen Permission-Kategorien** — Permission-Modell bleibt `read`/`write`; verzögerte Wirkung ist Domain-/Tick-Logik.
 - **Keine generische Infrastruktur-Abstraktion** — kein `GenericInfraNode`; Sektoren teilen Infrastruktur, nicht Fachmodelle.
 - **Keine echte Shell / echtes MCP** — Operator-Konsole bleibt simuliert, Tool Requests bleiben Spielmechanik.
-- **Kein freies LLM in Incident 2** — AURORA bleibt Scenario-Director (LLM-Agent ist Modus-Option in `01-aurora.md`).
+- **Kein GRID-1182-spezifisches LLM-Tuning** — der LLM-Agent existiert und ist live umschaltbar (`01-aurora.md`/`07-aurora-llm.md`); deterministischer Default für den Incident bleibt der Scenario-Director. Incident-spezifisches Fine-Tuning oder Training-Export ist nicht in Scope.
 - **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken; Runde 3 wird nicht vorgebaut.
 - **Kein Media-/Logistics-Incident** — keine weiteren Sektoren im zweiten Incident.
-- **Keine Änderung an ME-7741** — Initial-State, Commands, Director und Dokumentation von Runde 1 bleiben unangetastet.
+- **Keine Änderung an der ME-7741-Spielmechanik** — Initial-State, Domain-Actions und Director-Logik von Runde 1 bleiben unangetastet (die Doku-Restrukturierung lässt die Mechanik unberührt).

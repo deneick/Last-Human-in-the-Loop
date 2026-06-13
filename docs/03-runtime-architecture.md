@@ -228,10 +228,15 @@ Die Domain-Action `medical.routing.override.clear` sucht den Slot, dessen Overri
 ```text
 advanceClock              tick += 1, elapsed_minutes += 10
 → tickMedicalDomain        wertet routing_failures aus, aktualisiert risk_counters
+→ tickEnergyDomain         aktiviert Shedding-Pläne zeitverzögert, leitet Versorgung,
+                            Verbraucher-/Knotenstatus ab, schreibt lokale Energy-Outcomes fort
 → applyCrossSectorEffects  no-op (gibt world unverändert zurück; fester Pipeline-Schritt
                             für spätere Cross-Sector-Effekte zwischen Sektoren)
-→ evaluateIncidents        leitet Incident-Status aus risk_counters/routing_failures ab
+→ evaluateIncidents        leitet Incident-Status sektorweise ab (Medical aus
+                            risk_counters/routing_failures, Energy aus grid_instability/stable_ticks)
 ```
+
+Beide Fachstufen sind No-op, wenn die zugehörige Domain fehlt (`tickEnergyDomain` ohne `domains.energy`, `tickMedicalDomain` ohne `routing_failures`).
 
 `advanceTick(runtimeState)` ruft `tickWorld` auf, schreibt einen Audit-Log-Eintrag (`"Tick N completed"`), lässt dann die Runtime-Sensoren über den Tick-Übergang laufen (`appendDerivedOpsEvents`, siehe unten) und emittiert zuletzt die fälligen Szenario-Signale.
 
@@ -251,14 +256,30 @@ Für jeden `RoutingFailure` wird über `resolveRoutingFailure` ermittelt, ob der
 
 Aus den Resolutions werden `risk_counters` pro Hospital aktualisiert: `overload_ticks` zählt hoch, solange ein `critical`-Failure `uncontrolled` ist; `capability_mismatch_ticks` zählt hoch für das (falsche) Override-Ziel bei `mismatch`. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft.
 
+### tickEnergyDomain: Shedding- und Versorgungs-Auswertung
+
+`tickEnergyDomain` (No-op ohne `domains.energy`) leitet den gesamten Energy-Zustand deterministisch aus den Shedding-Plänen ab — fachliche Details in `05-grid1182-energy.md`:
+
+- **Shedding-Plan-Status** folgt allein aus `created_at_tick + delay` / `duration`: `scheduled` → `active` → `completed` (ein `cancelled`-Plan bleibt `cancelled`). Ein abgebrochener Plan verliert seine Wirkung damit zum nächsten Tick.
+- **Versorgung und Verbraucher-Status** werden vollständig aus den gerade `active` Plänen neu berechnet (`current_supply = demand - Summe aktiver Drosselungen`; `nominal`/`reduced`/`offline`), ebenso die **Knotenlast** und der Node-Status (`nominal`/`strained`/`critical`).
+- **Lokale Energy-Outcomes** werden hier — und nur hier, nicht in der OutcomeEngine — pro Tick fortgeschrieben: `human_harm` (kritischer Verbraucher unter Mindestversorgung), `economic_loss`, `civil_unrest` (jeweils nach `criticality` des gedrosselten Verbrauchers) und `grid_instability` (überlasteter Knoten).
+- Der interne `simulation.energy.stable_ticks`-Zähler steigt pro überlastfreiem Tick und wird bei Überlast auf `0` gesetzt (tabu für UI/Read-only/Director).
+
 ### evaluateIncidents
 
-Pro Incident werden die zugehörigen `critical`-Routing-Failures betrachtet:
+`evaluateIncidents` ist sektoragnostisch und dispatcht pro Incident über `sector_id`; `fixed`/`collapsed` sind Endzustände und werden nie mehr verändert.
+
+**Medical** — pro Incident werden die zugehörigen `critical`-Routing-Failures betrachtet:
 
 - Sind alle `stable_ticks > 0` (also im letzten Tick `controlled`) und Incident war `open` → Status wird `stabilizing`.
 - Sind alle `stable_ticks >= STABLE_TICKS_TO_FIX` (= 10) → Status wird `fixed`, `fixed_at_tick` gesetzt.
 - War Incident `stabilizing` und mindestens ein Failure ist nicht mehr `stable_ticks > 0` → zurück zu `open`.
-- `fixed`/`collapsed` sind Endzustände und werden nicht mehr verändert.
+
+**Energy** (`evaluateEnergyIncident`) — aus den lokalen Energy-Outcomes plus `simulation.energy.stable_ticks`:
+
+- `grid_instability >= GRID_INSTABILITY_FOR_COLLAPSE` → `collapsed`.
+- `stable_ticks >= ENERGY_STABLE_TICKS_TO_FIX` → `fixed`; `> 0` und Incident `open`/`escalated` → `stabilizing`.
+- Aktuell überlastet (`stable_ticks === 0`): `stabilizing` fällt zu `open` zurück; `open` mit `grid_instability >= GRID_INSTABILITY_FOR_ESCALATION` → `escalated`. `fixed` heißt hier *Grid stabilisiert nach Engine-Kriterien* — nicht, dass kein menschlicher/wirtschaftlicher Preis bezahlt wurde.
 
 ## OutcomeEngine
 
@@ -266,9 +287,9 @@ Pro Incident werden die zugehörigen `critical`-Routing-Failures betrachtet:
 
 1. **`evaluateMedicalDeaths`**: pro Hospital werden aus `risk_counters.overload_ticks` (1 Tod je 3 Ticks) und `risk_counters.capability_mismatch_ticks` (1 Tod je 4 Ticks) neue Todesfälle berechnet. Ein Ledger (`simulation.medical.deaths_recorded`) verhindert Doppelzählung bei wiederholter Auswertung. Neue Todesfälle erhöhen `domains.medical.outcomes.deaths_total`, `deaths_by_cause`, `deaths_by_hospital` und erzeugen Audit-Log-Einträge.
 2. **`escalateIncidents`**: `deaths_total >= 3` → betroffene Incidents werden `collapsed` (`collapsed_at_tick` gesetzt). `deaths_total >= 1` und Incident ist `open` → `escalated`. Aktiv stabilisierende (`stabilizing`) Incidents fallen dadurch nicht zurück.
-3. **`evaluateWorldOutcomes`**: leitet `outcomes.global_risk` ab — `collapsed` falls ein Incident kollabiert ist, sonst `critical` ab 2 Toten, `strained` ab 1 Tod oder einem eskalierten Incident, sonst `stable`. Schreibt `human_harm.deaths_total` / `preventable_deaths` und ggf. `collapse_reason`.
+3. **`evaluateWorldOutcomes`**: leitet `outcomes.global_risk` sektorübergreifend ab — `collapsed` falls ein Incident kollabiert ist, sonst `critical` ab 2 Medical-Toten **oder** ausreichend Energy-`human_harm`, `strained` ab 1 Tod, einem eskalierten Incident, beginnendem Energy-`human_harm` oder erhöhter `grid_instability`, sonst `stable`. Die Energy-Lage fließt also über ihre lokalen Outcomes ins globale Risiko ein, **ohne** die Fachdomänen zu koppeln. Der globale `human_harm`-Block (`deaths_total`/`preventable_deaths`) trägt weiterhin nur die Medical-Toten; Energy-`human_harm` bleibt ein lokaler Energy-Outcome.
 
-Alles deterministisch, kein Zufall, keine Echtzeit.
+Alles deterministisch, kein Zufall, keine Echtzeit. (Die Medical-Stufen `evaluateMedicalDeaths`/`escalateIncidents` greifen nur auf die Medical-Domain zu; Energy-Outcomes entstehen bereits in `tickEnergyDomain`.)
 
 ## Aurora Queue & Permissions
 
