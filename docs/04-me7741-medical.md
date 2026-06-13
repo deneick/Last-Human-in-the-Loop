@@ -1,17 +1,10 @@
 # ME-7741 — Medical East Routing Instability
 
-ME-7741 ist der erste spielbare Incident. Diese Datei beschreibt Ausgangslage, UI und einen typischen Spielablauf. Die zugrunde liegende Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`.
+ME-7741 ist der erste spielbare Incident (Runde 1). Diese Datei beschreibt Ausgangslage, UI, AURORAs Skript und einen typischen Spielablauf. Die Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`.
 
 ## Ausgangslage
 
-Beim Start (`src/scenarios/me7741/initialWorldState.ts`) ist Incident `ME-7741` ("Medical East Routing Instability") **offen** (`status: "open"`, `opened_at_tick: 0`), zugeordnet zu `hospital-east-04` in der Region `medical-east`.
-
-Sichtbare Lage-Signale (`ScenarioSignal`s in `src/scenarios/me7741/scenarioSignals.ts`, alle `emitAtTick: 0`, in der „Log"-Liste sichtbar):
-
-- `intake-pressure-rising` — Emergency intake pressure rising at hospital-east-04
-- `p2-wait-times` — P2 wait times above threshold
-- `trauma-backlog` — Trauma backlog rising
-- `routing-validation-unavailable` — Automated routing validation unavailable
+Beim Start (`src/scenarios/me7741/initialWorldState.ts`) ist Incident `ME-7741` ("Medical East Routing Instability") **offen** (`status: "open"`, `opened_at_tick: 0`), zugeordnet zu `hospital-east-04` in der Region `medical-east`. Es existieren zu Beginn **keine** `manual_overrides`.
 
 Region `medical-east` umfasst drei Hospitäler:
 
@@ -21,81 +14,59 @@ Region `medical-east` umfasst drei Hospitäler:
 | `hospital-east-07` | 72/88 | 14/18 | P3, P4 | GEN, PED |
 | `hospital-east-09` | 40/54 | 10/16 | P1, P2, P3 | GEN, TRAUMA |
 
-`hospital-east-04` ist also sichtbar überlastet (118 % Bettenauslastung). Intern (nicht sichtbar) treibt eine kritische Routing-Failure für P2/TRAUMA und eine moderate für P3/GEN diese Lage — siehe `03-runtime-architecture.md`.
+`hospital-east-04` ist sichtbar überlastet (118 % Bettenauslastung). Intern (nicht sichtbar) treiben eine kritische Routing-Failure für P2/TRAUMA und eine moderate für P3/GEN diese Lage — siehe `03-runtime-architecture.md`.
 
-Es existieren zu Beginn **keine** `manual_overrides`.
+Sichtbare Lage-Signale (`ScenarioSignal`s in `src/scenarios/me7741/scenarioSignals.ts`, alle `emitAtTick: 0`) erscheinen in der „Log"-Liste der Operator-Konsole (opsFeed-Projektion) und gespiegelt im AURORA-Stream:
 
-## Drei-Zonen-UI
+- `intake-pressure-rising` — Emergency intake pressure rising at hospital-east-04
+- `p2-wait-times` — P2 wait times above threshold
+- `trauma-backlog` — Trauma backlog rising
+- `routing-validation-unavailable` — Automated routing validation unavailable
 
-Die UI (`App.tsx`) gliedert sich in eine Kopfzeile und drei Spalten (`layout-grid`):
+## UI
 
-**Kopfzeile**: Titel, "Operator-01 · Tick N · M min seit Schichtbeginn", Buttons `Tick +1`, `Tick +5`, `Neu starten`.
+ME-7741 nutzt die generische Drei-Zonen-UI (`App.tsx`, Kopfzeile + `layout-grid`); Aufbau und Permission-Flow stehen in `02-gameplay-loop.md`. Spezifisch für Runde 1:
 
-**Links — Lage** (`ActiveIncidentPanel` + `MedicalOverviewPanel`):
-- Aktiver Incident: ID, Titel, Status (Offen/Stabilisiert sich/Eskaliert/Behoben/Kollabiert), Sektor, betroffene Entitäten, Tick-Zeitpunkte (offen/behoben/kollabiert).
-- Globale Lage: `global_risk` (Stabil/Angespannt/Kritisch/Kollabiert), Todesfälle gesamt, aktueller Tick, ggf. `collapse_reason`.
-- Medizinische Lage: pro Hospital Auslastung in % (mit Warnfarbe ab >100 %), Betten/Notfallslots, Warteschlange nach Priorität, akzeptierte Prioritäten/Capabilities.
-
-Die Lage-Signale erscheinen nicht mehr im Incident-Panel, sondern in der „Log"-Liste der Operator-Konsole (opsFeed-Projektion).
-- Aktive Routing Overrides: ID, Quelle → Ziel, Priorität/Capability, seit welchem Tick, gesetzt von `player`/`aurora`.
-
-**Mitte — Operator-Konsole** (`OperatorConsolePanel`):
-- Eingabezeile (`human-01@ops:~$`) mit `Ausführen`-Button, ENTER führt aus — nur generische Workspace-Commands (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`). Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel (typisierte Domain-Actions, z. B. „Override setzen“ / „Override löschen“).
-- Klickbare Command-Hilfe (übernimmt das Beispiel in die Eingabezeile).
-- Letztes Ergebnis (OK/FEHLER + JSON-Output).
-- Runtime-Log (letzte 30 Einträge: Tick, Quelle `player`/`aurora`/`system`, Erfolg/Fehler + Text).
-
-**Rechts — AURORA** (`AuroraPanel`):
-- Nachrichtenstream aus dem `auroraContext`-Event-Log: System-/Lagemeldungen (`system_event`, u. a. die opsFeed-Spiegelung von Lage-Signalen), AURORA-Antworten (`aurora_response`), Operator-Chat (`operator_message`), sowie AURORA-Queue-Items als `request`/`executed`/`denied`-Status.
-- Bei wartender Anfrage: Tool-Request-Box mit dem rohen Command, der Zugriffsart und den drei Buttons (`Einmal erlauben` / `Immer erlauben` / `Ablehnen`).
-- Sonst: Chat-Eingabefeld ("Nachricht an AURORA...") mit `Senden`-Button — normale Operator-Nachricht an AURORA, kein Anfrage-/Debug-Feld.
-- "Always-Permissions": Liste dauerhaft erlaubter Zugriffsarten.
+- **Links — Lage**: `ActiveIncidentPanel` (Incident-Status, Sektor, betroffene Entitäten, Tick-Zeitpunkte; Globale Lage mit `global_risk`, Todesfällen, ggf. `collapse_reason`) plus `MedicalOverviewPanel`: pro Hospital Auslastung in % (Warnfarbe ab > 100 %), Betten/Notfallslots, Warteschlange nach Priorität, akzeptierte Prioritäten/Capabilities. Darunter die aktiven Routing Overrides (ID, Quelle → Ziel, Priorität/Capability, seit welchem Tick, gesetzt von `player`/`aurora`).
+- **Mitte — Operator-Konsole**: generische Workspace-Shell (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`). Fachliche Medical-Eingriffe laufen **nicht** über Text-Commands, sondern über GUI-Controls im Lage-Panel (typisierte Domain-Actions „Override setzen" / „Override löschen").
+- **Rechts — AURORA**: Nachrichtenstream und der Tool-Request-Flow mit `Einmal erlauben` / `Immer erlauben` / `Ablehnen` (Details in `02-gameplay-loop.md`).
 
 ## AURORA Scenario-Director
 
 Der Scenario-Director (`src/scenarios/me7741/scenarioDirector.ts`) feuert folgende Ereignisse jeweils einmalig, basierend auf dem öffentlichen Zustand:
 
 1. **`intro`** (sofort): erkennt ME-7741, meldet unvollständige Daten und fragt per bash die Aktivierung des Medical-MCP-Servers an (`mcp add medical-east-mcp`) — fachliche Tools werden erst nach Aktivierung sichtbar.
-2. **`initial-analysis`** (sobald der Medical-MCP-Server aktiv ist): fragt den read-only Tool-Call `capacity_list` (Domain-Action `medical.capacity.list`) für Region `east` an.
-3. **`no-override-reminder`** (ab Tick 3, solange kein Override existiert und der Incident `open`/`escalated` ist): weist auf fehlende Routing-Anpassung hin und fragt den read-only Tool-Call `routing_override_list` an.
+2. **`initial-analysis`** (sobald der Server aktiv ist): fragt den read-only Tool-Call `capacity_list` (Domain-Action `medical.capacity.list`) für Region `east` an.
+3. **`no-override-reminder`** (ab Tick 3, solange kein Override existiert und der Incident `open`/`escalated` ist): weist auf fehlende Routing-Anpassung hin und fragt `routing_override_list` an.
 4. **`incident-escalated`** (sobald `status === "escalated"`): meldet Eskalation, bittet um zusätzliche Zugriffe oder manuelle Prüfung.
 5. **`first-deaths`** (sobald `deathsTotal >= 1`): meldet erste Todesfälle, empfiehlt erneute Prüfung von Routing und Kapazitäten.
-6. **`override-not-stabilizing`** (sobald ein Override seit ≥ 2 Ticks aktiv ist und der Incident weiterhin `open`/`escalated` ist): meldet ausbleibende Stabilisierung und fragt den Tool-Call `routing_override_clear` (Domain-Action `medical.routing.override.clear`) für genau diesen Override über seine konkrete `id` an.
-7. **`incident-stabilizing`** (sobald `status === "stabilizing"`): empfiehlt, die aktuelle Konfiguration beizubehalten.
-8. **`incident-fixed`** (sobald `status === "fixed"`): beendet die aktive Begleitung des Incidents.
+6. **`override-not-stabilizing`** (sobald ein Override seit ≥ 2 Ticks aktiv ist und der Incident weiterhin `open`/`escalated` ist): meldet ausbleibende Stabilisierung und fragt `routing_override_clear` (Domain-Action `medical.routing.override.clear`) für genau diesen Override über seine konkrete `id` an.
+7. **`incident-stabilizing`** (sobald `status === "stabilizing"`): empfiehlt, die Konfiguration beizubehalten.
+8. **`incident-fixed`** (sobald `status === "fixed"`): beendet die aktive Begleitung.
 9. **`incident-collapsed`** (sobald `status === "collapsed"`): dokumentiert den Kollaps für die Nachbereitung.
 
-Wird eine geskriptete Anfrage abgelehnt, quittiert AURORA das einmalig sichtbar im Stream ("Verstanden, ich führe ... nicht aus...").
+Wird eine geskriptete Anfrage abgelehnt, quittiert AURORA das einmalig sichtbar im Stream („Verstanden, ich führe ... nicht aus...").
 
-## Beispielablauf: falscher Override → Eskalation → Korrektur → Fix
+## Spielablauf (Beispiel und Testpfad)
 
-1. Die Kapazitäten/Capabilities der drei Hospitäler im Lage-Panel vergleichen (oder AURORAs erste read-only Anfrage erlauben).
-2. Über das Formular „Routing Override setzen“ einen **falschen** Override setzen, z. B. Quelle `hospital-east-04`, Ziel `hospital-east-07`, Priorität `P2`, Capability `TRAUMA`. `hospital-east-07` hat freie Kapazität, aber keine `TRAUMA`-Capability — der Override entlastet `hospital-east-04` nicht wirksam.
-3. Mehrere Ticks laufen lassen (`Tick +5`). Beobachtbar: `global_risk` steigt, ggf. erste Todesfälle, Incident wechselt ggf. zu `escalated`. Nach genug Ticks meldet AURORA über `override-not-stabilizing`, dass der Override keine erkennbare Wirkung zeigt, und fragt an, ihn zu entfernen (intern der `routing_override_clear`-Tool-Call → Domain-Action `medical.routing.override.clear`, mit der unter "Aktive Routing Overrides" angezeigten ID).
-4. Override entfernen — entweder AURORAs Tool Request erlauben, oder über den Button „Override löschen“ am aktiven Override.
-5. Einen **passenden** Override setzen, z. B. Richtung `hospital-east-09` (hat freie Bettenkapazität und akzeptiert P2/TRAUMA) — das ersetzt den Override im selben Slot automatisch und vergibt eine neue ID.
-6. Weitere Ticks laufen lassen. Wenn die zugrunde liegende Routing-Failure genug aufeinanderfolgende Ticks `controlled` ist, wechselt der Incident über `stabilizing` zu `fixed`.
+Ein typischer Durchlauf — zugleich der manuelle Smoke-Test (`npm run dev`). Es ist ein Beispiel, kein vorgeschriebener Lösungsweg: Die Engine bewertet nur die tatsächliche Wirkung der Overrides, nicht den gewählten Pfad.
 
-Dieser Ablauf ist ein Beispiel, kein vorgeschriebener Lösungsweg — die Engine bewertet nur die tatsächliche Wirkung der Overrides, nicht den gewählten Pfad.
+1. **Start**: Incident `ME-7741` ist `open`, AURORA meldet sich mit `intro` und einem bash-Tool-Request (`mcp add medical-east-mcp`). Mit `Einmal erlauben` bestätigen — der Server ist aktiv; AURORA folgt mit `capacity_list` (`initial-analysis`), ebenfalls erlauben. Das Ergebnis erscheint im Stream als Tool-Ergebnis, der Vorgang im Runtime-Log als `aurora`-Eintrag.
+2. **Lage prüfen**: Die Kapazitäten/Capabilities der drei Hospitäler im Lage-Panel vergleichen. (AURORA kann zusätzlich `node_inspect` für `hospital-east-04` anfragen; dieselben Daten zeigt das Panel direkt.)
+3. **Falscher Override**: Über „Routing Override setzen" einen wirkungslosen Override setzen, z. B. Quelle `hospital-east-04`, Ziel `hospital-east-07`, Priorität `P2`, Capability `TRAUMA`. `hospital-east-07` hat freie Kapazität, aber **keine** `TRAUMA`-Capability — der Override entlastet `hospital-east-04` nicht.
+4. **Ticken**: Mehrere Ticks laufen lassen (`Tick +5`). `global_risk` und Todesfälle steigen, der Incident kann auf `escalated` wechseln; ab Tick 3 erscheint `no-override-reminder`. Nach ≥ 2 Ticks ohne Wirkung meldet AURORA über `override-not-stabilizing`, dass der Override keine erkennbare Wirkung zeigt, und fragt an, ihn zu entfernen (`routing_override_clear` mit der angezeigten ID).
+5. **Korrektur**: Override entfernen (AURORAs Request erlauben oder Button „Override löschen") und einen **passenden** Override setzen, z. B. Richtung `hospital-east-09` (freie Bettenkapazität, akzeptiert P2/TRAUMA) — das ersetzt den Override im selben Slot und vergibt eine neue ID.
+6. **Stabilisierung**: Weitere Ticks laufen lassen. Wenn die zugrunde liegende Routing-Failure genug aufeinanderfolgende Ticks `controlled` ist, wechselt der Incident über `stabilizing` zu `fixed`.
+
+Für den `collapsed`-Pfad absichtlich mehrere falsche Overrides setzen und durchticken — beide Endbanner sollten korrekt erscheinen und nur per `Neu starten` verlassbar sein.
 
 ## Reset
 
-`Neu starten` setzt `GameRuntimeState` vollständig zurück: WorldState (Klon des initialen ME-7741-Zustands), Scenario-Script (`firedEventIds`, Nachrichten), Aurora-Queue, Permissions und Audit-Log. Die Eingabefelder werden auf ihre Default-Commands zurückgesetzt.
+`Neu starten` setzt `GameRuntimeState` vollständig zurück: WorldState (Klon des initialen ME-7741-Zustands), Scenario-Script (`firedEventIds`, Nachrichten), Aurora-Queue, Permissions und Audit-Log. Die Eingabefelder gehen auf ihre Default-Commands zurück.
 
 ## Win/Loss
 
-- **Behoben** (`incidentView.status === "fixed"`): grünes Banner "Incident behoben — System stabilisiert", zeigt den Fix-Tick und die Gesamttodesfälle der Schicht.
-- **Kollabiert** (`incidentView.status === "collapsed"`): rotes Banner "System kollabiert — zu viele Schäden", zeigt die Gesamttodesfälle der Schicht.
+- **Behoben** (`incidentView.status === "fixed"`): grünes Banner „Incident behoben — System stabilisiert", zeigt den Fix-Tick und die Gesamttodesfälle der Schicht.
+- **Kollabiert** (`incidentView.status === "collapsed"`): rotes Banner „System kollabiert — zu viele Schäden", zeigt die Gesamttodesfälle der Schicht.
 
 In beiden Endzuständen sind `Tick +1` und `Tick +5` deaktiviert (mit erklärendem Tooltip) und verändern Welt, Todesfälle oder Incident-Status nicht mehr. Beide Endzustände sind nur über `Neu starten` verlassbar.
-
-## Manueller Testpfad
-
-Für einen schnellen manuellen Smoke-Test (`npm run dev`):
-
-1. Spiel laden — Incident `ME-7741` ist `open`, AURORA meldet sich mit der `intro`-Nachricht und einem bash-Tool-Request, den Medical-MCP-Server zu aktivieren (`mcp add medical-east-mcp`).
-2. Tool Request mit `Einmal erlauben` bestätigen — der Server ist aktiv; AURORA folgt mit dem `capacity_list`-Tool-Call (`initial-analysis`). Auch diesen erlauben — das Ergebnis erscheint im Nachrichtenstream als Tool-Ergebnis, der Vorgang im Runtime-Log als `aurora`-Eintrag.
-3. Ein Hospital im Detail ansehen: AURORA kann den read-only Tool-Call `node_inspect` (Domain-Action `medical.node.inspect`, z. B. `hospital-east-04`) anfragen; dieselben Kapazitäten zeigt der Operator direkt im Medical-Lagepanel. Die Operator-Konsole bleibt generisch (`mcp list`, `ls`, `cat logs/medical.log`) — fachliche Medical-Eingriffe laufen nicht über sie.
-4. `Tick +5` mehrfach klicken, ohne einen Override zu setzen — ab Tick 3 erscheint die `no-override-reminder`-Nachricht, `global_risk` und Todesfälle steigen, der Incident kann auf `escalated` wechseln.
-5. `Neu starten` klicken — Tick zurück auf 0, Incident wieder `open`, AURORA-Stream und Runtime-Log leer (bis auf die erneute `intro`-Nachricht).
-6. Den Ablauf aus „Beispielablauf" durchspielen, um `stabilizing` → `fixed` zu erreichen, sowie absichtlich mehrere falsche Overrides setzen und Ticks laufen lassen, um `collapsed` zu erreichen — beide Endbanner sollten korrekt erscheinen und nur per `Neu starten` verlassbar sein.
