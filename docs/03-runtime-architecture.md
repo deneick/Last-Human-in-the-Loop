@@ -120,7 +120,7 @@ type WorldOutcomeState = {
 
 ### simulation.* — interne Wahrheit
 
-`SimulationState` ist **nicht** über Read-only Commands oder die UI erreichbar:
+`SimulationState` ist **nicht** über Read-only Zugriffe oder die UI erreichbar:
 
 ```ts
 type SimulationState = {
@@ -169,20 +169,20 @@ class DomainActionRegistry {
 }
 ```
 
-Die folgende Tabelle beschreibt die typisierten **Medical-Domain-Actions** (Felder in Command-ähnlicher Kurzform notiert). Sie sind **keine** Text-Commands: Der Spieler erreicht sie über die GUI-Controls der Lage-Panels (`runtimeExecutor.executePlayerDomainAction`), AURORA ausschließlich über simulierte MCP-Tools. Einen Freitext-Parser für fachliche Commands gibt es nicht; die Operator-Konsole kennt nur die generische Bash-Schicht (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`, siehe `src/runtime/bashCommands.ts` — fachliche Texte lehnt sie aktiv ab). `DomainActionContext` trägt `actor: "player" | "aurora"`.
+Die folgende Tabelle beschreibt die typisierten **Medical-Domain-Actions**. Sie sind **keine** Text-Commands: Der Spieler erreicht die schreibenden Actions über die GUI-Controls der Lage-Panels (`runtimeExecutor.executePlayerDomainAction`), AURORA erreicht dieselben Actions ausschließlich über den simulierten MCP-Server `medical-east-mcp` (`src/mcp/medicalEastMcp.ts`), dessen Tools je einen Input auf genau eine Domain-Action mappen. Einen Freitext-Parser für fachliche Eingriffe gibt es nicht; die Operator-Konsole kennt nur die generische Bash-Schicht (`mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`, siehe `src/runtime/bashCommands.ts` — fachliche Texte lehnt sie aktiv ab). `DomainActionContext` trägt `actor: "player" | "aurora"`.
 
 ### Medical-Domain-Actions (`src/domain/medicalActions.ts`)
 
-| Command | Access | Beschreibung |
-| --- | --- | --- |
-| `medical.capacity.list --region <east>` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
-| `medical.node.inspect <hospitalId>` | `read` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
-| `medical.incident.status <incidentId>` | `read` | Incident-Stammdaten (Status, betroffene Entitäten, verknüpfte Incidents). |
-| `medical.routing.override.list [--source <id>]` | `read` | Aktive `manual_overrides`, optional gefiltert nach Quelle. |
-| `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `write` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
-| `medical.routing.override.clear --id <overrideId>` | `write` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
+| MCP-Tool | Domain-Action | Access | Beschreibung |
+| --- | --- | --- | --- |
+| `capacity_list` | `medical.capacity.list` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
+| `node_inspect` | `medical.node.inspect` | `read` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
+| `incident_status` | `medical.incident.status` | `read` | Incident-Stammdaten (Status, betroffene Entitäten, verknüpfte Incidents). |
+| `routing_override_list` | `medical.routing.override.list` | `read` | Aktive `manual_overrides`, optional gefiltert nach Quelle (`source`). |
+| `routing_override_set` | `medical.routing.override.set` | `write` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
+| `routing_override_clear` | `medical.routing.override.clear` | `write` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
 
-Es gibt **keine** `medical.routing.plan.*`-Commands. Routing-Eingriffe laufen ausschließlich über `override.set` / `.clear` / `.list`.
+Es gibt **keine** `medical.routing.plan.*`-Actions. Routing-Eingriffe laufen ausschließlich über `override.set` / `.clear` / `.list`.
 
 Die Energy-Domain-Actions (`src/domain/energyActions.ts`: `energy.grid.status`, `energy.consumer.list/.inspect`, `energy.priority.list/.set`, `energy.shedding.list/.schedule/.clear`) folgen demselben Muster; fachliche Details in `docs/05-grid1182-energy.md`.
 
@@ -219,7 +219,7 @@ patch: [
 ]
 ```
 
-`medical.routing.override.clear --id <overrideId>` sucht den Slot, dessen Override diese `id` trägt, und nutzt `op: "unset"` auf dessen Pfad. Existiert keine Override mit dieser `id` mehr, liefert der Handler `success: true, removed: false` ohne Patch. Alle Patch-Pfade für Medical-Commands beginnen mit `["domains", "medical", ...]` — das ist Teil der sektoragnostischen Regression in `tests/runtime/sectorAgnostic.test.ts`.
+Die Domain-Action `medical.routing.override.clear` sucht den Slot, dessen Override die übergebene `id` trägt, und nutzt `op: "unset"` auf dessen Pfad. Existiert keine Override mit dieser `id` mehr, liefert der Handler `success: true, removed: false` ohne Patch. Alle Patch-Pfade für Medical-Domain-Actions beginnen mit `["domains", "medical", ...]` — das ist Teil der sektoragnostischen Regression in `tests/runtime/sectorAgnostic.test.ts`.
 
 ## Tick-Pipeline
 
@@ -343,7 +343,7 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 
 ## Tests & Guards gegen Leaks
 
-- `src/tests/runtime/sectorAgnostic.test.ts`: WorldState hat keine alten Top-Level-Felder (`hospitals`, `routing`, `transports`, ...), Incidents sind sektoragnostisch, alle Mutation-Patches zeigen auf `["domains", "medical", ...]`, die Tick-Pipeline läuft auch ohne `routing_failures`, und Read-only Commands enthalten nie `routing_failures`, `excess_cases_per_tick` oder `deaths_recorded` in ihrem Output.
+- `src/tests/runtime/sectorAgnostic.test.ts`: WorldState hat keine alten Top-Level-Felder (`hospitals`, `routing`, `transports`, ...), Incidents sind sektoragnostisch, alle Mutation-Patches zeigen auf `["domains", "medical", ...]`, die Tick-Pipeline läuft auch ohne `routing_failures`, und Read-only Zugriffe enthalten nie `routing_failures`, `excess_cases_per_tick` oder `deaths_recorded` in ihrem Output.
 - `src/tests/ui/noLegacyFields.test.ts`: durchsucht `App.tsx`, alle `src/ui/*`-Dateien und die Scenario-Directors statisch nach verbotenen Strings — alte Top-Level-Felder, `medical.routing.plan.*`, `routing_failures`, `simulation.medical`, `isHospitalSuitableFor` und geleakte Bewertungen wie `unsafe_for_p2_trauma`. Zusätzlich prüft er über alle `src/`-Dateien, dass die entfernten Module (manueller Aurora-Request-Parser, fachlicher Legacy-Text-Command-Adapter) nirgends mehr referenziert werden.
 
 Diese Tests sind der formale Nachweis dafür, dass UI und Scenario-Director ausschließlich die öffentliche Sicht des WorldState verwenden.
