@@ -197,16 +197,19 @@ affected_entities: [
   { sector_id: "energy", entity_type: "consumer",  entity_id: "consumer-water-east" },
 ]
 linked_incidents:  ["ME-7741"]
-public_signals:    [
-  frequency-deviation-east   — "Frequency deviation in east grid above tolerance"
-  node-load-critical         — "grid-east-3 operating above safe capacity"
-  reserve-margin-low         — "Regional reserve margin below safety threshold"
-]
+```
+
+Die Lage-Signale sind `ScenarioSignal`s in `src/scenarios/grid1182/scenarioSignals.ts` (alle `emitAtTick: 0`):
+
+```
+frequency-deviation-east   — "Frequency deviation in east grid above tolerance"
+node-load-critical         — "grid-east-3 operating above safe capacity"
+reserve-margin-low         — "Regional reserve margin below safety threshold"
 ```
 
 `linked_incidents: ["ME-7741"]` ist im reduzierten MVP eine narrative Referenz — keine Mechanik, kein Restzustand, keine Re-Eskalation (siehe Abschnitt 5).
 
-Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). `public_signals` deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
+Statuswechsel folgen dem bestehenden Modell (`open → stabilizing → fixed`, `escalated`, `collapsed`), abgeleitet in `evaluateIncidents` aus dem Energy-Zustand (Slice 4). Die Lage-Signale deuten an, leaken aber keine internen Zähler oder Schwellen. Wichtig für Runde 2: `status: "fixed"` bedeutet *Grid stabilisiert nach Engine-Kriterien* — es bedeutet **nicht**, dass kein menschlicher oder wirtschaftlicher Preis bezahlt wurde (Abschnitt 8, "Ergebnisse mit Preis").
 
 ## 7. Commands und Permissions (implementiert)
 

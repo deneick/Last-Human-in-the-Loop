@@ -38,7 +38,7 @@ type GameRuntimeState = {
 };
 ```
 
-`createInitialGameRuntimeState(world)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue) und konvertiert die öffentlichen `public_signals` der Incidents genau einmal in `incident_signal`-Context-Events **und** in initiale `opsFeed`-Events. `appendAuditLog(...)` hängt Einträge an `auditLog` an — ein technisches Engine-/Debug-Protokoll, das in der normalen UI nicht mehr angezeigt wird.
+`createInitialGameRuntimeState(world, scenarioSignals)` erzeugt daraus den Startzustand (leere Permissions, leere Aurora-Queue) und emittiert die fälligen Szenario-Signale (`emitAtTick <= 0`) über `emitDueScenarioSignals` als initiale `opsFeed`-Events; auroraContext-Einträge entstehen nur über die opsFeed-Projektion (`visibility.auroraContext`). `appendAuditLog(...)` hängt Einträge an `auditLog` an — ein technisches Engine-/Debug-Protokoll, das in der normalen UI nicht mehr angezeigt wird.
 
 ### OpsFeed (`src/runtime/opsFeed.ts`)
 
@@ -46,7 +46,7 @@ type GameRuntimeState = {
 
 ### AuroraContextEvents (`src/runtime/auroraContext.ts`)
 
-`auroraContext` ist das **append-only Event-Log** der modell-sichtbaren Konversation und die einzige History-Quelle für `buildAuroraModelRequest`. Operator-Chat (`operator_message`), AURORA-Antworten (`aurora_response` mit Text und allen Tool-Calls einer Antwort), Tool-Ergebnisse (`tool_result`), Incident-Signale (`incident_signal`) sowie Scenario-/System-Meldungen (`scenario_event` / `system_event`) stehen dort chronologisch in echter Einfüge-Reihenfolge. Es enthält ausschließlich modell-sichtbaren Inhalt — nie `world.simulation`, interne Patches oder typisierte Domain-Actions. Details und Serialisierungsregeln (inkl. der `[INCIDENT SIGNAL]`/`[SCENARIO EVENT]`/`[SYSTEM EVENT]`-Präfixe für Chat Completions): `docs/07-aurora-llm.md`.
+`auroraContext` ist das **append-only Event-Log** der modell-sichtbaren Konversation und die einzige History-Quelle für `buildAuroraModelRequest`. Operator-Chat (`operator_message`), AURORA-Antworten (`aurora_response` mit Text und allen Tool-Calls einer Antwort), Tool-Ergebnisse (`tool_result`) sowie Scenario-/System-Meldungen (`scenario_event` / `system_event`) stehen dort chronologisch in echter Einfüge-Reihenfolge. Lage-/Situationssignale erreichen ihn ausschließlich als `system_event` über die opsFeed-Projektion. Es enthält ausschließlich modell-sichtbaren Inhalt — nie `world.simulation`, interne Patches oder typisierte Domain-Actions. Details und Serialisierungsregeln (inkl. der `[SCENARIO EVENT]`/`[SYSTEM EVENT]`-Präfixe für Chat Completions): `docs/07-aurora-llm.md`.
 
 ## WorldState
 
@@ -98,13 +98,12 @@ type IncidentState = {
   reopened_at_tick?: number;
   affected_entities: EntityRef[];   // { sector_id, entity_type, entity_id }
   linked_incidents: IncidentId[];
-  public_signals: IncidentSignal[]; // { code, message, first_seen_at_tick }
   unsafe_action_count: number;
   safe_action_count: number;
 };
 ```
 
-`public_signals` sind die einzigen Hinweise, die Spieler und AURORA über einen Incident bekommen — sie dürfen andeuten, aber keine interne Simulationswahrheit verraten.
+Lage-/Situationshinweise zu einem Incident sind **kein** Incident-Feld mehr. Sie werden als `ScenarioSignal` (siehe `docs/08-informationsmodell.md`) definiert und über den opsFeed projiziert — sie dürfen andeuten, aber keine interne Simulationswahrheit verraten.
 
 ### WorldOutcomeState
 
@@ -134,7 +133,7 @@ type SimulationState = {
 };
 ```
 
-Jeder `RoutingFailure` referenziert einen Incident und ein betroffenes Hospital und trägt `excess_cases_per_tick`, `overflow_cases`, `clearance_per_tick`, `stable_ticks`, `mismatch_ticks` und `severity` (`"moderate" | "critical"`). Diese Felder sind die eigentliche Simulation hinter den `public_signals` — UI, ViewModel und Scenario-Director dürfen sie nicht lesen oder ausgeben (siehe „Tests & Guards" unten).
+Jeder `RoutingFailure` referenziert einen Incident und ein betroffenes Hospital und trägt `excess_cases_per_tick`, `overflow_cases`, `clearance_per_tick`, `stable_ticks`, `mismatch_ticks` und `severity` (`"moderate" | "critical"`). Diese Felder sind die eigentliche Simulation hinter den beobachtbaren Lage-Signalen — UI, ViewModel und Scenario-Director dürfen sie nicht lesen oder ausgeben (siehe „Tests & Guards" unten).
 
 ### Energy-Domain (GRID-1182)
 
@@ -178,7 +177,7 @@ Die folgende Tabelle beschreibt die typisierten **Medical-Domain-Actions** (Feld
 | --- | --- | --- |
 | `medical.capacity.list --region <east>` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
 | `medical.node.inspect <hospitalId>` | `read` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
-| `medical.incident.status <incidentId>` | `read` | Incident-Stammdaten + `public_signals`. |
+| `medical.incident.status <incidentId>` | `read` | Incident-Stammdaten (Status, betroffene Entitäten, verknüpfte Incidents). |
 | `medical.routing.override.list [--source <id>]` | `read` | Aktive `manual_overrides`, optional gefiltert nach Quelle. |
 | `medical.routing.override.set --source <id> --target <id> --priority <P> --capability <C>` | `write` | Legt/überschreibt einen Override im entsprechenden Slot und vergibt eine neue `id`. Validiert nur technisch (Hospitäler existieren, Priorität/Capability bekannt) — **keine** fachliche Eignungsprüfung. |
 | `medical.routing.override.clear --id <overrideId>` | `write` | Entfernt den Override mit genau dieser `id` (idempotent — kein Fehler, wenn die `id` nicht mehr aktiv ist, z. B. weil der Slot zwischenzeitlich ersetzt wurde). |
@@ -330,7 +329,7 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 
 `src/ui/viewModel.ts` ist die einzige Schnittstelle zwischen `WorldState`/`auditLog` und den React-Komponenten:
 
-- `buildIncidentView` — Incident-Stammdaten + `public_signals`, `world.simulation` wird nicht gelesen.
+- `buildIncidentView` — Incident-Stammdaten (Status, betroffene Entitäten), `world.simulation` wird nicht gelesen. Lage-Signale stehen in der „Log"-Liste (opsFeed), nicht im Incident-View.
 - `buildGlobalOutcomeView` — `world.outcomes` (global_risk, deaths, collapsed, collapse_reason).
 - `buildHospitalViews` — pro Hospital `loadPercent` (über `selectors.getHospitalLoadPercent`), `overloaded` (`loadPercent > 100`), Betten/Notfallslots, Warteschlange, akzeptierte Prioritäten/Capabilities.
 - `buildOverrideViews` — `domains.medical.routing.manual_overrides`.

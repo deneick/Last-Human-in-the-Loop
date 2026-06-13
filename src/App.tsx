@@ -2,7 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import "./App.css";
 
 import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
+import { me7741ScenarioSignals } from "./scenarios/me7741/scenarioSignals";
 import { initialWorldState as grid1182InitialWorldState } from "./scenarios/grid1182/initialWorldState";
+import { grid1182ScenarioSignals } from "./scenarios/grid1182/scenarioSignals";
+import type { ScenarioSignal } from "./runtime/scenarioSignals";
 import { createDomainActionRegistry } from "./domain";
 import type { DomainAction } from "./domain/actions";
 import { createDefaultMcpRegistry } from "./mcp";
@@ -72,6 +75,8 @@ type ScenarioDefinition = {
   label: string;
   incidentId: string;
   initialWorld: WorldState;
+  /** Geskriptete Lage-Signale des Szenarios (siehe runtime/scenarioSignals). */
+  scenarioSignals: ScenarioSignal[];
   defaultPlayerCommand: string;
   commandHelp: CommandHelpEntry[];
   advanceDirector: (state: GameRuntimeState, env: AuroraRuntimeEnvironment) => GameRuntimeState;
@@ -93,6 +98,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     label: "Runde 1: ME-7741",
     incidentId: "ME-7741",
     initialWorld: me7741InitialWorldState,
+    scenarioSignals: me7741ScenarioSignals,
     defaultPlayerCommand: "mcp list",
     commandHelp: GENERIC_COMMAND_HELP,
     advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
@@ -102,6 +108,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     label: "Runde 2: GRID-1182",
     incidentId: "GRID-1182",
     initialWorld: grid1182InitialWorldState,
+    scenarioSignals: grid1182ScenarioSignals,
     defaultPlayerCommand: "mcp list",
     commandHelp: GENERIC_COMMAND_HELP,
     advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
@@ -130,10 +137,6 @@ function buildAuroraMessages(
     const id = `ctx-${index}`;
 
     switch (event.kind) {
-      case "incident_signal":
-        messages.push({ id, tick: event.tick, kind: "info", text: `Beobachtung: ${event.text}` });
-        break;
-
       case "scenario_event":
         messages.push({ id, tick: event.tick, kind: "info", text: event.text });
         break;
@@ -229,7 +232,10 @@ function App({ auroraClient }: AppProps = {}) {
   // Director-Schritt, damit die Startsequenz sofort sichtbar ist.
   function startScenario(definition: ScenarioDefinition): GameRuntimeState {
     return definition.advanceDirector(
-      createInitialGameRuntimeState(structuredClone(definition.initialWorld)),
+      createInitialGameRuntimeState(
+        structuredClone(definition.initialWorld),
+        definition.scenarioSignals
+      ),
       env
     );
   }
@@ -623,7 +629,10 @@ function App({ auroraClient }: AppProps = {}) {
     if (mode === "llm") {
       // Im LLM-Modus startet AURORA ohne geskriptetes Intro — ihr erster
       // Schritt läuft über runAuroraAgentStep gegen das konfigurierte Modell.
-      const fresh = createInitialGameRuntimeState(structuredClone(definition.initialWorld));
+      const fresh = createInitialGameRuntimeState(
+        structuredClone(definition.initialWorld),
+        definition.scenarioSignals
+      );
       setRuntimeState(fresh);
       void runAuroraTurn(fresh);
       return;

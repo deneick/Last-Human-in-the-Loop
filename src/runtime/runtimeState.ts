@@ -5,9 +5,10 @@ import type { AuroraQueueState } from "./auroraQueue";
 import type { McpRuntimeState } from "../mcp/mcpRegistry";
 import { createInitialMcpRuntimeState } from "../mcp/mcpRegistry";
 import type { AuroraContextEvent } from "./auroraContext";
-import { initialIncidentSignalEvents, operatorMessageEvent } from "./auroraContext";
+import { operatorMessageEvent } from "./auroraContext";
 import type { OpsEvent } from "./opsFeed";
-import { initialOpsFeed } from "./opsFeed";
+import type { ScenarioSignal } from "./scenarioSignals";
+import { emitDueScenarioSignals } from "./scenarioSignals";
 
 export type RuntimeAuditEventSource = "player" | "aurora" | "system";
 
@@ -67,24 +68,38 @@ export type GameRuntimeState = {
    */
   opsFeed: OpsEvent[];
   auditLog: RuntimeAuditEvent[];
+  /**
+   * Geskriptete Lage-Signale des Szenarios. Reine Definition — wird zur
+   * Laufzeit über `emitDueScenarioSignals` in opsFeed-Events umgewandelt,
+   * sobald der aktuelle Tick `emitAtTick` erreicht.
+   */
+  scenarioSignals: ScenarioSignal[];
+  /** Codes der bereits emittierten Szenario-Signale (Dedup über Ticks/Re-Render). */
+  emittedSignalCodes: string[];
   scenario?: ScenarioRuntimeState;
 };
 
-export function createInitialGameRuntimeState(initialWorldState: WorldState): GameRuntimeState {
-  return {
+export function createInitialGameRuntimeState(
+  initialWorldState: WorldState,
+  scenarioSignals: ScenarioSignal[] = []
+): GameRuntimeState {
+  const base: GameRuntimeState = {
     world: initialWorldState,
     permissions: createInitialPermissionState(),
     auroraQueue: { items: [], nextId: 1 },
     mcp: createInitialMcpRuntimeState(),
-    // Öffentliche Startup-Signale werden genau einmal bei der Initialisierung
-    // in Context-Events umgewandelt — nicht dynamisch nachgelesen.
-    auroraContext: initialIncidentSignalEvents(initialWorldState),
-    // Öffentliche Startup-Signale sind auch beobachtbare Lageereignisse:
-    // operator- und workspace-sichtbar, aber nicht erneut in den
-    // auroraContext gespiegelt (das erledigt initialIncidentSignalEvents).
-    opsFeed: initialOpsFeed(initialWorldState),
+    // Kein Direktpfad mehr in den auroraContext: Startsignale entstehen
+    // ausschließlich über die opsFeed-Projektion (siehe unten).
+    auroraContext: [],
+    opsFeed: [],
     auditLog: [],
+    scenarioSignals,
+    emittedSignalCodes: [],
   };
+
+  // Signale mit emitAtTick: 0 erscheinen sofort zum Szenariostart — und zwar
+  // ausschließlich über den normalen opsFeed-Projektionspfad.
+  return emitDueScenarioSignals(base);
 }
 
 /** Hängt ein Event an das append-only AURORA-Context-Log an. */

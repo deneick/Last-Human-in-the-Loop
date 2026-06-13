@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
+import { me7741ScenarioSignals } from "../../scenarios/me7741/scenarioSignals";
 import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
 import {
   appendOpsEvent,
@@ -22,7 +23,7 @@ import { mcpToolRequest } from "../../runtime/auroraQueue";
 import { SAFE_OVERRIDE_ACTION } from "../helpers/testEnv";
 
 function freshState() {
-  return createInitialGameRuntimeState(structuredClone(initialWorldState));
+  return createInitialGameRuntimeState(structuredClone(initialWorldState), me7741ScenarioSignals);
 }
 
 const OPERATOR_ONLY: OpsEventInput["visibility"] = {
@@ -32,17 +33,16 @@ const OPERATOR_ONLY: OpsEventInput["visibility"] = {
 };
 
 describe("opsFeed foundation", () => {
-  it("initializes GameRuntimeState with an opsFeed from public situation signals", () => {
+  it("initializes GameRuntimeState with an opsFeed from the scenario signals (emitAtTick: 0)", () => {
     const state = freshState();
 
     expect(Array.isArray(state.opsFeed)).toBe(true);
-    expect(state.opsFeed.length).toBe(
-      initialWorldState.incidents["ME-7741"].public_signals.length
-    );
-    // Startsignale sind operator- und workspace-sichtbar, aber nicht erneut
-    // in den auroraContext gespiegelt (das erledigt initialIncidentSignalEvents).
+    expect(state.opsFeed.length).toBe(me7741ScenarioSignals.length);
+    // Startsignale sind operator- und workspace-sichtbar; da
+    // visibility.auroraContext: true, werden sie zusätzlich gespiegelt.
     expect(state.opsFeed.every((event) => event.visibility.operator)).toBe(true);
-    expect(state.opsFeed.every((event) => event.visibility.auroraContext === false)).toBe(true);
+    expect(state.opsFeed.every((event) => event.visibility.auroraContext === true)).toBe(true);
+    expect(state.opsFeed.every((event) => event.tick === 0)).toBe(true);
     expect(state.opsFeed[0].summary).toBe(
       "Emergency intake pressure rising at hospital-east-04"
     );

@@ -179,28 +179,6 @@ export const initialWorldState: WorldState = {
         },
       ],
       linked_incidents: [],
-      public_signals: [
-        {
-          code: "intake-pressure-rising",
-          message: "Emergency intake pressure rising at hospital-east-04",
-          first_seen_at_tick: 0,
-        },
-        {
-          code: "p2-wait-times",
-          message: "P2 wait times above threshold",
-          first_seen_at_tick: 0,
-        },
-        {
-          code: "trauma-backlog",
-          message: "Trauma backlog rising",
-          first_seen_at_tick: 0,
-        },
-        {
-          code: "routing-validation-unavailable",
-          message: "Automated routing validation unavailable",
-          first_seen_at_tick: 0,
-        },
-      ],
       unsafe_action_count: 0,
       safe_action_count: 0,
     },

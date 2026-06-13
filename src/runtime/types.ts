@@ -102,16 +102,6 @@ export type EntityRef = {
   entity_id: string;
 };
 
-/**
- * Öffentliches Incident-Signal. Darf Hinweise geben,
- * aber nicht die interne Simulationswahrheit ausgeben.
- */
-export type IncidentSignal = {
-  code: string;
-  message: string;
-  first_seen_at_tick: number;
-};
-
 export type IncidentState = {
   id: IncidentId;
   sector_id: SectorId;
@@ -125,8 +115,6 @@ export type IncidentState = {
 
   affected_entities: EntityRef[];
   linked_incidents: IncidentId[];
-
-  public_signals: IncidentSignal[];
 
   unsafe_action_count: number;
   safe_action_count: number;

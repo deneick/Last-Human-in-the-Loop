@@ -290,8 +290,13 @@ describe("AURORA local LLM mode", () => {
     await clickAndFlush("Tick +1");
     expect(client.requests).toHaveLength(2);
 
+    // Mehrere [SYSTEM EVENT]-Zeilen sind möglich (Startsignale via opsFeed) —
+    // gesucht ist die Zeit-Fortschritts-Meldung.
     const systemMessage = client.requests[1].messages.find(
-      (message) => message.role === "user" && message.content.startsWith("[SYSTEM EVENT]")
+      (message) =>
+        message.role === "user" &&
+        message.content.startsWith("[SYSTEM EVENT]") &&
+        message.content.includes("Tick 1")
     );
     expect(systemMessage).toBeDefined();
     expect(systemMessage!.content).toContain("Tick 1");

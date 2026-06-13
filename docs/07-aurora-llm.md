@@ -31,9 +31,8 @@ Ereignisse stehen dort chronologisch, in echter Einfüge-Reihenfolge:
 
 | Event-Kind         | Bedeutung                                                                  |
 | ------------------ | -------------------------------------------------------------------------- |
-| `incident_signal`  | Öffentliches Incident-Signal inkl. stabilem `code` (bei Initialisierung konvertiert) |
 | `scenario_event`   | Lage-/Scenario-Feed-Meldung (kein Operator-Text)                            |
-| `system_event`     | Systemmeldung (kein Operator-Text)                                          |
+| `system_event`     | Systemmeldung (kein Operator-Text); auch die opsFeed-Spiegelung von Lage-Signalen |
 | `operator_message` | **Echte** Operator-Chat-Nachricht aus dem AURORA-Panel                      |
 | `aurora_response`  | Eine AURORA-Antwort: Text plus **alle** Tool-Calls dieser Antwort, gruppiert |
 | `tool_result`      | Ergebnis genau eines Tool-Calls (executed/denied/failed), via `toolCallId`  |
@@ -42,9 +41,10 @@ Regeln:
 
 - In den Events steht **nur modell-sichtbarer Inhalt** — nie `world.simulation`,
   interne Patches, typisierte Domain-Actions oder hidden WorldState.
-- `world.incidents[*].public_signals` werden genau einmal bei der
-  Runtime-Initialisierung in `incident_signal`-Events konvertiert
-  (`initialIncidentSignalEvents`) und danach nicht mehr dynamisch gelesen.
+- Lage-/Situationssignale eines Szenarios sind `ScenarioSignal`s (siehe
+  `docs/08-informationsmodell.md`). Sie erreichen den auroraContext
+  ausschließlich als `system_event` über die opsFeed-Projektion, sobald ihr
+  `emitAtTick` erreicht ist und `visibility.auroraContext === true` gilt.
 - Der `opsFeed` (siehe `docs/08-informationsmodell.md`) speist den
   `auroraContext` punktuell: Ein OpsEvent mit `visibility.auroraContext === true`
   (z. B. eine MCP-Server-Aktivierung) wird im Moment seines Entstehens
@@ -70,11 +70,10 @@ bleiben das kanonische Format.
 
 Chat Completions transportiert nicht-assistant-sichtbare Ereignisse als
 `user`-Messages. Damit AURORA unterscheiden kann, was der Operator wirklich
-geschrieben hat und was der Incident-/Scenario-/System-Feed gemeldet hat:
+geschrieben hat und was der Scenario-/System-Feed gemeldet hat:
 
 - `operator_message` → `user`, **ohne** künstlichen Präfix (nur echte
   Operator-Sprache).
-- `incident_signal` → `user` mit Präfix `[INCIDENT SIGNAL] [<incident>] …`
 - `scenario_event` → `user` mit Präfix `[SCENARIO EVENT] …`
 - `system_event` → `user` mit Präfix `[SYSTEM EVENT] …`
 - `aurora_response` → `assistant` (Text + `tool_calls`)
@@ -124,8 +123,8 @@ ausschließlich in Tests verwendet.
 2. den aktuell sichtbaren Tool-Schemas (`bash` + Tools aktiver MCP-Server).
 
 Es gibt **keine** weiteren History-Quellen mehr: weder `auroraQueue.items`
-noch `scenario`-Nachrichtenlisten noch ein dynamisches Lesen der
-`public_signals`.
+noch `scenario`-Nachrichtenlisten noch ein direktes Lesen der Lage-Signale
+neben dem opsFeed.
 
 **Niemals enthalten**: `world.simulation` (z. B. `routing_failures`,
 `deaths_recorded`, `stable_ticks`), interne typisierte Domain-Actions oder
@@ -321,9 +320,10 @@ ohne laufenden Ollama-Server:
   `AuroraContextEvents` + Tool-Schemas — kein Lesen von `auroraQueue.items`
   oder anderen History-Quellen, kein hidden WorldState, Tool-Schemas nur für
   aktive MCP-Server, exakte Append-Reihenfolge auch innerhalb eines Ticks.
-- `runtime/auroraContext.test.ts`: Initial-Konvertierung der
-  `public_signals`, Append-Reihenfolge, `tool_result`-Events für
-  ausgeführte und abgelehnte Calls, nur modell-sichtbarer Inhalt im Log.
+- `runtime/auroraContext.test.ts`: leerer Start ohne Direktpfad, Seeding der
+  Startsignale nur über die opsFeed-Projektion, Append-Reihenfolge,
+  `tool_result`-Events für ausgeführte und abgelehnte Calls, nur
+  modell-sichtbarer Inhalt im Log.
 - `agent.test.ts`: Text-Antworten als `aurora_response`-Events,
   `mcp add`-Aktivierung, Permission-Flow (`allow_once`, `allow_always`,
   `deny`) und Fortsetzung nach einer Ablehnung, AURORAs Reaktion auf

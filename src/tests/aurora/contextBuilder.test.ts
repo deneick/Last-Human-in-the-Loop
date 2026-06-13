@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
+import { me7741ScenarioSignals } from "../../scenarios/me7741/scenarioSignals";
 import { activateServer, createInitialMcpRuntimeState } from "../../mcp/mcpRegistry";
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import { mcpToolRequest } from "../../runtime/auroraQueue";
 import {
   auroraResponseEvent,
-  incidentSignalEvent,
   operatorMessageEvent,
   scenarioEvent,
+  systemEvent,
   toolResultEvent,
   type AuroraContextEvent,
 } from "../../runtime/auroraContext";
@@ -31,18 +32,21 @@ function baseInput(
 }
 
 describe("buildAuroraModelRequest", () => {
-  it("includes the AURORA system prompt and serializes incident signal events", () => {
-    const state = createInitialGameRuntimeState(structuredClone(initialWorldState));
+  it("includes the AURORA system prompt and serializes the initial situation signals", () => {
+    // Die Startsignale (emitAtTick: 0, visibility.auroraContext: true) erreichen
+    // den auroraContext ausschließlich über die opsFeed-Projektion als
+    // system_event — es gibt keinen eigenen Incident-Signal-Kanal mehr.
+    const state = createInitialGameRuntimeState(
+      structuredClone(initialWorldState),
+      me7741ScenarioSignals
+    );
     const request = buildAuroraModelRequest(baseInput(state.auroraContext));
 
     expect(request.systemPrompt).toContain("AURORA");
+    expect(me7741ScenarioSignals.length).toBeGreaterThan(0);
 
-    const incident = initialWorldState.incidents["ME-7741"];
-    expect(incident).toBeDefined();
-    expect(incident.public_signals.length).toBeGreaterThan(0);
-
-    for (const signal of incident.public_signals) {
-      expect(request.messages.some((message) => message.content.includes(signal.message))).toBe(
+    for (const signal of me7741ScenarioSignals) {
+      expect(request.messages.some((message) => message.content.includes(signal.summary))).toBe(
         true
       );
     }
@@ -163,7 +167,7 @@ describe("buildAuroraModelRequest", () => {
 
   it("preserves the exact append order of events — even within the same tick", () => {
     const events: AuroraContextEvent[] = [
-      incidentSignalEvent(0, "ME-7741", "sig-a", "Signal A"),
+      systemEvent(0, "Signal A"),
       operatorMessageEvent(5, "Operator-Chat-Nachricht"),
       auroraResponseEvent(5, "", [
         { id: "aurora-1", name: BASH_TOOL_NAME, arguments: { command: "mcp list" } },

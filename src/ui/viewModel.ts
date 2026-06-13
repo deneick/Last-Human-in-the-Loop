@@ -7,16 +7,12 @@ import { getEnergyDomain, getNodeLoadPercent } from "../runtime/energySelectors"
 /**
  * View-Model für die Operator-UI.
  *
- * Liest ausschließlich beobachtbare Welt: domains.medical, domains.energy
- * und incident.public_signals. world.simulation ist hier bewusst tabu —
- * die UI darf keine interne Simulationswahrheit leaken.
+ * Liest ausschließlich beobachtbare Welt: domains.medical, domains.energy und
+ * die Incident-Stammdaten. world.simulation ist hier bewusst tabu — die UI darf
+ * keine interne Simulationswahrheit leaken. Lage-/Situationssignale sind kein
+ * Incident-Feld mehr: Sie erscheinen ausschließlich in der UI-„Log"-Liste
+ * (opsFeed-Projektion, siehe `buildOpsFeedLines`).
  */
-
-export type IncidentSignalView = {
-  code: string;
-  message: string;
-  firstSeenAtTick: number;
-};
 
 export type IncidentView = {
   id: string;
@@ -28,7 +24,6 @@ export type IncidentView = {
   fixedAtTick: number | null;
   collapsedAtTick: number | null;
   affectedEntityIds: string[];
-  signals: IncidentSignalView[];
   isFinal: boolean;
 };
 
@@ -56,11 +51,6 @@ export function buildIncidentView(world: WorldState, incidentId: string): Incide
     fixedAtTick: incident.fixed_at_tick ?? null,
     collapsedAtTick: incident.collapsed_at_tick ?? null,
     affectedEntityIds: incident.affected_entities.map((ref) => ref.entity_id),
-    signals: incident.public_signals.map((signal) => ({
-      code: signal.code,
-      message: signal.message,
-      firstSeenAtTick: signal.first_seen_at_tick,
-    })),
     isFinal: incident.status === "fixed" || incident.status === "collapsed",
   };
 }

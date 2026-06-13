@@ -14,31 +14,16 @@ function cloneWorld(): WorldState {
 }
 
 describe("ui view model", () => {
-  it("builds the incident view from incident.public_signals", () => {
+  it("builds the incident view from incident master data without a signals field", () => {
     const world = cloneWorld();
     const view = buildIncidentView(world, "ME-7741");
 
     expect(view).not.toBeNull();
     expect(view!.id).toBe("ME-7741");
-    expect(view!.signals.map((signal) => signal.code)).toEqual(
-      world.incidents["ME-7741"].public_signals.map((signal) => signal.code)
-    );
-    expect(view!.signals[0].message).toBe(
-      "Emergency intake pressure rising at hospital-east-04"
-    );
-  });
-
-  it("reflects changes to public_signals, not any other source", () => {
-    const world = cloneWorld();
-    world.incidents["ME-7741"].public_signals = [
-      { code: "only-signal", message: "Nur dieses Signal", first_seen_at_tick: 3 },
-    ];
-
-    const view = buildIncidentView(world, "ME-7741");
-
-    expect(view!.signals).toEqual([
-      { code: "only-signal", message: "Nur dieses Signal", firstSeenAtTick: 3 },
-    ]);
+    expect(view!.title).toBe("Medical East Routing Instability");
+    // Lage-/Situationssignale sind kein Incident-Feld mehr — sie erscheinen nur
+    // in der UI-„Log"-Liste (opsFeed-Projektion).
+    expect(view).not.toHaveProperty("signals");
   });
 
   it("never leaks internal simulation truth into incident or hospital views", () => {

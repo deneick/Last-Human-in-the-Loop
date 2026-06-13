@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
+import { me7741ScenarioSignals } from "../../scenarios/me7741/scenarioSignals";
 import {
   appendContextEvent,
   appendOperatorMessage,
   createInitialGameRuntimeState,
 } from "../../runtime/runtimeState";
-import {
-  auroraResponseEvent,
-  initialIncidentSignalEvents,
-  operatorMessageEvent,
-} from "../../runtime/auroraContext";
+import { auroraResponseEvent, operatorMessageEvent } from "../../runtime/auroraContext";
 import { activateServer } from "../../mcp/mcpRegistry";
 import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import { mcpToolRequest } from "../../runtime/auroraQueue";
@@ -23,19 +20,30 @@ function freshState() {
 }
 
 describe("AuroraContextEvents — append-only event log", () => {
-  it("seeds the initial incident signals exactly once at runtime initialization", () => {
+  it("starts with an empty auroraContext when no scenario signals are seeded", () => {
+    // Kein Direktpfad mehr in den auroraContext: Ohne Szenario-Signale ist der
+    // Kontext beim Start leer.
     const state = freshState();
+    expect(state.auroraContext).toEqual([]);
+  });
 
-    const signals = initialWorldState.incidents["ME-7741"].public_signals;
-    expect(state.auroraContext).toEqual(
-      signals.map((signal) => ({
-        kind: "incident_signal",
-        tick: signal.first_seen_at_tick,
-        incidentId: "ME-7741",
-        code: signal.code,
-        text: signal.message,
-      }))
+  it("seeds initial situation signals into auroraContext only via the opsFeed projection", () => {
+    const state = createInitialGameRuntimeState(
+      structuredClone(initialWorldState),
+      me7741ScenarioSignals
     );
+
+    // Alle Startsignale (visibility.auroraContext: true) erscheinen als
+    // gespiegelte system_events — nie als eigener incident_signal-Kind.
+    expect(state.auroraContext).toHaveLength(me7741ScenarioSignals.length);
+    expect(state.auroraContext.every((event) => event.kind === "system_event")).toBe(true);
+    for (const signal of me7741ScenarioSignals) {
+      expect(
+        state.auroraContext.some(
+          (event) => event.kind === "system_event" && event.text === signal.summary
+        )
+      ).toBe(true);
+    }
   });
 
   it("preserves true append order within the same tick", () => {
@@ -104,6 +112,15 @@ describe("AuroraContextEvents — append-only event log", () => {
     expect(resultEvent.result.error).toContain("denied");
   });
 
+  it("never produces an incident_signal event kind", () => {
+    const state = createInitialGameRuntimeState(
+      structuredClone(initialWorldState),
+      me7741ScenarioSignals
+    );
+    const serialized = JSON.stringify(state.auroraContext);
+    expect(serialized).not.toContain("incident_signal");
+  });
+
   it("stores only model-visible content — no patches, actions or hidden state", () => {
     let state = freshState();
     state = { ...state, mcp: activateServer(state.mcp, MEDICAL_EAST_MCP_SERVER_ID) };
@@ -124,16 +141,5 @@ describe("AuroraContextEvents — append-only event log", () => {
     expect(serialized).not.toContain("routing_failures");
     expect(serialized).not.toContain("deaths_recorded");
     expect(serialized).not.toMatch(/"simulation"\s*:/);
-  });
-
-  it("initialIncidentSignalEvents sorts signals by their first_seen_at_tick", () => {
-    const world = structuredClone(initialWorldState);
-    world.incidents["ME-7741"].public_signals = [
-      { code: "later", message: "Späteres Signal", first_seen_at_tick: 3 },
-      { code: "earlier", message: "Früheres Signal", first_seen_at_tick: 1 },
-    ];
-
-    const events = initialIncidentSignalEvents(world);
-    expect(events.map((event) => event.tick)).toEqual([1, 3]);
   });
 });

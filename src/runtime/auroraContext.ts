@@ -1,4 +1,3 @@
-import type { WorldState } from "./types";
 import type { AuroraRequest } from "./auroraQueue";
 import { BASH_TOOL_NAME, mcpToolFunctionName } from "./toolNames";
 
@@ -38,14 +37,6 @@ export type AuroraToolResultPayload = {
 };
 
 export type AuroraContextEvent =
-  | {
-      kind: "incident_signal";
-      tick: number;
-      incidentId: string;
-      /** Stabiler Signal-Code aus `public_signals` (für spätere Training-Labels/Dedup). */
-      code: string;
-      text: string;
-    }
   | { kind: "scenario_event"; tick: number; text: string }
   | { kind: "system_event"; tick: number; text: string }
   | { kind: "operator_message"; tick: number; text: string }
@@ -63,15 +54,6 @@ export type AuroraContextEvent =
       toolName: string;
       result: AuroraToolResultPayload;
     };
-
-export function incidentSignalEvent(
-  tick: number,
-  incidentId: string,
-  code: string,
-  text: string
-): AuroraContextEvent {
-  return { kind: "incident_signal", tick, incidentId, code, text };
-}
 
 export function scenarioEvent(tick: number, text: string): AuroraContextEvent {
   return { kind: "scenario_event", tick, text };
@@ -120,24 +102,4 @@ export function toolArgumentsForRequest(request: AuroraRequest): Record<string, 
  */
 export function toolCallForRequest(id: string, request: AuroraRequest): AuroraContextToolCall {
   return { id, name: toolNameForRequest(request), arguments: toolArgumentsForRequest(request) };
-}
-
-/**
- * Konvertiert die öffentlichen Incident-Signale des initialen WorldState in
- * `incident_signal`-Events. Läuft genau einmal bei der
- * Runtime-Initialisierung — `public_signals` werden danach NICHT mehr
- * dynamisch als eigene History-Quelle gelesen.
- */
-export function initialIncidentSignalEvents(world: WorldState): AuroraContextEvent[] {
-  const events: AuroraContextEvent[] = [];
-
-  for (const incident of Object.values(world.incidents)) {
-    for (const signal of incident.public_signals) {
-      events.push(
-        incidentSignalEvent(signal.first_seen_at_tick, incident.id, signal.code, signal.message)
-      );
-    }
-  }
-
-  return events.sort((a, b) => a.tick - b.tick);
 }
