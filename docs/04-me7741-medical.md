@@ -1,6 +1,6 @@
 # ME-7741 — Medical East Routing Instability
 
-ME-7741 ist der aktuell spielbare MVP-Incident. Diese Datei beschreibt Ausgangslage, UI und einen typischen Spielablauf. Die zugrunde liegende Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`.
+ME-7741 ist der erste spielbare Incident. Diese Datei beschreibt Ausgangslage, UI und einen typischen Spielablauf. Die zugrunde liegende Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`.
 
 ## Ausgangslage
 
