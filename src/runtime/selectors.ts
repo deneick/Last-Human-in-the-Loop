@@ -16,10 +16,6 @@ export function getHospitalLoadPercent(state: WorldState, hospitalId: string) {
   return total > 0 ? (occupancy / total) * 100 : 0;
 }
 
-export function isHospitalOverloaded(state: WorldState, hospitalId: string) {
-  return getHospitalLoadPercent(state, hospitalId) > 100;
-}
-
 /**
  * Engine-interne fachliche Eignungsprüfung. Wird von der Simulation genutzt,
  * darf aber nicht als fertige Bewertung über Read-only Commands ausgegeben werden.

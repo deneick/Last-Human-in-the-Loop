@@ -237,12 +237,21 @@ und erzeugen pro beobachtbarem Übergang genau ein OpsEvent. Bleibt ein Zustand
 gleich, entsteht kein Event; eine Erholung unter den Schwellwert erzeugt ein
 eigenes Erfolgs-Event.
 
-Einbindung in die Pipeline:
+Einbindung in die Pipeline — beide Stufen rufen dieselbe vollständige
+`deriveOpsEvents` auf:
 
-- `advanceTick`: nach `tickWorld`, vergleicht den Welt-Zustand vor/nach dem Tick
-  (Incident-Status, Energy-Knoten und -Verbraucher, Hospital-Auslastung).
-- `evaluateOutcomes`: nach der Outcome-Mutation, vergleicht vor/nach
-  (neue Todesfälle, Incident-Eskalation/-Kollaps, globales Risiko).
+- `advanceTick`: nach `tickWorld`, vergleicht den Welt-Zustand vor/nach dem Tick.
+- `evaluateOutcomes`: nach der Outcome-Mutation, vergleicht vor/nach.
+
+Es entstehen trotzdem keine Duplikate, weil die beiden Stufen **disjunkte
+Zustandsfelder** verändern: `tickWorld` schreibt Incident-Status (Energy),
+Energy-Knoten/-Verbraucher und Hospital-Risiko fort, nie `deaths_total` oder
+`world.outcomes`; `evaluateOutcomes` schreibt Todesfälle, Incident-Eskalation/
+-Kollaps (Medical) und `world.outcomes` fort, nie Knoten/Verbraucher. Der
+Welt-Zustand nach dem Tick ist die gemeinsame Grenze (für Tick-Sensoren das
+„nachher", für Outcome-Sensoren das „vorher"), sodass jeder Übergang genau
+einmal erkannt wird. Ein Produzent ohne passenden Übergang liefert in seiner
+Stufe schlicht keinen Draft.
 
 Beide Stufen hängen die abgeleiteten Events ausschließlich über
 `appendDerivedOpsEvents` → `appendOpsEvent` an — denselben Projektionspfad wie

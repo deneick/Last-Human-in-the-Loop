@@ -2,6 +2,7 @@ import type { WorldState } from "./types";
 import type { PermissionState } from "./permissions";
 import { createInitialPermissionState } from "./permissions";
 import type { AuroraQueueState } from "./auroraQueue";
+import { createInitialAuroraQueueState } from "./auroraQueue";
 import type { McpRuntimeState } from "../mcp/mcpRegistry";
 import { createInitialMcpRuntimeState } from "../mcp/mcpRegistry";
 import type { AuroraContextEvent } from "./auroraContext";
@@ -86,7 +87,7 @@ export function createInitialGameRuntimeState(
   const base: GameRuntimeState = {
     world: initialWorldState,
     permissions: createInitialPermissionState(),
-    auroraQueue: { items: [], nextId: 1 },
+    auroraQueue: createInitialAuroraQueueState(),
     mcp: createInitialMcpRuntimeState(),
     // Kein Direktpfad mehr in den auroraContext: Startsignale entstehen
     // ausschließlich über die opsFeed-Projektion (siehe unten).

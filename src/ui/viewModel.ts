@@ -1,5 +1,4 @@
 import type { WorldState } from "../runtime/types";
-import type { RuntimeAuditEvent } from "../runtime/runtimeState";
 import type { OpsEvent, OpsSector, OpsSeverity } from "../runtime/opsFeed";
 import { getHospitalLoadPercent } from "../runtime/selectors";
 import { getEnergyDomain, getNodeLoadPercent } from "../runtime/energySelectors";
@@ -298,24 +297,6 @@ export function buildEnergyOutcomesView(world: WorldState): EnergyOutcomesView |
     civilUnrest: energy.outcomes.civil_unrest,
     gridInstability: energy.outcomes.grid_instability,
   };
-}
-
-export type AuditLogLineView = {
-  id: string;
-  tick: number;
-  source: string;
-  success: boolean;
-  text: string;
-};
-
-export function buildAuditLogLines(auditLog: RuntimeAuditEvent[]): AuditLogLineView[] {
-  return auditLog.map((event) => ({
-    id: event.id,
-    tick: event.tick,
-    source: event.source,
-    success: event.success,
-    text: `${event.description} — ${event.message}`,
-  }));
 }
 
 /**

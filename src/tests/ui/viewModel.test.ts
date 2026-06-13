@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/me7741/initialWorldState";
 import type { WorldState } from "../../runtime/types";
 import {
-  buildAuditLogLines,
   buildGlobalOutcomeView,
   buildHospitalViews,
   buildIncidentView,
@@ -95,30 +94,5 @@ describe("ui view model", () => {
     expect(view.riskLabel).toBe("Kritisch");
     expect(view.deathsTotal).toBe(2);
     expect(view.collapsed).toBe(false);
-  });
-
-  it("builds compact one-line audit log entries", () => {
-    const lines = buildAuditLogLines([
-      {
-        id: "audit-1",
-        tick: 4,
-        source: "player",
-        kind: "domain_action",
-        description: "medical.routing.override.list",
-        actionType: "medical.routing.override.list",
-        success: true,
-        message: "Success",
-      },
-    ]);
-
-    expect(lines).toEqual([
-      {
-        id: "audit-1",
-        tick: 4,
-        source: "player",
-        success: true,
-        text: "medical.routing.override.list — Success",
-      },
-    ]);
   });
 });

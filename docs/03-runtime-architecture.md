@@ -325,7 +325,7 @@ type ScenarioRuntimeState = {
 
 Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte Script-Event hängt genau ein `aurora_response`-Event (Text + optionaler Tool-Call) an `GameRuntimeState.auroraContext` an — dieselbe Struktur, die auch der LLM-Agent schreibt.
 
-`SCRIPT_EVENTS` ist eine Liste aus `{ id, when(view), messages(view), request?(view) }`. `view: DirectorView` enthält nur `tick`, das `IncidentState`, `deathsTotal` und die aktiven `manual_overrides` — kein `world.simulation`. Jedes Event feuert maximal einmal (`firedEventIds`); abgelehnte geskriptete Requests werden zusätzlich einmalig im Stream quittiert (`<eventId>:deny-ack`).
+`SCRIPT_EVENTS` ist eine Liste aus `{ id, when(view), messages(view), request?(view) }`. `view: DirectorView` ist szenariospezifisch und enthält ausschließlich öffentliche Felder — nie `world.simulation`: der ME-7741-Director liest `tick`, das `IncidentState`, `deathsTotal` und die aktiven `manual_overrides`; der GRID-1182-Director liest `tick`, das `IncidentState`, die `consumers`, die Shedding-`plans`, die lokalen Energy-`outcomes` und `mcpActive`. Jedes Event feuert maximal einmal (`firedEventIds`); abgelehnte geskriptete Requests werden zusätzlich einmalig im Stream quittiert (`<eventId>:deny-ack`).
 
 `advanceScenarioDirector` ruft danach `processAuroraQueue` auf und wendet jedes Ergebnis über `applyAuroraExecutionResult` an (Patch, MCP-Aktivierung, `tool_result`-Event, Audit-Log).
 

@@ -154,7 +154,7 @@ describe("AURORA local LLM mode", () => {
     await clickAndFlush("Einmal erlauben");
 
     expect(text()).toContain("Ausgeführt: mcp add medical-east-mcp");
-    expect(text()).toContain('"activated": true');
+    expect(text()).toContain("MCP server medical-east-mcp activated");
     expect(text()).toContain("medical-east-mcp");
   });
 

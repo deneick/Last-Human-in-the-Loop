@@ -85,11 +85,6 @@ export function opsSectorForSectorId(sectorId: SectorId): OpsSector {
   return "system";
 }
 
-/** Workspace-Datei eines Sektors (genau eine pro Sektor). */
-export function workspaceLogPathForSector(sector: OpsSector): string {
-  return SECTOR_LOG_FILES[sector];
-}
-
 /**
  * Spiegel-Event für den auroraContext. Bewusst ein `system_event` mit der
  * menschenlesbaren Lagezeile — keine internen Felder.
