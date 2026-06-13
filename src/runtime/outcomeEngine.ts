@@ -1,5 +1,6 @@
 import type { GameRuntimeState } from "./runtimeState";
 import { appendAuditLog } from "./runtimeState";
+import { appendDerivedOpsEvents } from "./opsFeedSensors";
 import type { RecordedDeaths, WorldOutcomeState, WorldState } from "./types";
 
 /**
@@ -178,14 +179,15 @@ export function evaluateWorldOutcomes(world: WorldState): WorldState {
 }
 
 export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeState {
-  const deathsResult = evaluateMedicalDeaths(runtimeState.world);
+  const previousWorld = runtimeState.world;
+  const deathsResult = evaluateMedicalDeaths(previousWorld);
   let nextWorld = deathsResult.world;
 
   const incidentsBefore = nextWorld.incidents;
   nextWorld = escalateIncidents(nextWorld);
   nextWorld = evaluateWorldOutcomes(nextWorld);
 
-  if (nextWorld === runtimeState.world) {
+  if (nextWorld === previousWorld) {
     return runtimeState;
   }
 
@@ -198,21 +200,27 @@ export function evaluateOutcomes(runtimeState: GameRuntimeState): GameRuntimeSta
     }
   }
 
-  const nextState: GameRuntimeState = {
+  let nextState: GameRuntimeState = {
     ...runtimeState,
     world: nextWorld,
   };
 
-  if (auditMessages.length === 0) {
-    return nextState;
+  // Technisches Audit-Log bleibt technisch (Engine-Wortlaut). Es wird nur
+  // geschrieben, wenn es etwas zu protokollieren gibt.
+  if (auditMessages.length > 0) {
+    nextState = appendAuditLog(
+      nextState,
+      "system",
+      "domain_action",
+      "system.evaluate_outcomes",
+      true,
+      auditMessages.join(" | ")
+    );
   }
 
-  return appendAuditLog(
-    nextState,
-    "system",
-    "domain_action",
-    "system.evaluate_outcomes",
-    true,
-    auditMessages.join(" | ")
-  );
+  // Runtime-Sensoren: beobachtbare Outcome-Übergänge (neue Todesfälle,
+  // Incident-Eskalation/-Kollaps, globales Risiko) als spielsichtbare OpsEvents.
+  // Immer ausgeführt, wenn sich der WorldState geändert hat — auch ohne
+  // Audit-Eintrag (z. B. reiner Globalrisiko-Wechsel ohne Incident-Statuswechsel).
+  return appendDerivedOpsEvents(nextState, previousWorld, nextWorld);
 }
