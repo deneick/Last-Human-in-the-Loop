@@ -7,7 +7,6 @@ import {
   buildWorkspaceFiles,
   buildWorkspaceLogFiles,
   renderSectorLog,
-  workspaceLogPathForSector,
   type OpsEventInput,
 } from "../../runtime/opsFeed";
 import { executeBashCommand } from "../../runtime/bashCommands";
@@ -132,11 +131,7 @@ describe("opsFeed foundation", () => {
     expect(renderSectorLog(state.opsFeed, "system")).toBe(before);
   });
 
-  it("sector determines the workspace file path", () => {
-    expect(workspaceLogPathForSector("system")).toBe("logs/system.log");
-    expect(workspaceLogPathForSector("medical")).toBe("logs/medical.log");
-    expect(workspaceLogPathForSector("energy")).toBe("logs/energy.log");
-
+  it("generates one workspace log file per sector, even when empty", () => {
     const files = buildWorkspaceLogFiles([]);
     expect(Object.keys(files).sort()).toEqual([
       "logs/energy.log",

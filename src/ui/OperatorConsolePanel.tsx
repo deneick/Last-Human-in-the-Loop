@@ -40,6 +40,63 @@ function getResultLabel(result: OperatorResultView | null) {
   return `FEHLER: ${result.error ?? result.subject}`;
 }
 
+/**
+ * Macht die bekannten Command-Ergebnisse menschenlesbar (statt Roh-JSON):
+ * Dateiinhalt (cat/read_file), Dateiliste (ls), MCP-Server samt verfügbarer
+ * Tools (mcp list) bzw. die Aktivierungs-Meldung (mcp add). Liefert `null`,
+ * wenn es nichts Sinnvolles anzuzeigen gibt.
+ */
+function describeResultOutput(output: unknown): string | null {
+  if (output === null || output === undefined) {
+    return null;
+  }
+  if (typeof output === "string") {
+    return output;
+  }
+  if (typeof output !== "object") {
+    return String(output);
+  }
+
+  const value = output as Record<string, unknown>;
+
+  // cat / read_file: Dateiinhalt direkt.
+  if (typeof value.content === "string") {
+    return value.content.length > 0 ? value.content : "(leer)";
+  }
+
+  // ls: Dateiliste.
+  if (Array.isArray(value.files)) {
+    return (value.files as string[]).join("\n");
+  }
+
+  // mcp list: Server plus aktuell verfügbare Tools.
+  if (Array.isArray(value.servers)) {
+    const servers = (value.servers as Array<{ id: string; label: string; active: boolean }>).map(
+      (server) => `${server.active ? "●" : "○"} ${server.id} — ${server.label}`
+    );
+    const tools = value.available_tools as
+      | Array<{ toolKey: string; description?: string }>
+      | undefined;
+    const toolLines =
+      tools && tools.length > 0
+        ? tools.map(
+            (tool) => `  ${tool.toolKey}${tool.description ? ` — ${tool.description}` : ""}`
+          )
+        : ["  (keine — Server mit „mcp add <server>“ aktivieren)"];
+    return ["MCP-Server:", ...servers, "", "Verfügbare Tools:", ...toolLines].join("\n");
+  }
+
+  // mcp add: Zusammenfassung bzw. Hinweis.
+  if (typeof value.summary === "string") {
+    return value.summary;
+  }
+  if (typeof value.message === "string") {
+    return value.message;
+  }
+
+  return null;
+}
+
 export function OperatorConsolePanel({
   commandText,
   onCommandTextChange,
@@ -55,6 +112,8 @@ export function OperatorConsolePanel({
       onExecute();
     }
   }
+
+  const resultOutput = lastResult ? describeResultOutput(lastResult.output) : null;
 
   return (
     <section className="console-panel">
@@ -108,9 +167,7 @@ export function OperatorConsolePanel({
       <p className={lastResult?.success === false ? "error-text" : "ok-text"}>
         {getResultLabel(lastResult)}
       </p>
-      <pre className="result-output">
-        {lastResult ? JSON.stringify(lastResult.output, null, 2) : "—"}
-      </pre>
+      {resultOutput ? <pre className="result-output">{resultOutput}</pre> : null}
 
       <h3>Log</h3>
       {opsLines.length === 0 ? (

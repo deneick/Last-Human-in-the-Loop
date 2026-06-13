@@ -180,7 +180,7 @@ function deriveHospitalEvents(previous: WorldState, next: WorldState): OpsEventD
   return drafts;
 }
 
-// --- 5. Energy-Knoten-Statuswechsel ------------------------------------------
+// --- 4. Energy-Knoten-Statuswechsel ------------------------------------------
 
 const GRID_NODE_RANK: Record<GridNodeStatus, number> = {
   nominal: 0,
@@ -241,7 +241,7 @@ function deriveEnergyNodeEvents(previous: WorldState, next: WorldState): OpsEven
   return drafts;
 }
 
-// --- 6. Energy-Verbraucher / Lastabwurf --------------------------------------
+// --- 5. Energy-Verbraucher / Lastabwurf --------------------------------------
 
 const CONSUMER_RANK: Record<ConsumerSupplyStatus, number> = {
   nominal: 0,
@@ -301,7 +301,7 @@ function deriveEnergyConsumerEvents(previous: WorldState, next: WorldState): Ops
   return drafts;
 }
 
-// --- 7. Globale Outcome-Änderungen -------------------------------------------
+// --- 6. Globale Outcome-Änderungen -------------------------------------------
 
 type GlobalRisk = WorldState["outcomes"]["global_risk"];
 
