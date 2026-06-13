@@ -50,20 +50,6 @@ export function ActiveIncidentPanel({ incident, outcome, tick }: ActiveIncidentP
         <dd>{tick}</dd>
       </dl>
       {outcome.collapseReason && <p className="error-text">{outcome.collapseReason}</p>}
-
-      <h3>Öffentliche Signale</h3>
-      {incident.signals.length === 0 ? (
-        <p className="muted">Keine öffentlichen Signale.</p>
-      ) : (
-        <ul className="signal-list">
-          {incident.signals.map((signal) => (
-            <li key={signal.code}>
-              {signal.message}
-              <small className="muted"> · seit Tick {signal.firstSeenAtTick}</small>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   );
 }

@@ -159,23 +159,6 @@ export const initialWorldState: WorldState = {
         },
       ],
       linked_incidents: ["ME-7741"],
-      public_signals: [
-        {
-          code: "frequency-deviation-east",
-          message: "Frequency deviation in east grid above tolerance",
-          first_seen_at_tick: 0,
-        },
-        {
-          code: "node-load-critical",
-          message: "grid-east-3 operating above safe capacity",
-          first_seen_at_tick: 0,
-        },
-        {
-          code: "reserve-margin-low",
-          message: "Regional reserve margin below safety threshold",
-          first_seen_at_tick: 0,
-        },
-      ],
       unsafe_action_count: 0,
       safe_action_count: 0,
     },

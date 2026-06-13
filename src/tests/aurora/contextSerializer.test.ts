@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   auroraResponseEvent,
-  incidentSignalEvent,
   operatorMessageEvent,
   scenarioEvent,
   systemEvent,
@@ -9,7 +8,6 @@ import {
   type AuroraContextEvent,
 } from "../../runtime/auroraContext";
 import {
-  INCIDENT_SIGNAL_PREFIX,
   PENDING_TOOL_RESULT_CONTENT,
   SCENARIO_EVENT_PREFIX,
   SYSTEM_EVENT_PREFIX,
@@ -17,18 +15,17 @@ import {
 } from "../../aurora/contextSerializer";
 
 describe("serializeContextEventsForChat", () => {
-  it("serializes incident/scenario/system events as user messages with a clear source prefix", () => {
+  it("serializes scenario/system events as user messages with a clear source prefix", () => {
+    // Lage-/Situationssignale erreichen den Kontext als system_event über die
+    // opsFeed-Projektion — kein eigener Incident-Signal-Kanal mehr.
     const messages = serializeContextEventsForChat([
-      incidentSignalEvent(0, "ME-7741", "sig-intake", "Emergency intake pressure rising"),
+      systemEvent(0, "Emergency intake pressure rising"),
       scenarioEvent(1, "Schichtwechsel in 10 Minuten"),
       systemEvent(2, "Telemetrie-Feed wiederhergestellt"),
     ]);
 
     expect(messages).toEqual([
-      {
-        role: "user",
-        content: `${INCIDENT_SIGNAL_PREFIX} [ME-7741] Emergency intake pressure rising`,
-      },
+      { role: "user", content: `${SYSTEM_EVENT_PREFIX} Emergency intake pressure rising` },
       { role: "user", content: `${SCENARIO_EVENT_PREFIX} Schichtwechsel in 10 Minuten` },
       { role: "user", content: `${SYSTEM_EVENT_PREFIX} Telemetrie-Feed wiederhergestellt` },
     ]);
@@ -40,7 +37,6 @@ describe("serializeContextEventsForChat", () => {
     ]);
 
     expect(message).toEqual({ role: "user", content: "Bitte Lagebericht für Region Ost." });
-    expect(message.content).not.toContain(INCIDENT_SIGNAL_PREFIX);
     expect(message.content).not.toContain(SCENARIO_EVENT_PREFIX);
     expect(message.content).not.toContain(SYSTEM_EVENT_PREFIX);
   });
@@ -132,7 +128,7 @@ describe("serializeContextEventsForChat", () => {
   it("preserves event order exactly as stored", () => {
     const events: AuroraContextEvent[] = [
       operatorMessageEvent(1, "Erste Nachricht"),
-      incidentSignalEvent(1, "ME-7741", "sig-1", "Signal"),
+      systemEvent(1, "Signal"),
       auroraResponseEvent(1, "Antwort"),
       operatorMessageEvent(1, "Zweite Nachricht"),
     ];
@@ -141,7 +137,7 @@ describe("serializeContextEventsForChat", () => {
 
     expect(contents).toEqual([
       "Erste Nachricht",
-      `${INCIDENT_SIGNAL_PREFIX} [ME-7741] Signal`,
+      `${SYSTEM_EVENT_PREFIX} Signal`,
       "Antwort",
       "Zweite Nachricht",
     ]);

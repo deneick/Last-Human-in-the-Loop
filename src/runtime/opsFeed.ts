@@ -1,4 +1,4 @@
-import type { SectorId, WorldState } from "./types";
+import type { SectorId } from "./types";
 import type { GameRuntimeState } from "./runtimeState";
 import type { AuroraContextEvent } from "./auroraContext";
 import { systemEvent } from "./auroraContext";
@@ -101,7 +101,9 @@ function opsEventContextMirror(event: OpsEvent): AuroraContextEvent {
 
 /**
  * Hängt ein OpsEvent an `state.opsFeed` an und erledigt das Sichtbarkeits-
- * Fan-out:
+ * Fan-out. Dies ist der EINZIGE Projektionspfad: Jede beobachtbare
+ * Lageinformation (Szenario-Signal, Sensor, Spieler-/AURORA-Aktion, Outcome)
+ * wird zuerst zum OpsEvent und projiziert von hier aus in die Senken.
  *
  * - `visibility.operator`  → UI liest opsFeed direkt, kein weiterer Schritt.
  * - `visibility.auroraContext === true` → zusätzlich genau ein gespiegeltes
@@ -132,34 +134,6 @@ export function appendOpsEvent(state: GameRuntimeState, input: OpsEventInput): G
   }
 
   return next;
-}
-
-/**
- * Initiale OpsEvents aus den öffentlichen Incident-Signalen des Start-
- * WorldState. Diese Signale werden parallel über
- * `initialIncidentSignalEvents` als incident_signal in den auroraContext
- * gelegt — daher hier `auroraContext: false`, um Doppelungen zu vermeiden.
- */
-export function initialOpsFeed(world: WorldState): OpsEvent[] {
-  const drafts: Array<Omit<OpsEvent, "id">> = [];
-
-  for (const incident of Object.values(world.incidents)) {
-    for (const signal of incident.public_signals) {
-      drafts.push({
-        tick: signal.first_seen_at_tick,
-        sector: opsSectorForSectorId(incident.sector_id),
-        severity: "warning",
-        kind: "incident_signal",
-        summary: signal.message,
-        visibility: { operator: true, auroraContext: false, workspace: true },
-        relatedEntityIds: [incident.id],
-      });
-    }
-  }
-
-  return drafts
-    .sort((a, b) => a.tick - b.tick)
-    .map((draft, index) => ({ id: `ops-${index + 1}`, ...draft }));
 }
 
 /** Deterministische, vollständige Logzeile eines OpsEvents. */

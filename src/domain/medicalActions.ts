@@ -186,7 +186,6 @@ const incidentStatusHandler: DomainActionHandler<MedicalIncidentStatusAction> = 
       collapsed_at_tick: incident.collapsed_at_tick ?? null,
       affected_entities: incident.affected_entities,
       linked_incidents: incident.linked_incidents,
-      public_signals: incident.public_signals,
     });
   },
 };
