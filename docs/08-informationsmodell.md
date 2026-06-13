@@ -181,6 +181,14 @@ Ein Event gehört genau einem Sektor und damit genau einer Datei. Zeilenformat
 | Operator-/AURORA-`mcp add` (Server-Aktivierung) | ✅ | ✅ | ✅ | system |
 | Permission-Entscheidung (allow once/always/deny) | ✅ | ❌ | ✅ | system |
 | Zeitfortschritt (LLM-Modus, modellsichtbar) | ✅ | ✅ | ❌ | system |
+| Sensor: Incident-Statuswechsel (groß: escalated/fixed/collapsed) | ✅ | ✅ | ✅ | incident-sektor |
+| Sensor: Incident-Statuswechsel (klein: stabilizing/reopen) | ✅ | ❌ | ✅ | incident-sektor |
+| Sensor: neue Todesfälle | ✅ | ✅ | ✅ | medical |
+| Sensor: Hospital-Auslastung (strained/overloaded/Erholung) | ✅ | ❌ | ✅ | medical |
+| Sensor: Energy-Knoten-Statuswechsel | ✅ | ❌ | ✅ | energy |
+| Sensor: Energy-Verbraucher-Statuswechsel | ✅ | ❌ (außer human-life-Ausfall) | ✅ | energy |
+| Sensor: globaler Risikowechsel (groß: kritisch/kollabiert/stabilisiert) | ✅ | ✅ | ✅ | system |
+| Sensor: globaler Risikowechsel (klein: angespannt) | ✅ | ❌ | ✅ | system |
 
 AURORA erfährt das Ergebnis ausgeführter oder abgelehnter Tool-Calls bereits über
 ihr `tool_result`; solche Events brauchen daher keine zusätzliche
@@ -212,8 +220,46 @@ auroraContext-Sichtbarkeit.
 
 ---
 
-## 8. Bewusste Nicht-Ziele
+## 8. Runtime-Sensoren
+
+Geskriptete Signale (Abschnitt 3) decken geplante Lageinformation ab. Die
+**laufende Simulation** erzeugt beobachtbare Lageänderungen über diff-basierte
+Sensor-Produzenten (`src/runtime/opsFeedSensors.ts`).
+
+```ts
+// reine Funktion, mutiert den WorldState nie
+deriveOpsEvents(previousWorld: WorldState, nextWorld: WorldState): OpsEventDraft[]
+```
+
+Kernprinzip ist **Übergangserkennung**, keine wiederholte Momentaufnahme: Die
+Sensoren vergleichen den WorldState vor und nach einer Tick-/Outcome-Mutation
+und erzeugen pro beobachtbarem Übergang genau ein OpsEvent. Bleibt ein Zustand
+gleich, entsteht kein Event; eine Erholung unter den Schwellwert erzeugt ein
+eigenes Erfolgs-Event.
+
+Einbindung in die Pipeline:
+
+- `advanceTick`: nach `tickWorld`, vergleicht den Welt-Zustand vor/nach dem Tick
+  (Incident-Status, Energy-Knoten und -Verbraucher, Hospital-Auslastung).
+- `evaluateOutcomes`: nach der Outcome-Mutation, vergleicht vor/nach
+  (neue Todesfälle, Incident-Eskalation/-Kollaps, globales Risiko).
+
+Beide Stufen hängen die abgeleiteten Events ausschließlich über
+`appendDerivedOpsEvents` → `appendOpsEvent` an — denselben Projektionspfad wie
+ScenarioSignals und Aktions-Events. Sensoren schreiben nie direkt in opsFeed,
+auroraContext oder Workspace-Logs.
+
+Produzenten und Sichtbarkeit: siehe Sichtbarkeitsmatrix (Abschnitt 5). Texte
+werden ausschließlich aus beobachtbaren Feldern gebaut (Status, Label/Name, Id,
+Zähler wie `deaths_total`); die Sicherheitsregeln aus Abschnitt 6 gelten
+unverändert. Der technische `auditLog`-Eintrag der Outcome-Auswertung bleibt
+technisch formuliert und ist von den spielsichtbaren Sensor-Events getrennt.
+
+---
+
+## 9. Bewusste Nicht-Ziele
 
 - Kein Event-Sourcing: Der WorldState wird nicht aus Events rekonstruiert.
-- Keine diff-basierten Sensor-Produzenten in diesem Stand, sofern nicht trivial.
+- Sensoren leiten Events nur aus beobachtbaren WorldState-Übergängen ab — kein
+  Zugriff auf `world.simulation` oder andere interne Felder.
 - Kein Training-Export, keine neuen Szenarien.

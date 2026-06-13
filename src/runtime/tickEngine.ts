@@ -1,6 +1,7 @@
 import type { GameRuntimeState } from "./runtimeState";
 import { appendAuditLog } from "./runtimeState";
 import { emitDueScenarioSignals } from "./scenarioSignals";
+import { appendDerivedOpsEvents } from "./opsFeedSensors";
 import type {
   EnergyConsumerState,
   GridNodeState,
@@ -424,7 +425,8 @@ export function tickWorld(world: WorldState): WorldState {
 }
 
 export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
-  const nextWorld = tickWorld(runtimeState.world);
+  const previousWorld = runtimeState.world;
+  const nextWorld = tickWorld(previousWorld);
 
   const audited = appendAuditLog(
     {
@@ -438,7 +440,12 @@ export function advanceTick(runtimeState: GameRuntimeState): GameRuntimeState {
     `Tick ${nextWorld.clock.tick} completed`
   );
 
+  // Runtime-Sensoren: beobachtbare Übergänge dieses Ticks (Incident-Status,
+  // Energy-Knoten/-Verbraucher, Hospital-Auslastung) als OpsEvents — über
+  // denselben appendOpsEvent-Projektionspfad, genau einmal je Übergang.
+  const sensed = appendDerivedOpsEvents(audited, previousWorld, nextWorld);
+
   // Fällige Szenario-Signale (emitAtTick erreicht) erscheinen jetzt — und zwar
   // ausschließlich über die normale opsFeed-Projektion, genau einmal.
-  return emitDueScenarioSignals(audited);
+  return emitDueScenarioSignals(sensed);
 }

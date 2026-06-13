@@ -233,9 +233,13 @@ advanceClock              tick += 1, elapsed_minutes += 10
 → evaluateIncidents        leitet Incident-Status aus risk_counters/routing_failures ab
 ```
 
-`advanceTick(runtimeState)` ruft `tickWorld` auf und schreibt einen Audit-Log-Eintrag (`"Tick N completed"`).
+`advanceTick(runtimeState)` ruft `tickWorld` auf, schreibt einen Audit-Log-Eintrag (`"Tick N completed"`), lässt dann die Runtime-Sensoren über den Tick-Übergang laufen (`appendDerivedOpsEvents`, siehe unten) und emittiert zuletzt die fälligen Szenario-Signale.
 
 **`evaluateOutcomes` ist nicht Teil von `tickWorld`**, sondern wird vom Aufrufer (App.tsx, `runTicks`) direkt danach aufgerufen: `advanceScenario(evaluateOutcomes(advanceTick(state)))`. So wird nach jedem einzelnen Tick zuerst die Konsequenz berechnet, bevor der Scenario-Director auf den neuen Zustand reagiert.
+
+### Runtime-Sensoren (`src/runtime/opsFeedSensors.ts`)
+
+Beide WorldState-mutierenden Stufen speisen diff-basierte Sensoren: Vor der Mutation wird `previousWorld` festgehalten, nach der Mutation `nextWorld` verglichen. `deriveOpsEvents(previousWorld, nextWorld)` ist eine **reine** Funktion (mutiert nichts) und liefert OpsEvents für beobachtbare Übergänge — Incident-Statuswechsel, neue Todesfälle, Hospital-Auslastung, Energy-Knoten/-Verbraucher-Status und globales Risiko. `appendDerivedOpsEvents` hängt sie ausschließlich über `appendOpsEvent` an. Übergangserkennung statt Momentaufnahme verhindert Duplikate: `advanceTick` deckt die Tick-Übergänge ab, `evaluateOutcomes` die Outcome-Übergänge. Details und Sichtbarkeitsmatrix: `docs/08-informationsmodell.md`.
 
 ### tickMedicalDomain: Routing-Failure-Auswertung
 
