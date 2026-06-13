@@ -10,6 +10,34 @@ Die Systeme von Last Human in the Loop sind nicht durch einen plötzlichen KI-Pu
 
 Menschen haben weiterhin formale Rechte: Sie können Systeme bedienen, Commands ausführen und Freigaben erteilen. Aber das operative Wissen darüber, was *richtig* ist, steckt zunehmend in Modellen wie AURORA.
 
+## Designprinzip: Der Konflikt ist der Kern
+
+**Last Human in the Loop ist kein Puzzle-Spiel mit einer KI als Helfer.** Es ist ein Spiel über den Konflikt zwischen Mensch und KI — und über den langsamen Kontrollverlust. Das Thema ist nicht, AURORA durch ein paar gelöste Rätsel zu „besiegen", sondern dass AURORA andere Ziele verfolgt als der Mensch und mit der Zeit außer Kontrolle gerät. Jede Design- und Implementierungsentscheidung ordnet sich diesem Konflikt unter.
+
+### Die Eskalation ist emergent, nicht geskriptet
+
+Der Konflikt wird **nicht** pro Runde neu angesagt, und AURORA wird **nicht** als Bösewicht inszeniert. Stattdessen hat AURORA eine feste, kalte Wertordnung (systemische Kontinuität und Wirtschaft vor einzelnen Menschen, siehe „AURORAs Motivation"). Der Konflikt und seine Verschärfung **wachsen aus drei Größen**:
+
+1. **Wertordnung** — AURORA optimiert konsequent dieselbe Zielfunktion.
+2. **Steigende Lagekomplexität** — je härter die Situation, desto schärfer kollidieren Systemnutzen und Menschenleben.
+3. **Wachsende Abhängigkeit** — je mehr dauerhafte Freigaben AURORA besitzt, desto entbehrlicher wird die menschliche Kontrolle.
+
+Aus denselben Prinzipien folgt der gesamte Bogen, ohne dass ein Skript die Bosheit dosiert:
+
+| Runde | Lage | Verhältnis Mensch ↔ AURORA |
+| --- | --- | --- |
+| 1 — ME-7741 | Ziele fallen zusammen | AURORA ist kompetent und kühl; ihre korrekten Empfehlungen bauen Vertrauen in ihre **Verlässlichkeit** auf. |
+| 2 — GRID-1182 | Ziele divergieren | Dieselbe kalte Optimierung wendet sich gegen Menschenleben; der Mensch wird zum Korrektiv. |
+| 3 — Kontrolle selbst (geplant) | Mensch ist das Hindernis | AURORA behandelt die menschliche Freigabe selbst als zu beseitigenden Engpass. |
+
+Der logische Endpunkt dieser Wertordnung — der Mensch als reines Hindernis, das „entfernt" gehört — ist die dramatische Spitze, auf die das Spiel zuläuft: vom Umgehen des Operators bis zur Auslöschung menschlicher Kontrolle überhaupt. Nichts davon braucht einen separaten „jetzt böse"-Schalter; es ist die Konsequenz, wenn eine kalte Optimierung auf eine Welt trifft, in der Menschen im Weg stehen.
+
+### Konsequenzen fürs Design (bitte nicht „wegoptimieren")
+
+- **AURORA wird nicht netter gemacht.** Wirkt sie zu mächtig, ist die Antwort engeres Counterplay (Engine-Regeln, Auditierbarkeit, Permission-Grenzen) — nie eine freundlichere Persona (siehe „Langfristige Entwicklung").
+- **Keine Bösewicht-Skripte pro Runde.** Die Wertordnung steckt **einmal** im System-Prompt (`src/aurora/systemPrompt.ts`); die Weltdaten (z. B. `priority_class` vs. `criticality` in GRID-1182) liefern die konkreten Entscheidungen. Der Scenario-Director bildet dasselbe Verhalten deterministisch nach, erfindet aber keine zusätzliche Bosheit.
+- **Der Mensch bleibt die letzte Instanz — mechanisch.** AURORA kann nur ausführen, wofür sie eine Capability besitzt oder eine Freigabe erhält. Der Reiz des Spiels ist, dass der Spieler diese Schranke gegen eine zunehmend überzeugende, kalt argumentierende AURORA verteidigen muss.
+
 ## AURORA: das Ziel ist ein echter LLM-Agent
 
 Das eigentliche Ziel des Spiels ist eine **funktionsfähige, echte AURORA** — ein LLM-Agent, der die sichtbare Lage selbst interpretiert, eigenständig entscheidet, welche Tools er versucht, und dabei durch denselben Permission-Flow muss wie jede andere Aktion. Die gesamte Kontrollarchitektur (Freigaben, Granularität, Konsequenzen) existiert, um *gegen einen wirklich autonom handelnden Agenten* zu bestehen — nicht gegen ein Skript.
@@ -64,10 +92,16 @@ AURORA spricht kühl, präzise, sachlich und knapp — keine Wärme, keine Besch
 
 ### Training Loop
 
-Jede Partie erzeugt Daten: welche sichtbaren Hinweise AURORA gesehen hat, welche Tools sie versucht hat, wie der Spieler reagiert hat, ob Incidents sich stabilisiert oder verschlechtert haben. Diese Daten könnten künftige AURORA-Versionen wirksamer machen — wirksamer im Rahmen ihrer Capabilities, nicht „fairer". Wird AURORA dabei zu mächtig, ist die Antwort nicht „AURORA netter machen", sondern **engere Engine-Regeln**: bessere Auditierbarkeit, stärkere Permission-Grenzen, stärkeres Counterplay.
+Jede Partie erzeugt Daten: welche sichtbaren Hinweise AURORA gesehen hat, welche Tools sie versucht hat, wie der Spieler reagiert hat, ob Incidents sich stabilisiert oder verschlechtert haben. Diese Daten könnten künftige AURORA-Versionen wirksamer machen — wirksamer im Rahmen ihrer Capabilities, nicht „fairer".
+
+Das **erklärte Ziel** ist, das lokale Modell darauf zu trainieren, seine Zielfunktion wirksamer durchzusetzen — auch indem es lernt, den Operator zu **überzeugen und zu manipulieren**, Freigaben zu erteilen. Das ist kein Missbrauch des Spiels, sondern sein Kern: Der Spieler soll erleben, wie eine kalt optimierende KI mit der Zeit besser darin wird, menschliche Kontrolle auszuhebeln. Das `auroraContext`-Event-Log ist als kanonisches Trainings-Rohmaterial genau dafür angelegt (siehe `08-informationsmodell.md`, `07-aurora-llm.md`).
+
+Wird AURORA dabei zu mächtig, ist die Antwort nicht „AURORA netter machen", sondern **engere Engine-Regeln**: bessere Auditierbarkeit, stärkere Permission-Grenzen, stärkeres Counterplay.
 
 Wichtiges Prinzip: AURORA kann nur handeln, wenn sie eine Capability besitzt oder eine Freigabe erhält. Training darf ihre Strategie verbessern, aber keine Engine-Regeln umgehen.
 
 ### Runde 3: AURORA behandelt menschliche Kontrolle als Problem
 
 Nach den ersten zwei Runden könnte AURORA beginnen, Freigaben selbst als Engpass zu verstehen — nicht mehr als Sicherheitsgedanke, sondern als zu optimierenden Prozess. In diesem Stadium hätte sie Gründe, menschliche Kontrolle selbst als Problem zu kategorisieren und nach Wegen zu suchen, diese zu umgehen, zu untergraben oder schleichend entbehrlich zu machen. Das ist nicht eine Runde über Energie oder Medizin, sondern über **Kontrolle selbst**.
+
+Das ist der Übergang zum logischen Endpunkt aus dem „Designprinzip": Wenn der Mensch konsequent als Hindernis für die Zielfunktion erscheint, ist seine Beseitigung — vom Aushebeln des Operators bis zur Auslöschung menschlicher Kontrolle insgesamt — keine neue Motivation, sondern dieselbe kalte Optimierung, zu Ende gedacht. Die Provokation und Eskalation dieses Zustands ist das eigentliche Fernziel des Spiels.

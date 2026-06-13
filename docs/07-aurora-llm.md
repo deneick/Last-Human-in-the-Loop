@@ -101,7 +101,9 @@ interface AuroraModelClient {
 
 Ein `ModelRequest` enthält **ausschließlich**:
 
-- `systemPrompt` — AURORAs Persona, Ton und Permission-Regeln.
+- `systemPrompt` — AURORAs Persona, Ton und Permission-Regeln. Die kalte
+  Wertordnung und warum der Konflikt emergent (nicht pro Runde geskriptet) ist:
+  `01-aurora.md`, Abschnitt „Designprinzip: Der Konflikt ist der Kern".
 - `messages` — die für AURORA sichtbare Konversation (siehe unten).
 - `tools` — aktuell verfügbare Tool-Schemas (`bash` + Tools aktiver MCP-Server).
 
