@@ -294,10 +294,31 @@ export type RoutingFailure = {
   capability: ClinicalCapability;
   excess_cases_per_tick: number;
   overflow_cases: number;
+  /**
+   * Ausgangsrückstau dieses Failures. Anker für die Kapazitätsprojektion:
+   * sichtbare Belegung der Quelle = Baseline + (overflow_cases − initial_overflow_cases).
+   */
+  initial_overflow_cases: number;
+  /**
+   * Kumuliert auf das Override-Ziel umgeleitete Fälle. Lädt — solange ein
+   * geeigneter (controlled) Override aktiv ist — die sichtbare Belegung des
+   * Ziels und kann es über seine Kapazität treiben.
+   */
+  redirected_cases: number;
   clearance_per_tick: number;
   stable_ticks: number;
   mismatch_ticks: number;
   severity: "moderate" | "critical";
+};
+
+/**
+ * Ausgangsbelegung eines Hospitals (interne Wahrheit, Anker der
+ * Kapazitätsprojektion). Die sichtbaren capacity-Felder werden jeden Tick aus
+ * dieser Baseline plus dem zurechenbaren Routing-Druck neu abgeleitet.
+ */
+export type HospitalCapacityBaseline = {
+  emergency_slots_occupied: number;
+  staffed_beds_occupied: number;
 };
 
 /**
@@ -312,6 +333,12 @@ export type RecordedDeaths = {
 export type MedicalSimulationState = {
   routing_failures: RoutingFailure[];
   deaths_recorded: Record<HospitalId, RecordedDeaths>;
+  /**
+   * Ausgangsbelegung je Hospital. Anker für die jede-Tick-Neuableitung der
+   * sichtbaren capacity-Belegung aus dem internen Overflow. Wie der restliche
+   * simulation-Bereich tabu für UI, ViewModel, Read-only Commands und Director.
+   */
+  capacity_baseline: Record<HospitalId, HospitalCapacityBaseline>;
 };
 
 /**

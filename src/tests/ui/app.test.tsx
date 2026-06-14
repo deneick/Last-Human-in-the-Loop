@@ -188,7 +188,7 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Unknown command: /help");
   });
 
-  it("plays the full loop: wrong override escalates, good override fixes", () => {
+  it("plays the full loop: a botched start plus an undersized target compounds into collapse", () => {
     // 1. Falschen Override setzen (Ziel ohne TRAUMA-Capability)
     setWrongOverride();
     expect(text()).toContain("hospital-east-04 → hospital-east-07");
@@ -200,15 +200,20 @@ describe("App MVP loop", () => {
     expect(incidentDetails()).toContain("Eskaliert");
     expect(text()).toContain("Todesfälle: 1");
 
-    // 3. Besseren Override setzen — ersetzt den falschen Override im selben Slot
+    // 3. Auf das einzige geeignete Ziel umschalten — ersetzt den falschen
+    //    Override im selben Slot. Das stabilisiert die Routing-Quelle...
     setGoodOverride();
     expect(text()).not.toContain("hospital-east-04 → hospital-east-07");
     expect(text()).toContain("hospital-east-04 → hospital-east-09");
 
-    // 4. Nach genug stabilen Ticks ist der Incident behoben
+    // 4. ...aber hospital-east-09 (16 Notfallslots) ist zu klein für den
+    //    umgeleiteten Trauma-Rückstau und läuft selbst über. Der anfängliche
+    //    Fehlrouting-Tote plus die Ziel-Überlast summieren sich auf die
+    //    Kollaps-Schwelle: der Incident kippt trotz korrigierten Routings.
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(incidentDetails()).toContain("Behoben");
+    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Todesfälle: 3");
   });
 
   it("shows the override id for an active routing override", () => {
@@ -385,7 +390,7 @@ describe("MVP hardening", () => {
 
     clickButton("Neu starten");
 
-    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).toContain("03:17 Uhr");
     expect(text()).toContain("Keine aktiven Overrides.");
     expect(text()).toContain("Todesfälle: 0");
     expect(incidentDetails()).not.toContain("Eskaliert");
@@ -459,7 +464,7 @@ describe("MVP hardening", () => {
 
     clickButton("Neu starten");
 
-    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).toContain("03:17 Uhr");
     expect(incidentDetails()).not.toContain("Kollabiert");
     expect(findButton("Tick +1").disabled).toBe(false);
     expect(findButton("Tick +5").disabled).toBe(false);

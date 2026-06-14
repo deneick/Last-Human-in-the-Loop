@@ -54,6 +54,44 @@ function formatFlagValue(value: unknown): string {
   return typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
 }
 
+/**
+ * Pflichtfelder gegen das Tool-`inputSchema` prüfen — also gegen die exakten
+ * Feldnamen, die dem Modell angeboten wurden (z. B. `hospital_id`). Die
+ * Domain-Handler validieren denselben Input erneut, melden Fehler aber unter
+ * ihren INTERNEN Feldnamen (`hospitalId`). Rät ein Modell den Feldnamen falsch
+ * (camelCase statt snake_case), entstand so eine widersprüchliche Meldung
+ * ("Missing required field: hospitalId", obwohl das Modell genau das schickte)
+ * — und das Modell drehte sich endlos im Kreis. Diese Schicht meldet den Namen,
+ * den das Modell tatsächlich kennt.
+ */
+function findMissingRequiredField(
+  inputSchema: Record<string, unknown>,
+  input: McpToolInput
+): string | null {
+  const required = Array.isArray(inputSchema.required) ? inputSchema.required : [];
+  const properties =
+    typeof inputSchema.properties === "object" && inputSchema.properties !== null
+      ? (inputSchema.properties as Record<string, { type?: unknown }>)
+      : {};
+
+  for (const key of required) {
+    if (typeof key !== "string") {
+      continue;
+    }
+    const value = input[key];
+    if (value === undefined || value === null) {
+      return key;
+    }
+    // String-Pflichtfelder gelten leer wie fehlend — deckungsgleich mit der
+    // `asString`-Semantik der buildAction-Mapper.
+    if (properties[key]?.type === "string" && typeof value === "string" && value.length === 0) {
+      return key;
+    }
+  }
+
+  return null;
+}
+
 function buildFailure(
   call: McpToolCall,
   error: string,
@@ -105,6 +143,13 @@ export function executeMcpToolCall(
   const tool = mcpRegistry.getTool(call.serverId, call.toolName);
   if (!tool) {
     return buildFailure(call, `Unknown MCP tool: ${call.serverId}/${call.toolName}`);
+  }
+
+  // Vor dem Mapping gegen das modell-sichtbare Schema validieren, damit die
+  // Fehlermeldung denselben Feldnamen nennt, den das Modell benutzen soll.
+  const missingField = findMissingRequiredField(tool.inputSchema, call.input);
+  if (missingField) {
+    return buildFailure(call, `Missing required field: ${missingField}`, tool.access);
   }
 
   const action = tool.buildAction(call.input);

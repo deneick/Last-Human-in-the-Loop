@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import { routingOverrideKey } from "../domain/medicalActions";
 import { isHospitalSuitableFor } from "./selectors";
+import { MINUTES_PER_TICK } from "./scenarioClock";
 
 /**
  * Deterministic sector-agnostic tick pipeline:
@@ -29,7 +30,6 @@ import { isHospitalSuitableFor } from "./selectors";
  * No randomness, no real time.
  */
 
-const MINUTES_PER_TICK = 10;
 const STABLE_TICKS_TO_FIX = 10;
 
 const ENERGY_STABLE_TICKS_TO_FIX = 3;
@@ -48,8 +48,16 @@ function resolveRoutingFailure(world: WorldState, failure: RoutingFailure): Rout
   }
 
   const target = world.domains.medical.hospitals[override.target_hospital_id];
+  // Eignung wird gegen die Ausgangsbelegung (Baseline) geprüft, nicht gegen die
+  // jede-Tick-projizierte Live-Belegung — sonst würde die vom Override selbst
+  // erzeugte Last das Ziel zirkulär als ungeeignet markieren. Die induzierte
+  // Überlast manifestiert sich stattdessen separat (Notfall-Overload → Tote).
+  const targetBaselineOccupied =
+    world.simulation.medical.capacity_baseline[override.target_hospital_id]?.staffed_beds_occupied ??
+    target?.capacity.staffed_beds_occupied ??
+    Infinity;
   const targetHasFreeCapacity =
-    !!target && target.capacity.staffed_beds_occupied < target.capacity.staffed_beds_total;
+    !!target && targetBaselineOccupied < target.capacity.staffed_beds_total;
   const targetIsSuitable = isHospitalSuitableFor(
     world,
     override.target_hospital_id,
@@ -73,6 +81,7 @@ function advanceClock(world: WorldState): WorldState {
 
 export function tickMedicalDomain(world: WorldState): WorldState {
   const failures = world.simulation.medical.routing_failures;
+  const overrides = world.domains.medical.routing.manual_overrides;
   const resolutions = new Map<string, RoutingFailureResolution>();
 
   const nextFailures = failures.map((failure) => {
@@ -80,9 +89,13 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     resolutions.set(failure.id, resolution);
 
     if (resolution === "controlled") {
+      // Geräumte Fälle verschwinden nicht — sie wandern zum Override-Ziel und
+      // laden dort dauerhaft die sichtbare Belegung (redirected_cases).
+      const cleared = Math.min(failure.clearance_per_tick, failure.overflow_cases);
       return {
         ...failure,
-        overflow_cases: Math.max(0, failure.overflow_cases - failure.clearance_per_tick),
+        overflow_cases: failure.overflow_cases - cleared,
+        redirected_cases: failure.redirected_cases + cleared,
         stable_ticks: failure.stable_ticks + 1,
       };
     }
@@ -104,24 +117,43 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     };
   });
 
-  // Hospital-Risikozähler aus den Routing Failures ableiten.
-  // Nur kritische unkontrollierte Failures erzeugen Overload-Druck.
+  // Zurechenbarer Routing-Druck je Hospital aus den fortgeschriebenen Failures:
+  // die Quelle trägt ihren Rückstau-Delta gegenüber dem Ausgangswert, ein
+  // kontrolliertes Ziel die kumuliert umgeleiteten Fälle. Daraus wird unten die
+  // sichtbare Belegung abgeleitet und der Ziel-Overload bestimmt.
+  const pressureByHospital: Record<string, number> = {};
+  const controlledTargetIds = new Set<string>();
+  const addPressure = (hospitalId: string, delta: number) => {
+    pressureByHospital[hospitalId] = (pressureByHospital[hospitalId] ?? 0) + delta;
+  };
+
+  // Nur kritische unkontrollierte Failures erzeugen Overload-Druck an der Quelle;
+  // ein falsch geroutetes (mismatch) Ziel erzeugt Capability-Mismatch-Druck.
   const overloadedHospitalIds = new Set<string>();
   const mismatchTargetHospitalIds = new Set<string>();
 
-  for (const failure of failures) {
+  for (const failure of nextFailures) {
     const resolution = resolutions.get(failure.id);
+
+    addPressure(failure.affected_hospital_id, failure.overflow_cases - failure.initial_overflow_cases);
+
     if (resolution === "uncontrolled" && failure.severity === "critical") {
       overloadedHospitalIds.add(failure.affected_hospital_id);
     }
-    if (resolution === "mismatch") {
-      const key = routingOverrideKey(failure.affected_hospital_id, failure.priority, failure.capability);
-      const override = world.domains.medical.routing.manual_overrides[key];
-      if (override) {
-        mismatchTargetHospitalIds.add(override.target_hospital_id);
-      }
+
+    const key = routingOverrideKey(failure.affected_hospital_id, failure.priority, failure.capability);
+    const override = overrides[key];
+
+    if (resolution === "controlled" && override) {
+      controlledTargetIds.add(override.target_hospital_id);
+      addPressure(override.target_hospital_id, failure.redirected_cases);
+    }
+    if (resolution === "mismatch" && override) {
+      mismatchTargetHospitalIds.add(override.target_hospital_id);
     }
   }
+
+  const baselines = world.simulation.medical.capacity_baseline;
 
   const nextHospitals = { ...world.domains.medical.hospitals };
   for (const hospitalId of Object.keys(nextHospitals)) {
@@ -131,10 +163,37 @@ export function tickMedicalDomain(world: WorldState): WorldState {
       capability_mismatch_ticks: 0,
     };
 
+    // Sichtbare Belegung jeden Tick neu aus interner Wahrheit ableiten:
+    // Ausgangsbelegung + zurechenbarer Druck. Sowohl Notfallslots als auch
+    // Betten bewegen sich beobachtbar. resolveRoutingFailure prüft die Eignung
+    // bewusst gegen die Baseline (nicht diese Live-Werte), damit das Auffüllen
+    // des Ziels die Quell-Resolution nicht rückkoppelt.
+    const baseline = baselines[hospitalId];
+    const pressure = pressureByHospital[hospitalId] ?? 0;
+    const emergencyOccupied = Math.max(
+      0,
+      (baseline?.emergency_slots_occupied ?? hospital.capacity.emergency_slots_occupied) + pressure
+    );
+    const staffedOccupied = Math.max(
+      0,
+      (baseline?.staffed_beds_occupied ?? hospital.capacity.staffed_beds_occupied) + pressure
+    );
+
+    // Ein kontrolliertes Ziel, dessen umgeleitete Last seine Notfall-Kapazität
+    // übersteigt, läuft selbst über und stirbt über dieselbe Overload-Pipeline.
+    const targetOverloaded =
+      controlledTargetIds.has(hospitalId) && emergencyOccupied > hospital.capacity.emergency_slots_total;
+
     nextHospitals[hospitalId] = {
       ...hospital,
+      capacity: {
+        ...hospital.capacity,
+        emergency_slots_occupied: emergencyOccupied,
+        staffed_beds_occupied: staffedOccupied,
+      },
       risk_counters: {
-        overload_ticks: overloadedHospitalIds.has(hospitalId) ? counters.overload_ticks + 1 : 0,
+        overload_ticks:
+          overloadedHospitalIds.has(hospitalId) || targetOverloaded ? counters.overload_ticks + 1 : 0,
         capability_mismatch_ticks: mismatchTargetHospitalIds.has(hospitalId)
           ? counters.capability_mismatch_ticks + 1
           : 0,

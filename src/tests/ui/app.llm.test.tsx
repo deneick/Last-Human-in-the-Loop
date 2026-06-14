@@ -348,13 +348,13 @@ describe("AURORA local LLM mode", () => {
       (message) =>
         message.role === "user" &&
         message.content.startsWith("[SYSTEM EVENT]") &&
-        message.content.includes("Tick 1")
+        message.content.includes("Zeit fortgeschritten")
     );
     expect(systemMessage).toBeDefined();
-    expect(systemMessage!.content).toContain("Tick 1");
+    expect(systemMessage!.content).toContain("03:27 Uhr");
     // System-Events sind modell-sichtbarer Kontext, werden aber NICHT
     // im Chat-Stream angezeigt (in der Operator-Konsole/opsFeed schon).
-    expect(auroraStreamText()).not.toContain("Zeit fortgeschritten: Tick 1");
+    expect(auroraStreamText()).not.toContain("Zeit fortgeschritten: 03:27 Uhr");
   });
 
   // 12. ticks are locked while a tool request awaits the operator's decision:

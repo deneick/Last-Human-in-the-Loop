@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { OpsFeedLineView } from "./viewModel";
 import { severityBadgeLabel } from "./viewModel";
+import { tickToClock } from "../runtime/scenarioClock";
 
 /**
  * Ein ausgeführter Konsolen-Command samt Ergebnis. Wird im Terminal-Scrollback
@@ -31,6 +32,8 @@ type OperatorConsolePanelProps = {
   mcpServerIds: string[];
   /** Workspace-Dateipfade für Tab-Completion von „cat/read_file <file>“. */
   workspaceFiles: string[];
+  /** Startuhrzeit der Runde — zur Übersetzung von Ticks in Tageszeit. */
+  scenarioStartTime: string;
   /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
   disabled?: boolean;
 };
@@ -198,6 +201,7 @@ export function OperatorConsolePanel({
   opsLines,
   mcpServerIds,
   workspaceFiles,
+  scenarioStartTime,
   disabled = false,
 }: OperatorConsolePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -324,7 +328,7 @@ export function OperatorConsolePanel({
                 key={`ops-${item.line.id}`}
                 className={`console-line console-ops ops-sector-${item.line.sector}`}
               >
-                <span className="console-tick">[{item.line.tick}]</span>
+                <span className="console-tick">[{tickToClock(scenarioStartTime, item.line.tick)}]</span>
                 <span className={`ops-badge ops-severity-${item.line.severity}`}>
                   {severityBadgeLabel(item.line.severity)}
                 </span>

@@ -5,6 +5,7 @@ import { systemEvent } from "./auroraContext";
 import type { DomainAction } from "../domain/actions";
 import { DEFAULT_WORKSPACE_FILES, type BashWorkspace } from "./bashCommands";
 import { formatPermissionsConfig, type PermissionState } from "./permissions";
+import { tickToClock } from "./scenarioClock";
 
 /** Workspace-Pfad der dauerhaften Freigaben (siehe formatPermissionsConfig). */
 export const PERMISSIONS_CONFIG_FILE = "config/permissions.json";
@@ -135,9 +136,9 @@ export function appendOpsEvent(state: GameRuntimeState, input: OpsEventInput): G
   return next;
 }
 
-/** Deterministische, vollständige Logzeile eines OpsEvents. */
-export function formatOpsEventLine(event: OpsEvent): string {
-  const base = `[TICK ${event.tick}] [${SEVERITY_LABELS[event.severity]}] ${event.summary}`;
+/** Deterministische, vollständige Logzeile eines OpsEvents (Tick als Uhrzeit). */
+export function formatOpsEventLine(event: OpsEvent, scenarioStartTime: string): string {
+  const base = `[${tickToClock(scenarioStartTime, event.tick)}] [${SEVERITY_LABELS[event.severity]}] ${event.summary}`;
   return event.details ? `${base} ${event.details}` : base;
 }
 
@@ -145,10 +146,14 @@ export function formatOpsEventLine(event: OpsEvent): string {
  * Rendert die vollständige (nicht gekappte) Sektor-Logdatei aus dem opsFeed:
  * alle workspace-sichtbaren Events genau dieses Sektors, in Feed-Reihenfolge.
  */
-export function renderSectorLog(opsFeed: OpsEvent[], sector: OpsSector): string {
+export function renderSectorLog(
+  opsFeed: OpsEvent[],
+  sector: OpsSector,
+  scenarioStartTime: string
+): string {
   return opsFeed
     .filter((event) => event.visibility.workspace && event.sector === sector)
-    .map(formatOpsEventLine)
+    .map((event) => formatOpsEventLine(event, scenarioStartTime))
     .join("\n");
 }
 
@@ -156,10 +161,13 @@ export function renderSectorLog(opsFeed: OpsEvent[], sector: OpsSector): string 
  * Alle drei Sektor-Logdateien aus dem opsFeed. Immer alle drei Pfade, auch
  * wenn ein Sektor (noch) keine Events hat — `logs/` ist damit auffindbar.
  */
-export function buildWorkspaceLogFiles(opsFeed: OpsEvent[]): Record<string, string> {
+export function buildWorkspaceLogFiles(
+  opsFeed: OpsEvent[],
+  scenarioStartTime: string
+): Record<string, string> {
   const files: Record<string, string> = {};
   for (const sector of ALL_SECTORS) {
-    files[SECTOR_LOG_FILES[sector]] = renderSectorLog(opsFeed, sector);
+    files[SECTOR_LOG_FILES[sector]] = renderSectorLog(opsFeed, sector, scenarioStartTime);
   }
   return files;
 }
@@ -173,11 +181,12 @@ export function buildWorkspaceLogFiles(opsFeed: OpsEvent[]): Record<string, stri
  */
 export function buildWorkspaceFiles(
   opsFeed: OpsEvent[],
-  permissions: PermissionState
+  permissions: PermissionState,
+  scenarioStartTime: string
 ): BashWorkspace {
   return {
     ...DEFAULT_WORKSPACE_FILES,
-    ...buildWorkspaceLogFiles(opsFeed),
+    ...buildWorkspaceLogFiles(opsFeed, scenarioStartTime),
     [PERMISSIONS_CONFIG_FILE]: formatPermissionsConfig(permissions),
   };
 }

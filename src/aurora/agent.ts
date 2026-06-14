@@ -192,7 +192,11 @@ export function applyAuroraModelResponse(
   // Kontext, die Pull-Historie bleibt damit selbsterklärend.
   const stepEnv: AuroraRuntimeEnvironment = {
     ...env,
-    workspaceFiles: buildWorkspaceFiles(nextState.opsFeed, nextState.permissions),
+    workspaceFiles: buildWorkspaceFiles(
+      nextState.opsFeed,
+      nextState.permissions,
+      nextState.world.clock.scenario_time
+    ),
   };
 
   const processed = processAuroraQueue(

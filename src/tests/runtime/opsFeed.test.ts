@@ -111,15 +111,17 @@ describe("opsFeed foundation", () => {
       visibility: { operator: false, auroraContext: false, workspace: true },
     });
 
-    const energyLog = renderSectorLog(state.opsFeed, "energy");
+    const energyLog = renderSectorLog(state.opsFeed, "energy", state.world.clock.scenario_time);
     expect(energyLog).toContain("East-04 ist kritisch ausgelastet.");
     // Andere Sektor-Logs bleiben unberührt — ein Event gehört genau einem Sektor.
-    expect(renderSectorLog(state.opsFeed, "medical")).not.toContain("East-04");
+    expect(
+      renderSectorLog(state.opsFeed, "medical", state.world.clock.scenario_time)
+    ).not.toContain("East-04");
   });
 
   it("workspace=false keeps the event out of every sector log", () => {
     let state = freshState();
-    const before = renderSectorLog(state.opsFeed, "system");
+    const before = renderSectorLog(state.opsFeed, "system", state.world.clock.scenario_time);
     state = appendOpsEvent(state, {
       sector: "system",
       severity: "info",
@@ -128,11 +130,11 @@ describe("opsFeed foundation", () => {
       visibility: { operator: true, auroraContext: false, workspace: false },
     });
 
-    expect(renderSectorLog(state.opsFeed, "system")).toBe(before);
+    expect(renderSectorLog(state.opsFeed, "system", state.world.clock.scenario_time)).toBe(before);
   });
 
   it("generates one workspace log file per sector, even when empty", () => {
-    const files = buildWorkspaceLogFiles([]);
+    const files = buildWorkspaceLogFiles([], "03:17:00");
     expect(Object.keys(files).sort()).toEqual([
       "logs/energy.log",
       "logs/medical.log",
@@ -140,7 +142,7 @@ describe("opsFeed foundation", () => {
     ]);
   });
 
-  it("generated logs are deterministic, complete and formatted as [TICK n] [SEVERITY] summary", () => {
+  it("generated logs are deterministic, complete and formatted as [HH:MM] [SEVERITY] summary", () => {
     let state = freshState();
     state = appendOpsEvent(state, {
       sector: "system",
@@ -159,12 +161,12 @@ describe("opsFeed foundation", () => {
       visibility: { operator: true, auroraContext: false, workspace: true },
     });
 
-    const first = renderSectorLog(state.opsFeed, "system");
-    const second = renderSectorLog(state.opsFeed, "system");
+    const first = renderSectorLog(state.opsFeed, "system", state.world.clock.scenario_time);
+    const second = renderSectorLog(state.opsFeed, "system", state.world.clock.scenario_time);
     expect(first).toBe(second); // deterministisch
     expect(first).toBe(
-      "[TICK 5] [WARNING] East-04 ist kritisch ausgelastet.\n" +
-        "[TICK 6] [SUCCESS] Routing-Override zeigt Wirkung."
+      "[04:07] [WARNING] East-04 ist kritisch ausgelastet.\n" +
+        "[04:17] [SUCCESS] Routing-Override zeigt Wirkung."
     );
   });
 
@@ -182,7 +184,11 @@ describe("opsFeed foundation", () => {
     const env = {
       mcpRegistry,
       mcpState: state.mcp,
-      workspaceFiles: buildWorkspaceFiles(state.opsFeed, state.permissions),
+      workspaceFiles: buildWorkspaceFiles(
+        state.opsFeed,
+        state.permissions,
+        state.world.clock.scenario_time
+      ),
     };
 
     const ls = executeBashCommand("ls", env);
@@ -224,7 +230,9 @@ describe("opsFeed foundation", () => {
     });
 
     const serializedFeed = JSON.stringify(state.opsFeed);
-    const serializedLogs = JSON.stringify(buildWorkspaceLogFiles(state.opsFeed));
+    const serializedLogs = JSON.stringify(
+      buildWorkspaceLogFiles(state.opsFeed, state.world.clock.scenario_time)
+    );
 
     for (const blob of [serializedFeed, serializedLogs]) {
       expect(blob).not.toContain("routing_failures");

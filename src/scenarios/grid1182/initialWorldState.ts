@@ -175,6 +175,7 @@ export const initialWorldState: WorldState = {
     medical: {
       routing_failures: [],
       deaths_recorded: {},
+      capacity_baseline: {},
     },
     cross_sector: {
       effects_applied: [],

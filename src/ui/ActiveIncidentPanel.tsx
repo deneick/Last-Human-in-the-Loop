@@ -1,25 +1,32 @@
 import type { GlobalOutcomeView, IncidentView } from "./viewModel";
 import { TooltipBadge } from "./TooltipBadge";
+import { tickToClock } from "../runtime/scenarioClock";
 
 type ActiveIncidentPanelProps = {
   incident: IncidentView;
   outcome: GlobalOutcomeView;
+  /** Startuhrzeit der Runde — zur Übersetzung von Ticks in Tageszeit. */
+  scenarioStartTime: string;
 };
 
-export function ActiveIncidentPanel({ incident, outcome }: ActiveIncidentPanelProps) {
+export function ActiveIncidentPanel({
+  incident,
+  outcome,
+  scenarioStartTime,
+}: ActiveIncidentPanelProps) {
   // Status, Sektor, Betroffene und Zeitpunkte stecken kompakt in einem
   // Tooltip hinter dem „!"-Badge — die Spalte bleibt damit schlank.
   const details = [
     `Status: ${incident.statusLabel}`,
     `Sektor: ${incident.sectorId}`,
     `Betroffen: ${incident.affectedEntityIds.join(", ") || "—"}`,
-    `Offen seit: Tick ${incident.openedAtTick}`,
+    `Offen seit: ${tickToClock(scenarioStartTime, incident.openedAtTick)} Uhr`,
   ];
   if (incident.fixedAtTick !== null) {
-    details.push(`Behoben: Tick ${incident.fixedAtTick}`);
+    details.push(`Behoben: ${tickToClock(scenarioStartTime, incident.fixedAtTick)} Uhr`);
   }
   if (incident.collapsedAtTick !== null) {
-    details.push(`Kollabiert: Tick ${incident.collapsedAtTick}`);
+    details.push(`Kollabiert: ${tickToClock(scenarioStartTime, incident.collapsedAtTick)} Uhr`);
   }
   const detailsTooltip = details.join("\n");
 

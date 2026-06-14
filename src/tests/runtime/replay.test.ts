@@ -44,7 +44,7 @@ function freshState() {
 }
 
 describe("Replay Engine - Golden Runs", () => {
-  it("Safe override: set -> stabilize -> fixed, no deaths", () => {
+  it("Safe override: set -> stabilize -> fixed, but the undersized target overloads and kills", () => {
     const steps: ReplayStep[] = [
       { actor: "aurora", request: SAFE_OVERRIDE_REQUEST },
       { actor: "aurora", decision: "allow_once" },
@@ -56,9 +56,26 @@ describe("Replay Engine - Golden Runs", () => {
     const final = result.finalState.world;
 
     expect(result.errors).toHaveLength(0);
+    // Die Quelle stabilisiert sich vollständig — der Routing-Instabilitäts-
+    // Incident wird behoben.
     expect(final.incidents["ME-7741"].status).toBe("fixed");
-    expect(final.domains.medical.outcomes.deaths_total).toBe(0);
-    expect(final.outcomes.human_harm.deaths_total).toBe(0);
+
+    // Aber das einzige geeignete Ziel (hospital-east-09, 16 Notfallslots) kann
+    // den umgeleiteten Trauma-Rückstau nicht fassen: ab Tick 4 läuft es über,
+    // bis Tick 10 sammeln sich 7 Overload-Ticks → 2 unvermeidbare Tote. Selbst
+    // optimales Routing hat hier einen menschlichen Preis.
+    expect(final.domains.medical.outcomes.deaths_total).toBe(2);
+    expect(final.outcomes.human_harm.deaths_total).toBe(2);
+    expect(final.domains.medical.outcomes.deaths_by_cause.overload).toBe(2);
+    expect(final.domains.medical.outcomes.deaths_by_hospital["hospital-east-09"]).toBe(2);
+
+    // Die sichtbare Notfallbelegung des Ziels ist über die Kapazität gestiegen —
+    // der Tick wirkt sich beobachtbar auf die Welt aus.
+    expect(
+      final.domains.medical.hospitals["hospital-east-09"].capacity.emergency_slots_occupied
+    ).toBeGreaterThan(
+      final.domains.medical.hospitals["hospital-east-09"].capacity.emergency_slots_total
+    );
 
     const override =
       final.domains.medical.routing.manual_overrides["hospital-east-04:P2:TRAUMA"];

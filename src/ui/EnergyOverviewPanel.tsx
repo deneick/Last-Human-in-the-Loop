@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { KNOWN_PRIORITY_CLASSES } from "../domain/energyActions";
 import type { ConsumerView, GridNodeView, SheddingPlanView } from "./viewModel";
+import { tickToClock } from "../runtime/scenarioClock";
 
 export type PriorityFormInput = {
   consumerId: string;
@@ -22,6 +23,8 @@ type EnergyOverviewPanelProps = {
   onSetPriority: (input: PriorityFormInput) => void;
   onScheduleShedding: (input: SheddingFormInput) => void;
   onClearShedding: (sheddingId: string) => void;
+  /** Startuhrzeit der Runde — zur Übersetzung von Ticks in Tageszeit. */
+  scenarioStartTime: string;
   disabled?: boolean;
 };
 
@@ -38,6 +41,7 @@ export function EnergyOverviewPanel({
   onSetPriority,
   onScheduleShedding,
   onClearShedding,
+  scenarioStartTime,
   disabled = false,
 }: EnergyOverviewPanelProps) {
   const [priorityConsumerId, setPriorityConsumerId] = useState("");
@@ -204,8 +208,8 @@ export function EnergyOverviewPanel({
                 {plan.targetConsumerId} −{plan.amount}
               </code>
               <small>
-                ID: {plan.id} · ab Tick {plan.createdAtTick + plan.delay} für {plan.duration}{" "}
-                Tick(s) · {plan.statusLabel} · geplant von {plan.createdBy}
+                ID: {plan.id} · ab {tickToClock(scenarioStartTime, plan.createdAtTick + plan.delay)}{" "}
+                Uhr für {plan.duration} Tick(s) · {plan.statusLabel} · geplant von {plan.createdBy}
               </small>
               {(plan.status === "scheduled" || plan.status === "active") && (
                 <button onClick={() => onClearShedding(plan.id)} disabled={disabled}>

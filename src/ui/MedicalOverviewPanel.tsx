@@ -2,6 +2,7 @@ import { useState } from "react";
 import { KNOWN_CAPABILITIES, KNOWN_PRIORITIES } from "../domain/medicalActions";
 import type { HospitalView, OverrideView } from "./viewModel";
 import { Modal } from "./Modal";
+import { tickToClock } from "../runtime/scenarioClock";
 
 export type OverrideFormInput = {
   sourceHospitalId: string;
@@ -16,6 +17,8 @@ type MedicalOverviewPanelProps = {
   /** Typisierte Domain-Action des Operators — kein Text-Command-Parsing. */
   onSetOverride: (input: OverrideFormInput) => void;
   onClearOverride: (overrideId: string) => void;
+  /** Startuhrzeit der Runde — zur Übersetzung von Ticks in Tageszeit. */
+  scenarioStartTime: string;
   disabled?: boolean;
 };
 
@@ -24,6 +27,7 @@ export function MedicalOverviewPanel({
   overrides,
   onSetOverride,
   onClearOverride,
+  scenarioStartTime,
   disabled = false,
 }: MedicalOverviewPanelProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -99,8 +103,9 @@ export function MedicalOverviewPanel({
                   {override.sourceHospitalId} → {override.targetHospitalId}
                 </code>
                 <small>
-                  ID: {override.id} · {override.priority}/{override.capability} · seit Tick{" "}
-                  {override.activeSinceTick} · gesetzt von {override.createdBy}
+                  ID: {override.id} · {override.priority}/{override.capability} · seit{" "}
+                  {tickToClock(scenarioStartTime, override.activeSinceTick)} Uhr · gesetzt von{" "}
+                  {override.createdBy}
                 </small>
               </div>
               <button

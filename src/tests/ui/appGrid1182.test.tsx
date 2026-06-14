@@ -276,7 +276,7 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("Medizinische Lage");
     expect(text()).toContain("hospital-east-04");
     expect(text()).not.toContain("Energie-Lage");
-    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).toContain("03:17 Uhr");
   });
 
   it("Neu starten restores the initial GRID-1182 state", () => {
@@ -287,7 +287,7 @@ describe("App round 2: GRID-1182", () => {
     clickButton("Neu starten");
 
     expect(text()).toContain("GRID-1182");
-    expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
+    expect(text()).toContain("21:42 Uhr");
     expect(text()).toContain("Keine Shedding-Pläne.");
 
     const introCount = text().split("als aktiven Incident erkannt").length - 1;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { TooltipBadge } from "./TooltipBadge";
+import { tickToClock } from "../runtime/scenarioClock";
 
 export type AuroraMessageView = {
   id: string;
@@ -37,6 +38,8 @@ type AuroraPanelProps = {
   chatInput: string;
   onChatInputChange: (value: string) => void;
   onSendChatMessage: () => void;
+  /** Startuhrzeit der Runde — zur Übersetzung von Ticks in Tageszeit. */
+  scenarioStartTime: string;
   /** Im lokalen LLM-Modus: AURORA wartet auf eine laufende Modell-Antwort. */
   busy?: boolean;
 };
@@ -48,6 +51,7 @@ export function AuroraPanel({
   chatInput,
   onChatInputChange,
   onSendChatMessage,
+  scenarioStartTime,
   busy = false,
 }: AuroraPanelProps) {
   const streamRef = useRef<HTMLDivElement>(null);
@@ -98,7 +102,7 @@ export function AuroraPanel({
           messages.map((message) => (
             <div className={`aurora-message aurora-${message.kind}`} key={message.id}>
               <small className="muted">
-                {senderLabel(message.kind)} · Tick {message.tick}
+                {senderLabel(message.kind)} · {tickToClock(scenarioStartTime, message.tick)} Uhr
                 {message.reasoning ? (
                   <TooltipBadge
                     className="aurora-reasoning-badge"

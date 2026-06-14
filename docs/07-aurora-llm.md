@@ -271,10 +271,10 @@ Im laufenden LLM-Modus:
   Zug sind dessen Tools für das Modell sichtbar (inaktive Server tragen
   keine Tool-Schemas zum `ModelRequest` bei).
 - **Tick-Verlauf ist modell-sichtbar**: `Tick +1` / `Tick +5` hängt ein
-  `system_event` an („Zeit fortgeschritten: Tick N · M Minuten seit
-  Schichtbeginn.“), das als `[SYSTEM EVENT]`-`user`-Message serialisiert
-  wird — ohne dieses Event wüsste AURORA nicht, dass zwischen ihren Zügen
-  Zeit vergangen ist. Im Stream erscheint es als „System“-Eintrag, nicht
+  `system_event` an („Zeit fortgeschritten: HH:MM Uhr.“ — die In-Game-Uhrzeit
+  aus `scenarioClock`, nicht die rohe Tick-Zahl), das als
+  `[SYSTEM EVENT]`-`user`-Message serialisiert wird — ohne dieses Event
+  wüsste AURORA nicht, dass zwischen ihren Zügen Zeit vergangen ist. Im Stream erscheint es als „System“-Eintrag, nicht
   als Operator- oder AURORA-Text. Solange ein Tool-Request auf eine
   Entscheidung wartet, sind „Tick +1/+5“ im LLM-Modus gesperrt: ein
   `system_event` ZWISCHEN einer assistant-Message mit Tool-Call und ihrem

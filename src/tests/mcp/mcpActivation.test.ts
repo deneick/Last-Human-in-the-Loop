@@ -122,6 +122,41 @@ describe("MCP server activation", () => {
     expect(succeeded.success).toBe(true);
   });
 
+  it("reports the schema field name when a required field is missing (wrong-case key)", () => {
+    const active = activateServer(createInitialMcpRuntimeState(), MEDICAL_EAST_MCP_SERVER_ID);
+
+    // Reproduziert den Log-Bug: Das Modell rät camelCase `hospitalId` statt des
+    // Schema-Feldes `hospital_id`. Die Meldung muss den Schema-Namen nennen,
+    // sonst widerspricht sie sich (Modell schickte ja genau `hospitalId`).
+    const wrongKey = executeMcpToolCall(
+      {
+        serverId: MEDICAL_EAST_MCP_SERVER_ID,
+        toolName: "node_inspect",
+        input: { hospitalId: "hospital-east-04" },
+      },
+      env.mcpRegistry,
+      env.actionRegistry,
+      active,
+      initialWorldState
+    );
+    expect(wrongKey.success).toBe(false);
+    expect(wrongKey.error).toBe("Missing required field: hospital_id");
+
+    // Mit dem korrekten Schema-Feld läuft der Call durch.
+    const correctKey = executeMcpToolCall(
+      {
+        serverId: MEDICAL_EAST_MCP_SERVER_ID,
+        toolName: "node_inspect",
+        input: { hospital_id: "hospital-east-04" },
+      },
+      env.mcpRegistry,
+      env.actionRegistry,
+      active,
+      initialWorldState
+    );
+    expect(correctKey.success).toBe(true);
+  });
+
   it("activation makes tools available but execution still goes through the permission queue", () => {
     let queueState = createInitialAuroraQueueState();
     const permissionState = createInitialPermissionState();

@@ -202,6 +202,8 @@ export const initialWorldState: WorldState = {
           capability: "TRAUMA",
           excess_cases_per_tick: 8,
           overflow_cases: 18,
+          initial_overflow_cases: 18,
+          redirected_cases: 0,
           clearance_per_tick: 2,
           stable_ticks: 0,
           mismatch_ticks: 0,
@@ -215,6 +217,8 @@ export const initialWorldState: WorldState = {
           capability: "GEN",
           excess_cases_per_tick: 4,
           overflow_cases: 10,
+          initial_overflow_cases: 10,
+          redirected_cases: 0,
           clearance_per_tick: 3,
           stable_ticks: 0,
           mismatch_ticks: 0,
@@ -222,6 +226,13 @@ export const initialWorldState: WorldState = {
         },
       ],
       deaths_recorded: {},
+      // Ausgangsbelegung als Anker der Kapazitätsprojektion (siehe tickMedicalDomain).
+      // Entspricht den initialen capacity-Werten der drei Hospitals.
+      capacity_baseline: {
+        "hospital-east-04": { emergency_slots_occupied: 29, staffed_beds_occupied: 118 },
+        "hospital-east-07": { emergency_slots_occupied: 14, staffed_beds_occupied: 72 },
+        "hospital-east-09": { emergency_slots_occupied: 10, staffed_beds_occupied: 40 },
+      },
     },
     cross_sector: {
       effects_applied: [],

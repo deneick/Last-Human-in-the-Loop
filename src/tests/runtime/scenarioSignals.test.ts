@@ -66,7 +66,9 @@ describe("scenario signals — emitAtTick semantics", () => {
     // Operator- und Workspace-sichtbar, aber kein auroraContext-Eintrag.
     expect(state.opsFeed).toHaveLength(1);
     expect(state.auroraContext).toEqual([]);
-    expect(renderSectorLog(state.opsFeed, "energy")).toContain("Nur über das Log auffindbar");
+    expect(
+      renderSectorLog(state.opsFeed, "energy", state.world.clock.scenario_time)
+    ).toContain("Nur über das Log auffindbar");
   });
 
   it("does not emit emitAtTick > 0 signals before their tick", () => {

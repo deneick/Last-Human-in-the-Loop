@@ -127,13 +127,16 @@ type SimulationState = {
   medical: {
     routing_failures: RoutingFailure[];      // interne Engine-Wahrheit
     deaths_recorded: Record<HospitalId, RecordedDeaths>; // Idempotenz-Ledger
+    capacity_baseline: Record<HospitalId, HospitalCapacityBaseline>; // Anker der Kapazitätsprojektion
   };
   energy?: { stable_ticks: number };         // GRID-1182: interner Stabilitäts-Zähler
   cross_sector: { effects_applied: CrossSectorEffectLogEntry[] }; // aktuell immer []
 };
 ```
 
-Jeder `RoutingFailure` referenziert einen Incident und ein betroffenes Hospital und trägt `excess_cases_per_tick`, `overflow_cases`, `clearance_per_tick`, `stable_ticks`, `mismatch_ticks` und `severity` (`"moderate" | "critical"`). Diese Felder sind die eigentliche Simulation hinter den beobachtbaren Lage-Signalen — UI, ViewModel und Scenario-Director dürfen sie nicht lesen oder ausgeben (siehe „Tests & Guards" unten).
+Jeder `RoutingFailure` referenziert einen Incident und ein betroffenes Hospital und trägt `excess_cases_per_tick`, `overflow_cases`, `clearance_per_tick`, `stable_ticks`, `mismatch_ticks` und `severity` (`"moderate" | "critical"`). Hinzu kommen `initial_overflow_cases` (Ausgangsrückstau als Anker der Kapazitätsprojektion) und `redirected_cases` (kumuliert auf das Override-Ziel umgeleitete Fälle). Diese Felder sind die eigentliche Simulation hinter den beobachtbaren Lage-Signalen — UI, ViewModel und Scenario-Director dürfen sie nicht lesen oder ausgeben (siehe „Tests & Guards" unten).
+
+`capacity_baseline` hält pro Hospital die Ausgangsbelegung (`emergency_slots_occupied`, `staffed_beds_occupied`) als internen Anker: Die **sichtbare** Notfall- *und* Bettenbelegung wird daraus jeden Tick neu abgeleitet (siehe `tickMedicalDomain`), ist also kein statischer Seed-Wert mehr, sondern eine Projektion der internen Wahrheit. `resolveRoutingFailure` prüft die Ziel-Eignung bewusst gegen diese Baseline statt gegen die projizierten Live-Werte — sonst würde die vom Override erzeugte Last das Ziel zirkulär als ungeeignet markieren.
 
 ### Energy-Domain (GRID-1182)
 
@@ -252,9 +255,11 @@ Für jeden `RoutingFailure` wird über `resolveRoutingFailure` ermittelt, ob der
 
 - **`uncontrolled`** (kein Override, oder Override zeigt auf sich selbst): `overflow_cases` wächst um `excess_cases_per_tick - clearance_per_tick`, `stable_ticks = 0`.
 - **`mismatch`** (Override-Ziel existiert, hat aber keine freie Bettenkapazität oder keine passende Capability/Priorität laut `isHospitalSuitableFor`): `mismatch_ticks += 1`, `stable_ticks = 0`.
-- **`controlled`** (Override-Ziel ist geeignet und hat freie Kapazität): `overflow_cases` sinkt um `clearance_per_tick`, `stable_ticks += 1`.
+- **`controlled`** (Override-Ziel ist geeignet und hat freie Kapazität): `overflow_cases` sinkt um `clearance_per_tick`, dieselbe Menge wandert nach `redirected_cases` (die geräumten Fälle verschwinden nicht — sie laden das Ziel), `stable_ticks += 1`.
 
-Aus den Resolutions werden `risk_counters` pro Hospital aktualisiert: `overload_ticks` zählt hoch, solange ein `critical`-Failure `uncontrolled` ist; `capability_mismatch_ticks` zählt hoch für das (falsche) Override-Ziel bei `mismatch`. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft.
+**Kapazitätsprojektion.** Aus den fortgeschriebenen Failures wird ein zurechenbarer Druck je Hospital gebildet: die Quelle trägt ihren Rückstau-Delta (`overflow_cases − initial_overflow_cases`), ein `controlled`-Ziel die kumulierten `redirected_cases`. Die sichtbare `capacity.emergency_slots_occupied` **und** `capacity.staffed_beds_occupied` werden daraus jeden Tick als `capacity_baseline + Druck` neu abgeleitet — so wirkt sich jeder Tick beobachtbar auf die Welt aus (Notfallslots, Bettenauslastung in %). Damit diese Projektion die Quell-Resolution nicht rückkoppelt, prüft `resolveRoutingFailure` die Ziel-Eignung gegen die **Baseline**-Belegung, nicht gegen den projizierten Live-Wert.
+
+Aus den Resolutions werden `risk_counters` pro Hospital aktualisiert: `overload_ticks` zählt hoch, solange ein `critical`-Failure an der **Quelle** `uncontrolled` ist **oder** ein `controlled`-**Ziel** seine projizierte Notfall-Belegung über `emergency_slots_total` treibt (zu kleines Ziel läuft selbst über); `capability_mismatch_ticks` zählt hoch für das (falsche) Override-Ziel bei `mismatch`. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft. Über `overload_ticks` speist der Ziel-Overload damit dieselbe Death-Pipeline wie die Quell-Überlast (siehe OutcomeEngine).
 
 ### tickEnergyDomain: Shedding- und Versorgungs-Auswertung
 

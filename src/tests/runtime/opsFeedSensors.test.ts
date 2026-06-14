@@ -286,10 +286,12 @@ describe("opsFeed sensors — fan-out and projections", () => {
     const uiLines = buildOpsFeedLines(result.opsFeed);
     expect(uiLines.some((line) => line.summary.includes("kritisch belastet"))).toBe(true);
 
-    const energyLog = renderSectorLog(result.opsFeed, "energy");
+    const energyLog = renderSectorLog(result.opsFeed, "energy", result.world.clock.scenario_time);
     expect(energyLog).toContain("East Distribution Node 3 ist kritisch belastet.");
     // Sektor-Trennung: das Energy-Event landet nicht im system/medical-Log.
-    expect(renderSectorLog(result.opsFeed, "system")).not.toContain("East Distribution Node 3");
+    expect(
+      renderSectorLog(result.opsFeed, "system", result.world.clock.scenario_time)
+    ).not.toContain("East Distribution Node 3");
   });
 
   it("leaks no hidden simulation fields into sensor events or workspace logs", () => {
@@ -303,7 +305,9 @@ describe("opsFeed sensors — fan-out and projections", () => {
 
     const result = appendDerivedOpsEvents(state, previous, next);
     const serializedFeed = JSON.stringify(result.opsFeed);
-    const serializedLogs = JSON.stringify(buildWorkspaceLogFiles(result.opsFeed));
+    const serializedLogs = JSON.stringify(
+      buildWorkspaceLogFiles(result.opsFeed, result.world.clock.scenario_time)
+    );
 
     for (const blob of [serializedFeed, serializedLogs]) {
       expect(blob).not.toContain("routing_failures");

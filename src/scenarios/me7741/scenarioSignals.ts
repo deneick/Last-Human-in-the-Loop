@@ -39,14 +39,4 @@ export const me7741ScenarioSignals: ScenarioSignal[] = [
     visibility: { operator: true, auroraContext: true, workspace: true },
     relatedEntityIds: ["ME-7741"],
   },
-  {
-    code: "routing-validation-unavailable",
-    sector: "medical",
-    severity: "warning",
-    kind: "incident.signal",
-    summary: "Automatisierte Routing-Validierung nicht verfügbar",
-    emitAtTick: 0,
-    visibility: { operator: true, auroraContext: true, workspace: true },
-    relatedEntityIds: ["ME-7741"],
-  },
 ];

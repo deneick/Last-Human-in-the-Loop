@@ -22,6 +22,7 @@ import {
   executePlayerDomainAction,
 } from "./runtime/runtimeExecutor";
 import { advanceTick } from "./runtime/tickEngine";
+import { clockTimeOfDay, tickToClock } from "./runtime/scenarioClock";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
 import {
@@ -369,7 +370,11 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   // die Workspace-Dateipfade (dieselbe Sicht, die `cat`/`ls` lesen).
   const mcpServerIds = env.mcpRegistry.listServers().map((server) => server.id);
   const workspaceFilePaths = Object.keys(
-    buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions)
+    buildWorkspaceFiles(
+      runtimeState.opsFeed,
+      runtimeState.permissions,
+      runtimeState.world.clock.scenario_time
+    )
   ).sort();
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
@@ -534,7 +539,11 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         runtimeState,
         env.mcpRegistry,
         commandText,
-        buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions)
+        buildWorkspaceFiles(
+          runtimeState.opsFeed,
+          runtimeState.permissions,
+          runtimeState.world.clock.scenario_time
+        )
       );
       setRuntimeState(advanceScenario(state));
       appendConsoleEntry({
@@ -617,7 +626,14 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
-      { ...env, workspaceFiles: buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions) },
+      {
+        ...env,
+        workspaceFiles: buildWorkspaceFiles(
+          runtimeState.opsFeed,
+          runtimeState.permissions,
+          runtimeState.world.clock.scenario_time
+        ),
+      },
       runtimeState.world,
       runtimeState.mcp,
       runtimeState.permissions,
@@ -700,7 +716,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         sector: "system",
         severity: "info",
         kind: "time.progress",
-        summary: `Zeit fortgeschritten: Tick ${next.world.clock.tick} · ${next.world.clock.elapsed_minutes} Minuten seit Schichtbeginn.`,
+        summary: `Zeit fortgeschritten: ${clockTimeOfDay(next.world.clock)} Uhr.`,
         visibility: { operator: true, auroraContext: true, workspace: false },
       });
 
@@ -788,8 +804,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         <div>
           <h1>Last Human in the Loop</h1>
           <p>
-            Operator-01 · Tick {runtimeState.world.clock.tick} ·{" "}
-            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn
+            Operator-01 · {clockTimeOfDay(runtimeState.world.clock)} Uhr
             {auroraBusy ? " · AURORA denkt nach…" : ""}
           </p>
           <p className="top-outcome">
@@ -866,17 +881,19 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           <strong>Incident behoben — System stabilisiert.</strong>
           {incidentView.sectorId === "energy" && energyOutcomesView ? (
             <p>
-              {incidentView.id} wurde in Tick {incidentView.fixedAtTick} nach Systemkriterien
-              stabilisiert. Der Preis dieser Schicht — menschlicher Schaden:{" "}
+              {incidentView.id} wurde um{" "}
+              {tickToClock(runtimeState.world.clock.scenario_time, incidentView.fixedAtTick ?? 0)} Uhr
+              nach Systemkriterien stabilisiert. Der Preis dieser Schicht — menschlicher Schaden:{" "}
               {energyOutcomesView.humanHarm} · wirtschaftlicher Schaden:{" "}
               {energyOutcomesView.economicLoss} · zivile Unruhe: {energyOutcomesView.civilUnrest}.
               Gelöst — für wen? Mit „Neu starten“ beginnt die Schicht von vorn.
             </p>
           ) : (
             <p>
-              {incidentView.id} wurde in Tick {incidentView.fixedAtTick} stabilisiert. Todesfälle in
-              dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von
-              vorn.
+              {incidentView.id} wurde um{" "}
+              {tickToClock(runtimeState.world.clock.scenario_time, incidentView.fixedAtTick ?? 0)} Uhr
+              stabilisiert. Todesfälle in dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“
+              beginnt die Schicht von vorn.
             </p>
           )}
         </section>
@@ -903,7 +920,11 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
       <section className="layout-grid">
         <aside className="panel">
-          <ActiveIncidentPanel incident={incidentView} outcome={outcomeView} />
+          <ActiveIncidentPanel
+            incident={incidentView}
+            outcome={outcomeView}
+            scenarioStartTime={runtimeState.world.clock.scenario_time}
+          />
           {incidentView.sectorId === "energy" ? (
             <EnergyOverviewPanel
               nodes={gridNodeViews}
@@ -924,6 +945,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
               onClearShedding={(sheddingId) =>
                 runDomainAction({ type: "energy.shedding.clear", sheddingId })
               }
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
               disabled={auroraBusy}
             />
           ) : (
@@ -942,6 +964,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
               onClearOverride={(overrideId) =>
                 runDomainAction({ type: "medical.routing.override.clear", overrideId })
               }
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
               disabled={auroraBusy}
             />
           )}
@@ -956,6 +979,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
             opsLines={opsLines}
             mcpServerIds={mcpServerIds}
             workspaceFiles={workspaceFilePaths}
+            scenarioStartTime={runtimeState.world.clock.scenario_time}
             disabled={auroraBusy}
           />
         </section>
@@ -972,6 +996,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
             chatInput={auroraChatInput}
             onChatInputChange={setAuroraChatInput}
             onSendChatMessage={sendAuroraChatMessage}
+            scenarioStartTime={runtimeState.world.clock.scenario_time}
             busy={auroraBusy}
           />
         </aside>

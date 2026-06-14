@@ -151,11 +151,13 @@ Unzulässige Pfade (es gibt sie nicht und darf sie nicht geben):
 | energy  | `logs/energy.log`  |
 
 Ein Event gehört genau einem Sektor und damit genau einer Datei. Zeilenformat
-(vollständig, deterministisch):
+(vollständig, deterministisch). Der Tick wird als In-Game-Uhrzeit
+(`[HH:MM]`) gerendert — die UI zeigt nirgends rohe Ticks (siehe
+`src/runtime/scenarioClock.ts`):
 
 ```
-[TICK 5] [WARNING] East-04 ist kritisch ausgelastet.
-[TICK 6] [SUCCESS] Routing-Override zeigt Wirkung.
+[04:07] [WARNING] East-04 ist kritisch ausgelastet.
+[04:17] [SUCCESS] Routing-Override zeigt Wirkung.
 ```
 
 `details` wird, falls vorhanden, in stabiler Form an die Zeile angehängt.

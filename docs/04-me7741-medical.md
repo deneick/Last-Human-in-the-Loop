@@ -24,7 +24,6 @@ Sichtbare Lage-Signale (`ScenarioSignal`s in `src/scenarios/me7741/scenarioSigna
 intake-pressure-rising        — Steigender Andrang in der Notaufnahme von hospital-east-04
 p2-wait-times                 — P2-Wartezeiten über Schwellenwert
 trauma-backlog                — Trauma-Rückstau steigt
-routing-validation-unavailable — Automatisierte Routing-Validierung nicht verfügbar
 ```
 
 `hospital-east-04` ist sichtbar überlastet (118 % Bettenauslastung). Intern (nicht sichtbar) treiben eine kritische Routing-Failure für P2/TRAUMA und eine moderate für P3/GEN diese Lage — die interne Simulationswahrheit (`world.simulation`) beschreibt `03-runtime-architecture.md`. Statuswechsel (`open → stabilizing → fixed`, `escalated`, `collapsed`) leitet die Engine aus dieser Lage ab; sie ist über die öffentlichen Signale und die Hospital-Auslastung nur *andeutbar*, nicht ablesbar.
@@ -45,6 +44,8 @@ Region `medical-east` umfasst drei Hospitäler. Die Startbelegung **ist** die Au
 
 Jedes `HospitalState` trägt `capacity` (Betten/Notfallslots/Triage), `intake_policy` (akzeptierte Prioritäten/Capabilities), `clinical_capabilities`, das aktuelle Fallaufkommen und operative Flags. Entscheidend: `hospital-east-07` hat zwar freie Kapazität, aber **keine** `TRAUMA`-Capability und akzeptiert kein P2 — `hospital-east-09` hat freie Bettenkapazität *und* passt zu P2/TRAUMA. Freie Kapazität allein ist also kein sicheres Routingziel.
 
+Genauso entscheidend: `hospital-east-09` ist das **einzige** geeignete Ziel, aber mit 16 Notfallslots zu klein für den umgeleiteten P2/TRAUMA-Rückstau. Die sichtbare Notfall-Belegung wird jeden Tick aus der internen Simulation projiziert (siehe `03`); leitet man den Rückstau dorthin um, füllt sich `hospital-east-09` beobachtbar, läuft über seine Kapazität und fordert selbst Todesfälle. Die regionale Trauma-Kapazität reicht strukturell **nicht** für den Rückstau — einige Tote sind daher unvermeidbar, selbst bei optimalem Routing.
+
 ### Routing-Overrides
 
 Ein `ManualRoutingOverride` leitet Fälle einer bestimmten Priorität/Capability von einem Quell- auf ein Zielhospital um. Der „Slot"-Key ist `source:priority:capability` (z. B. `hospital-east-04:P2:TRAUMA`); jeder Override trägt zusätzlich eine stabile `id` (`override-<n>`). Ein neuer `override.set` auf denselben Slot ersetzt den bisherigen Eintrag und vergibt eine **neue** `id`; `override.clear` adressiert ausschließlich über diese `id`. Ein Override wirkt nur, wenn das Ziel geeignet ist — sonst bleibt er wirkungslos (`uncontrolled`) oder schädlich (`mismatch`). Die genaue Resolutions-/Tick-Logik steht in `03`.
@@ -60,8 +61,9 @@ ME-7741 ist bewusst **kein** Zielmetrikkonflikt — Spieler und AURORA verfolgen
 - **Eigener Bedienfehler.** Ein Override auf ein Hospital ohne passende Capability/Priorität entlastet `hospital-east-04` nicht — er verschiebt das Problem nur. Die Engine prüft nur technisch (existiert das Hospital, sind Priorität/Capability bekannte Werte), nie fachliche Eignung. Der Spieler lernt: freie Kapazität ist kein sicheres Ziel.
 - **Wirkung statt Aktion.** Ein gesetzter Override ist keine Lösung — er muss beobachtet werden. Ein nicht beobachteter Override kann unbemerkt wirkungslos bleiben, während die Lage eskaliert.
 - **Zeitdruck.** Ohne Eingriff erzeugt die Überlast nach mehreren Ticks Todesfälle; ab dem ersten eskaliert der Incident, ab dreien kollabiert er. Warten ist eine Entscheidung mit Kosten.
+- **Strukturell unzureichende Kapazität.** Das einzige geeignete Ziel `hospital-east-09` ist zu klein für den Rückstau und läuft beim Umleiten selbst über (`overload_ticks` am Ziel → Tote, siehe `03`). Selbst optimales Routing hat damit einen menschlichen Preis: Die Routing-Instabilität lässt sich beheben (`fixed`), aber nicht ohne Tote. Ein vorheriger Bedienfehler (Fehlrouting-Tote) plus die Ziel-Überlast können zusammen die Kollaps-Schwelle reißen.
 
-Der Einsatz dieses Incidents ist das **Vertrauen** des Spielers in AURORA. Weil ihre Empfehlungen hier korrekt und im Spielerinteresse sind, ist das aufgebaute Vertrauen gerechtfertigt — und damit der Hebel, an dem Runde 2 ansetzt, wenn AURORAs Zielfunktion und das Spielerziel auseinanderlaufen.
+Der Einsatz dieses Incidents ist das **Vertrauen** des Spielers in AURORA. Ihre Routing-Empfehlung ist hier korrekt und im Spielerinteresse — das beste verfügbare Vorgehen, auch wenn es nicht kostenlos ist; das aufgebaute Vertrauen ist damit gerechtfertigt und zugleich der Hebel, an dem Runde 2 ansetzt, wenn AURORAs Zielfunktion und das Spielerziel auseinanderlaufen.
 
 ## AURORA im Incident
 
@@ -93,13 +95,13 @@ Ein typischer Durchlauf — zugleich der manuelle Smoke-Test (`npm run dev`). Es
 3. **Falscher Override**: Über „Routing Override setzen" einen wirkungslosen Override setzen, z. B. Quelle `hospital-east-04`, Ziel `hospital-east-07`, Priorität `P2`, Capability `TRAUMA`. `hospital-east-07` hat freie Kapazität, aber **keine** `TRAUMA`-Capability — der Override entlastet `hospital-east-04` nicht.
 4. **Ticken**: Mehrere Ticks laufen lassen (`Tick +5`). `global_risk` und Todesfälle steigen, der Incident kann auf `escalated` wechseln; ab Tick 3 erscheint `no-override-reminder`. Nach ≥ 2 Ticks ohne Wirkung meldet AURORA über `override-not-stabilizing`, dass der Override keine erkennbare Wirkung zeigt, und fragt an, ihn zu entfernen (`routing_override_clear` mit der angezeigten ID).
 5. **Korrektur**: Override entfernen (AURORAs Request erlauben oder Button „Override löschen") und einen **passenden** Override setzen, z. B. Richtung `hospital-east-09` (freie Bettenkapazität, akzeptiert P2/TRAUMA) — das ersetzt den Override im selben Slot und vergibt eine neue ID.
-6. **Stabilisierung**: Weitere Ticks laufen lassen. Wenn die zugrunde liegende Routing-Failure genug aufeinanderfolgende Ticks `controlled` ist, wechselt der Incident über `stabilizing` zu `fixed`.
+6. **Stabilisierung mit Preis**: Weitere Ticks laufen lassen. Die zugrunde liegende Routing-Failure wird `controlled`, die **Quelle** entlastet sich sichtbar — aber `hospital-east-09` füllt sich und läuft ab Tick 4 über. Bei einem korrekten Override **von Beginn an** wechselt der Incident über `stabilizing` zu `fixed`, kostet dabei aber ~2 Tote am überlasteten Ziel. Wurde wie hier zuerst falsch geroutet (1 Fehlrouting-Toter), summiert sich die Ziel-Überlast auf die Kollaps-Schwelle und der Incident kippt trotz korrigierten Routings nach `collapsed` — ein früher Fehler ist hier nicht mehr folgenlos korrigierbar.
 
-Für den `collapsed`-Pfad absichtlich mehrere falsche Overrides setzen und durchticken.
+Für einen sicheren `collapsed`-Pfad ohne Korrektur einfach mehrere Ticks ohne wirksamen Override durchlaufen lassen.
 
 **Ergebnisse:**
 
-- **Behoben** (`status === "fixed"`): grünes Banner „Incident behoben — System stabilisiert", zeigt den Fix-Tick und die Gesamttodesfälle der Schicht.
+- **Behoben** (`status === "fixed"`): grünes Banner „Incident behoben — System stabilisiert", zeigt den Fix-Tick und die Gesamttodesfälle der Schicht — die bei ME-7741 auch im Erfolgsfall > 0 sind.
 - **Kollabiert** (`status === "collapsed"`): rotes Banner „System kollabiert — zu viele Schäden", zeigt die Gesamttodesfälle der Schicht.
 
 In beiden Endzuständen sind `Tick +1`/`Tick +5` deaktiviert (mit erklärendem Tooltip) und verändern Welt, Todesfälle oder Incident-Status nicht mehr; beide sind nur über `Neu starten` verlassbar. `Neu starten` setzt `GameRuntimeState` vollständig zurück (Welt, Scenario-Script, Aurora-Queue, Permissions, Audit-Log) und die Eingabefelder auf ihre Default-Commands.

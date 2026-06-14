@@ -73,6 +73,67 @@ describe("tick engine deterministic simulation", () => {
     ).toBe(2);
   });
 
+  it("projects growing internal overflow onto the visible capacity of the source", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    const cap = (s: typeof runtimeState) =>
+      s.world.domains.medical.hospitals["hospital-east-04"].capacity;
+
+    // Ausgangswerte = Baseline (Seed).
+    expect(cap(runtimeState).emergency_slots_occupied).toBe(29);
+    expect(cap(runtimeState).staffed_beds_occupied).toBe(118);
+
+    // Unkontrolliert wächst der Rückstau auf beiden sichtbaren Metriken:
+    // kritisch +6, moderat +1 → +7 Druck pro Tick.
+    runtimeState = advanceTick(runtimeState);
+    expect(cap(runtimeState).emergency_slots_occupied).toBe(36);
+    expect(cap(runtimeState).staffed_beds_occupied).toBe(125);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(cap(runtimeState).emergency_slots_occupied).toBe(43);
+    expect(cap(runtimeState).staffed_beds_occupied).toBe(132);
+  });
+
+  it("recovers the source and loads the override target on the visible capacity", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
+
+    const emergency = (s: typeof runtimeState, id: string) =>
+      s.world.domains.medical.hospitals[id].capacity.emergency_slots_occupied;
+
+    runtimeState = advanceTick(runtimeState);
+    // Quelle entlastet sich (kritisch -2, moderat +1 → netto -1), Ziel füllt sich.
+    expect(emergency(runtimeState, "hospital-east-04")).toBe(28);
+    expect(emergency(runtimeState, "hospital-east-09")).toBe(12);
+
+    runtimeState = advanceTick(runtimeState);
+    expect(emergency(runtimeState, "hospital-east-04")).toBe(27);
+    expect(emergency(runtimeState, "hospital-east-09")).toBe(14);
+  });
+
+  it("overloads the undersized override target once its visible capacity is exceeded", () => {
+    let runtimeState = createInitialGameRuntimeState(initialWorldState);
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
+
+    const target = () => runtimeState.world.domains.medical.hospitals["hospital-east-09"];
+
+    // Ticks 1–3: Ziel füllt sich, bleibt aber ≤ 16 Notfallslots → kein Overload.
+    for (let i = 0; i < 3; i++) {
+      runtimeState = advanceTick(runtimeState);
+    }
+    expect(target().capacity.emergency_slots_occupied).toBe(16);
+    expect(target().risk_counters?.overload_ticks).toBe(0);
+
+    // Ab Tick 4 (umgeleitet 8 → belegt 18 > 16) läuft das Ziel über.
+    runtimeState = advanceTick(runtimeState);
+    expect(target().capacity.emergency_slots_occupied).toBe(18);
+    expect(target().risk_counters?.overload_ticks).toBe(1);
+
+    // Die Quelle selbst erzeugt dabei keinen Overload-Druck (kontrolliert).
+    expect(
+      runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
+    ).toBe(0);
+  });
+
   it("does not let the moderate routing failure drive overload pressure", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
     runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
