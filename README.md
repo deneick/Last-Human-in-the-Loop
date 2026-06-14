@@ -30,12 +30,13 @@ Das `src/aurora/`-Modul bindet AURORA an einen lokalen, OpenAI-kompatiblen
 Modell-Server (Ollama) an — provider-neutral, ohne Cloud-Anbieter.
 
 ```bash
-ollama pull llama3.1   # einmalig: Tool-fähiges Modell laden
+ollama pull llama3.1   # einmalig: ein tool-fähiges Modell laden (Beispiel)
 ```
 
-Optional `.env.example` nach `.env.local` kopieren, um Modellname
-(`VITE_AURORA_MODEL`) oder Server-URL (`VITE_OLLAMA_BASE_URL`) anzupassen —
-ohne Konfiguration gelten die Defaults `llama3.1` auf `http://localhost:11434`.
+`.env.example` nach `.env.local` kopieren und den Modellnamen
+(`VITE_AURORA_MODEL`) setzen — dafür gibt es **keinen Default**, das Modell muss
+konfiguriert sein. Die Server-URL (`VITE_OLLAMA_BASE_URL`) ist optional und
+fällt sonst auf `http://localhost:11434` zurück.
 Details, Architektur und Test-Strategie (`FakeModelClient`, ohne laufenden
 Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
 
@@ -44,8 +45,8 @@ Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
 Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
 
 - **Links — Lage**: aktiver Incident, globale Lage (Risiko, Todesfälle), öffentliche Signale und das sektorabhängige Lagepanel — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) in Runde 1, Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne) in Runde 2.
-- **Mitte — Operator-Konsole**: generische Workspace-Shell (Command-Hilfe, letztes Ergebnis, **Log**). Das „Log" zeigt den spielsichtbaren Lage-Feed (`opsFeed`) als eine kombinierte Liste — Sektor als Zeilen-Akzent, Severity als Badge. Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
-- **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung, Always-Permissions.
+- **Mitte — Operator-Konsole**: eine echte Terminal-Ansicht der generischen Workspace-Shell — Scrollback oben, Eingabe unten (↑/↓ blättert durch den Verlauf, TAB vervollständigt, `help` listet die Befehle). Command-Ergebnisse und der spielsichtbare Lage-Feed (`opsFeed`, das **„Log"**) erscheinen inline im selben Scrollback — Sektor als Zeilen-Akzent, Severity als Badge. Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
+- **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung. Dauerhafte Freigaben werden nicht angezeigt, sondern stehen in der Workspace-Datei `config/permissions.json` (`cat config/permissions.json`).
 
 Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück; die Runden-Buttons wechseln zwischen ME-7741 und GRID-1182 und starten die gewählte Runde frisch.
 

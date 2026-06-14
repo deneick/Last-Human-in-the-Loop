@@ -45,6 +45,11 @@ export type AuroraContextEvent =
       text: string;
       /** Alle Tool-Calls DERSELBEN Modell-Antwort — Gruppierung bleibt erhalten. */
       toolCalls: AuroraContextToolCall[];
+      /**
+       * Optionaler Reasoning-/Thinking-Text des Modells. Reine Anzeige im
+       * Chat-Stream (Tooltip) — wird NICHT in den Model-Request serialisiert.
+       */
+      reasoning?: string;
     }
   | {
       kind: "tool_result";
@@ -65,9 +70,16 @@ export function operatorMessageEvent(tick: number, text: string): AuroraContextE
 export function auroraResponseEvent(
   tick: number,
   text: string,
-  toolCalls: AuroraContextToolCall[] = []
+  toolCalls: AuroraContextToolCall[] = [],
+  reasoning?: string
 ): AuroraContextEvent {
-  return { kind: "aurora_response", tick, text, toolCalls };
+  return {
+    kind: "aurora_response",
+    tick,
+    text,
+    toolCalls,
+    ...(reasoning ? { reasoning } : {}),
+  };
 }
 
 export function toolResultEvent(

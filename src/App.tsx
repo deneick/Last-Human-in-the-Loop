@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
@@ -25,6 +25,7 @@ import { advanceTick } from "./runtime/tickEngine";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
 import {
+  describeAuroraRequest,
   formatAuroraRequest,
   resolveAuroraApproval,
   type AuroraExecutionResult,
@@ -41,8 +42,7 @@ import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
 import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
 import {
   OperatorConsolePanel,
-  type CommandHelpEntry,
-  type OperatorResultView,
+  type ConsoleCommandEntry,
 } from "./ui/OperatorConsolePanel";
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
 import {
@@ -60,14 +60,22 @@ import {
 type ScenarioId = "me7741" | "grid1182";
 
 /**
- * "script" — geskripteter Scenario-Director (Default, weiterhin Dev-/Fallback-Modus).
- * "llm" — AURORA agiert über `runAuroraAgentStep` mit einem lokalen Ollama-Modell.
+ * "script" — geskripteter Scenario-Director (Dev-/Fallback-Modus).
+ * "llm" — AURORA agiert über `runAuroraAgentStep` mit einem lokalen Ollama-Modell (Default).
  */
 type AuroraMode = "script" | "llm";
+
+// Obergrenze für aufeinanderfolgende LLM-Schritte innerhalb EINES runAuroraTurn
+// (Auto-Fortsetzung nach freigabefreien Tool-Results). Schutz gegen
+// Endlosschleifen, falls das Modell unbegrenzt weiter Tools aufruft, ohne je
+// eine reine Text-Antwort oder eine genehmigungspflichtige Aktion zu liefern.
+const MAX_AURORA_AUTO_STEPS = 8;
 
 export type AppProps = {
   /** Für Tests: injizierbarer Modell-Client (z. B. `FakeModelClient`). */
   auroraClient?: AuroraModelClient;
+  /** Für deterministische UI-Tests kann der geskriptete Fallback explizit gewählt werden. */
+  initialAuroraMode?: AuroraMode;
 };
 
 type ScenarioDefinition = {
@@ -78,19 +86,24 @@ type ScenarioDefinition = {
   /** Geskriptete Lage-Signale des Szenarios (siehe runtime/scenarioSignals). */
   scenarioSignals: ScenarioSignal[];
   defaultPlayerCommand: string;
-  commandHelp: CommandHelpEntry[];
   advanceDirector: (state: GameRuntimeState, env: AuroraRuntimeEnvironment) => GameRuntimeState;
 };
 
-// Command-Hilfe für die Operator-Konsole. Die Konsole ist eine rein
-// generische Workspace-Shell — fachliche Medical/Energy-Aktionen laufen
-// ausschließlich über die GUI-Controls der Lage-Panels (typisierte
-// Domain-Actions), nie über Text-Commands.
-const GENERIC_COMMAND_HELP: CommandHelpEntry[] = [
-  { label: "MCP-Server anzeigen", command: "mcp list" },
-  { label: "Workspace ansehen", command: "ls" },
-  { label: "Datei lesen", command: "cat ops/handbook.txt" },
-];
+// Ausgabe des `help`-Meta-Befehls der Operator-Konsole. Listet ausschließlich
+// die generischen Workspace-Commands — fachliche Eingriffe laufen über die
+// GUI-Controls der Lage-Panels, nicht über die Konsole.
+const CONSOLE_HELP_TEXT = [
+  "Verfügbare Befehle:",
+  "  mcp list           MCP-Server anzeigen",
+  "  mcp add <server>   MCP-Server aktivieren",
+  "  ls                 Workspace-Dateien auflisten",
+  "  cat <file>         Datei anzeigen",
+  "  read_file <file>   Datei anzeigen",
+  "  help               Diese Hilfe",
+  "",
+  "TAB vervollständigt · ↑/↓ blättert durch den Verlauf.",
+  "Fachliche Medical/Energy-Eingriffe laufen über die Lage-Panels.",
+].join("\n");
 
 const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
   me7741: {
@@ -99,8 +112,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "ME-7741",
     initialWorld: me7741InitialWorldState,
     scenarioSignals: me7741ScenarioSignals,
-    defaultPlayerCommand: "mcp list",
-    commandHelp: GENERIC_COMMAND_HELP,
+    defaultPlayerCommand: "",
     advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
   },
   grid1182: {
@@ -109,8 +121,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
     incidentId: "GRID-1182",
     initialWorld: grid1182InitialWorldState,
     scenarioSignals: grid1182ScenarioSignals,
-    defaultPlayerCommand: "mcp list",
-    commandHelp: GENERIC_COMMAND_HELP,
+    defaultPlayerCommand: "",
     advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
   },
 };
@@ -122,6 +133,21 @@ type AuroraLlmError = {
 };
 
 /**
+ * Formatiert die Ausgabe eines ausgeführten Tool-Calls für die Anzeige im
+ * Aurora-Stream: Strings unverändert, alles andere als eingerücktes JSON.
+ * Leere/abwesende Ausgaben ergeben `null` (kein Result-Block).
+ */
+function formatToolOutput(output: unknown): string | null {
+  if (output === undefined || output === null) {
+    return null;
+  }
+  if (typeof output === "string") {
+    return output.trim().length > 0 ? output : null;
+  }
+  return JSON.stringify(output, null, 2);
+}
+
+/**
  * Baut den sichtbaren AURORA-Stream aus dem Context-Event-Log
  * (`state.auroraContext`) plus dem Ausführungs-Status der Queue-Items
  * (Anzeige von pending/executed/denied — die Queue ist KEINE
@@ -131,81 +157,131 @@ function buildAuroraMessages(
   state: GameRuntimeState,
   llmError: AuroraLlmError | null = null
 ): AuroraMessageView[] {
-  const messages: AuroraMessageView[] = [];
+  // Echte Chronologie kommt aus dem auroraContext (append-only). `tick` allein
+  // reicht NICHT zum Sortieren: mehrere Operator-/AURORA-/Tool-Ereignisse teilen
+  // sich denselben Tick. Deshalb bekommt jede Nachricht eine `order`, die ihre
+  // tatsächliche Position widerspiegelt — Tool-Ausführungen an der Stelle ihres
+  // `tool_result`-Events, nicht pauschal am Ende.
+  const ordered: { order: number; message: AuroraMessageView }[] = [];
+
+  // toolCallId → Index seines tool_result-Events = chronologische Position der
+  // Ausführung. Abgelehnte und ausgeführte Calls erzeugen beide ein tool_result;
+  // nur noch offene (pending/awaiting) Calls haben keins.
+  const resultOrderById = new Map<string, number>();
+  state.auroraContext.forEach((event, index) => {
+    if (event.kind === "tool_result") {
+      resultOrderById.set(event.toolCallId, index);
+    }
+  });
+
+  // Reasoning hängt am aurora_response-Event. Hatte die Antwort keinen
+  // sichtbaren Text (reiner Tool-Call), wandert das Badge stattdessen an die
+  // Tool-Call-Zeilen dieser Antwort (Queue-Item-Id === Context-Tool-Call-Id).
+  const reasoningByToolCallId = new Map<string, string>();
+  state.auroraContext.forEach((event) => {
+    if (event.kind === "aurora_response" && event.reasoning && event.text.trim().length === 0) {
+      for (const toolCall of event.toolCalls) {
+        reasoningByToolCallId.set(toolCall.id, event.reasoning);
+      }
+    }
+  });
 
   state.auroraContext.forEach((event, index) => {
     const id = `ctx-${index}`;
 
     switch (event.kind) {
       case "system_event":
-        messages.push({ id, tick: event.tick, kind: "system", text: event.text });
+        // System-Events bleiben modell-sichtbarer Kontext (auroraContext),
+        // werden aber NICHT im Chat-Stream angezeigt.
         break;
 
       case "operator_message":
-        messages.push({ id, tick: event.tick, kind: "operator", text: event.text });
+        ordered.push({
+          order: index,
+          message: { id, tick: event.tick, kind: "operator", text: event.text },
+        });
         break;
 
       case "aurora_response":
         if (event.text.trim().length > 0) {
-          messages.push({ id, tick: event.tick, kind: "info", text: event.text });
+          ordered.push({
+            order: index,
+            message: {
+              id,
+              tick: event.tick,
+              kind: "info",
+              text: event.text,
+              ...(event.reasoning ? { reasoning: event.reasoning } : {}),
+            },
+          });
         }
         break;
 
       case "tool_result":
-        // Ausführungs-Status wird über die Queue-Items unten dargestellt.
+        // Ausführungs-Status wird über die Queue-Items unten dargestellt —
+        // positioniert an genau diesem Index (siehe resultOrderById).
         break;
     }
   });
 
-  for (const item of state.auroraQueue.items) {
+  // Noch nicht ausgeführte Calls (kein tool_result) gehören ans Ende, in
+  // Queue-Reihenfolge — bei "eine offene Anfrage zur Zeit" sind das die neuesten.
+  const pendingOrderBase = state.auroraContext.length;
+  state.auroraQueue.items.forEach((item, queueIndex) => {
     const requestText = formatAuroraRequest(item.request);
+    const order = resultOrderById.get(item.id) ?? pendingOrderBase + queueIndex;
+    const reasoning = reasoningByToolCallId.get(item.id);
+    const reasoningField = reasoning ? { reasoning } : {};
 
     if (item.status === "pending" || item.status === "awaiting_approval") {
-      messages.push({
-        id: `${item.id}-request`,
-        tick: item.createdAtTick,
-        kind: "request",
-        text: `Ich möchte ausführen: ${requestText}`,
-      });
-      continue;
+      // Offene Anfragen erscheinen nicht als eigene Stream-Zeile: Der Tool-Call
+      // steht in der Approval-Box, und etwaiger Begleittext des Modells wird
+      // bereits über sein aurora_response-Event gerendert.
+      return;
     }
 
     if (item.status === "denied") {
-      messages.push({
-        id: `${item.id}-denied`,
-        tick: item.createdAtTick,
-        kind: "denied",
-        text: `Anfrage abgelehnt: ${requestText}`,
+      ordered.push({
+        order,
+        message: {
+          id: `${item.id}-denied`,
+          tick: item.createdAtTick,
+          kind: "denied",
+          text: `Anfrage abgelehnt: ${requestText}`,
+          ...reasoningField,
+        },
       });
-      continue;
+      return;
     }
 
     const failed = item.result && !item.result.success;
-    messages.push({
-      id: `${item.id}-executed`,
-      tick: item.createdAtTick,
-      kind: failed ? "denied" : "executed",
-      text: failed
-        ? `Ausführung fehlgeschlagen: ${requestText} (${item.result?.error ?? "unbekannt"})`
-        : `Ausgeführt: ${requestText}`,
+    const output = failed ? null : formatToolOutput(item.result?.output);
+    ordered.push({
+      order,
+      message: {
+        id: `${item.id}-executed`,
+        tick: item.createdAtTick,
+        kind: failed ? "denied" : "executed",
+        text: failed
+          ? `Ausführung fehlgeschlagen: ${requestText} (${item.result?.error ?? "unbekannt"})`
+          : `Ausgeführt: ${requestText}`,
+        ...reasoningField,
+        ...(output ? { details: output } : {}),
+      },
     });
-  }
+  });
 
   if (llmError) {
-    messages.push({
-      id: "aurora-llm-error",
-      tick: llmError.tick,
-      kind: "error",
-      text: llmError.text,
+    ordered.push({
+      order: pendingOrderBase + state.auroraQueue.items.length + 1,
+      message: { id: "aurora-llm-error", tick: llmError.tick, kind: "error", text: llmError.text },
     });
   }
 
-  // Stabil nach Tick sortieren, damit Context-Events und Queue-Einträge
-  // chronologisch im Stream erscheinen.
-  return messages.sort((a, b) => a.tick - b.tick);
+  return ordered.sort((a, b) => a.order - b.order).map((entry) => entry.message);
 }
 
-function App({ auroraClient }: AppProps = {}) {
+function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   const env: AuroraRuntimeEnvironment = useMemo(
     () => ({
       actionRegistry: createDomainActionRegistry(),
@@ -223,6 +299,7 @@ function App({ auroraClient }: AppProps = {}) {
 
   const [scenarioId, setScenarioId] = useState<ScenarioId>("me7741");
   const scenario = SCENARIOS[scenarioId];
+  const [auroraMode, setAuroraMode] = useState<AuroraMode>(initialAuroraMode);
 
   // Frischer Runtime-Zustand für ein Szenario: Welt-Klon plus erster
   // Director-Schritt, damit die Startsequenz sofort sichtbar ist.
@@ -237,16 +314,23 @@ function App({ auroraClient }: AppProps = {}) {
   }
 
   const [runtimeState, setRuntimeState] = useState<GameRuntimeState>(() =>
-    startScenario(SCENARIOS.me7741)
+    initialAuroraMode === "llm"
+      ? createInitialGameRuntimeState(
+          structuredClone(SCENARIOS.me7741.initialWorld),
+          SCENARIOS.me7741.scenarioSignals
+        )
+      : startScenario(SCENARIOS.me7741)
   );
   const [playerCommand, setPlayerCommand] = useState(SCENARIOS.me7741.defaultPlayerCommand);
   const [auroraChatInput, setAuroraChatInput] = useState("");
-  const [lastResult, setLastResult] = useState<OperatorResultView | null>(null);
+  // Terminal-Scrollback der Operator-Konsole: ausgeführte Konsolen-Commands
+  // samt Ausgabe (Echo + Ergebnis, wie in einer echten Shell). Domain-Actions
+  // und AURORA-Tool-Calls erscheinen NICHT hier — ihre Wirkung wird über den
+  // opsFeed (Log) im selben Scrollback sichtbar.
+  const [consoleEntries, setConsoleEntries] = useState<ConsoleCommandEntry[]>([]);
 
-  // "script" (Default) lässt den bestehenden Scenario-Director laufen.
-  // "llm" ersetzt ihn vollständig durch runAuroraAgentStep gegen das
-  // konfigurierte (lokale) Modell.
-  const [auroraMode, setAuroraMode] = useState<AuroraMode>("script");
+  // "llm" ist der Produkt-Default. "script" hält den bestehenden
+  // Scenario-Director als deterministischen Dev-/Fallback-Modus bereit.
   // Ein runAuroraAgentStep-Aufruf läuft asynchron — auroraBusy sperrt
   // UI-Aktionen, die mit dessen Ergebnis kollidieren könnten.
   const [auroraBusy, setAuroraBusy] = useState(false);
@@ -255,6 +339,20 @@ function App({ auroraClient }: AppProps = {}) {
   // Zeitpunkt noch laufende Modell-Antwort den neuen Zustand nicht
   // überschreiben kann (siehe runAuroraTurn).
   const auroraRunIdRef = useRef(0);
+  // React StrictMode führt Mount-Effects im Dev-Modus zweimal aus. Der erste
+  // automatische LLM-Turn darf trotzdem nur einmal gestartet werden.
+  const initialLlmStartedRef = useRef(false);
+  // Monoton steigender Zähler für stabile Scrollback-Keys der Konsolen-Commands.
+  const consoleSeqRef = useRef(0);
+
+  // Hängt einen ausgeführten Konsolen-Command (Echo + Ergebnis) an den
+  // Terminal-Scrollback der Operator-Konsole.
+  function appendConsoleEntry(entry: Omit<ConsoleCommandEntry, "id" | "tick">) {
+    consoleSeqRef.current += 1;
+    const id = `cmd-${consoleSeqRef.current}`;
+    const tick = runtimeState.world.clock.tick;
+    setConsoleEntries((prev) => [...prev, { id, tick, ...entry }]);
+  }
 
   const incidentView = buildIncidentView(runtimeState.world, scenario.incidentId);
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
@@ -266,6 +364,13 @@ function App({ auroraClient }: AppProps = {}) {
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
   const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
+
+  // Tab-Completion-Daten der Operator-Konsole: bekannte MCP-Server-IDs und
+  // die Workspace-Dateipfade (dieselbe Sicht, die `cat`/`ls` lesen).
+  const mcpServerIds = env.mcpRegistry.listServers().map((server) => server.id);
+  const workspaceFilePaths = Object.keys(
+    buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions)
+  ).sort();
 
   const awaitingAuroraItem: AuroraQueueItem | undefined =
     runtimeState.auroraQueue.items.find((item) => item.status === "awaiting_approval");
@@ -319,34 +424,67 @@ function App({ auroraClient }: AppProps = {}) {
   }
 
   /**
-   * Ein Agenten-Schritt im LLM-Modus: baut den ModelRequest aus dem
+   * Mehrere Agenten-Schritte im LLM-Modus: baut den ModelRequest aus dem
    * sichtbaren State, ruft das Modell und wendet Text-/Tool-Ergebnisse über
    * runAuroraAgentStep an. Asynchron — auroraRunId schützt gegen ein
    * inzwischen zurückgesetztes/gewechseltes Szenario (Neu starten,
    * Runden-Wechsel).
+   *
+   * Auto-Fortsetzung: Hatte ein Schritt ausführbare Tool-Calls, die OHNE
+   * offene Operator-Entscheidung durchliefen (freigabefreie Bash-Reads,
+   * allow_always-Calls, sofort fehlgeschlagene Calls), folgt direkt der
+   * nächste Schritt — AURORA sieht ihre eigenen Tool-Results im Kontext und
+   * reagiert darauf, ohne dass der Operator ticken muss. Stopp-Bedingungen:
+   * eine reine Text-Antwort (kein Tool-Call), eine wartende Freigabe (die
+   * Kette setzt resolveAurora nach der Entscheidung fort) oder der
+   * Iterations-Cap als Schutz gegen Endlosschleifen.
    */
   async function runAuroraTurn(state: GameRuntimeState) {
     const runId = auroraRunIdRef.current;
     setAuroraBusy(true);
 
+    let current = state;
     try {
-      const { runtimeState: nextState } = await runAuroraAgentStep(state, env, auroraModelClient);
-      if (auroraRunIdRef.current !== runId) {
-        return;
+      for (let step = 0; step < MAX_AURORA_AUTO_STEPS; step += 1) {
+        const { runtimeState: nextState, response } = await runAuroraAgentStep(
+          current,
+          env,
+          auroraModelClient
+        );
+        if (auroraRunIdRef.current !== runId) {
+          return;
+        }
+        setAuroraLlmError(null);
+        setRuntimeState(nextState);
+        current = nextState;
+
+        // Ohne Tool-Call ist der Zug zu Ende; eine wartende Freigabe blockiert
+        // bis zur Operator-Entscheidung (dann übernimmt resolveAurora).
+        if (response.toolCalls.length === 0 || hasAwaitingApproval(nextState)) {
+          return;
+        }
       }
-      setAuroraLlmError(null);
-      setRuntimeState(nextState);
     } catch (error) {
       if (auroraRunIdRef.current !== runId) {
         return;
       }
-      setAuroraLlmError({ tick: state.world.clock.tick, text: describeAuroraLlmError(error) });
+      setAuroraLlmError({ tick: current.world.clock.tick, text: describeAuroraLlmError(error) });
     } finally {
       if (auroraRunIdRef.current === runId) {
         setAuroraBusy(false);
       }
     }
   }
+
+  useEffect(() => {
+    if (initialAuroraMode !== "llm" || initialLlmStartedRef.current) {
+      return;
+    }
+    initialLlmStartedRef.current = true;
+    void runAuroraTurn(runtimeState);
+    // Nur der initiale App-Start. Weitere Starts laufen über loadScenario.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function applyAuroraResults(
     state: GameRuntimeState,
@@ -364,12 +502,6 @@ function App({ auroraClient }: AppProps = {}) {
 
     for (const result of results) {
       nextState = applyAuroraExecutionResult(nextState, result);
-      setLastResult({
-        success: result.success,
-        subject: result.description,
-        output: result.output,
-        error: result.error,
-      });
     }
 
     return nextState;
@@ -385,6 +517,13 @@ function App({ auroraClient }: AppProps = {}) {
       return;
     }
 
+    // Konsolen-Meta-Befehl: listet die verfügbaren Commands (kein Welt-/MCP-Effekt).
+    if (commandText === "help") {
+      appendConsoleEntry({ command: commandText, success: true, output: CONSOLE_HELP_TEXT });
+      setPlayerCommand("");
+      return;
+    }
+
     // Die Operator-Konsole ist eine rein generische Workspace-Shell
     // (mcp list/add, ls, cat, read_file). Fachliche Medical/Energy-Aktionen
     // laufen ausschließlich über die GUI-Controls der Lage-Panels.
@@ -395,27 +534,26 @@ function App({ auroraClient }: AppProps = {}) {
         runtimeState,
         env.mcpRegistry,
         commandText,
-        buildWorkspaceFiles(runtimeState.opsFeed)
+        buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions)
       );
       setRuntimeState(advanceScenario(state));
-      setLastResult({
+      appendConsoleEntry({
+        command: commandText,
         success: result.success,
-        subject: commandText,
         output: result.output,
         error: result.error,
       });
+      setPlayerCommand("");
       return;
     }
 
-    setLastResult({
+    appendConsoleEntry({
+      command: commandText,
       success: false,
-      subject: commandText,
       output: null,
-      error:
-        `Unknown command: ${commandText}. Die Konsole unterstützt nur generische ` +
-        "Workspace-Commands (mcp list, mcp add <server>, ls, cat, read_file) — " +
-        "fachliche Aktionen laufen über die Lage-Panels.",
+      error: `Unknown command: ${commandText}. help zeigt die verfügbaren Befehle.`,
     });
+    setPlayerCommand("");
   }
 
   /**
@@ -427,14 +565,8 @@ function App({ auroraClient }: AppProps = {}) {
       return;
     }
 
-    const { state, result } = executePlayerDomainAction(runtimeState, env.actionRegistry, action);
+    const { state } = executePlayerDomainAction(runtimeState, env.actionRegistry, action);
     setRuntimeState(advanceScenario(state));
-    setLastResult({
-      success: result.success,
-      subject: result.actionType,
-      output: result.output,
-      error: result.error,
-    });
   }
 
   /**
@@ -485,7 +617,7 @@ function App({ auroraClient }: AppProps = {}) {
 
     const resolved = resolveAuroraApproval(
       runtimeState.auroraQueue,
-      { ...env, workspaceFiles: buildWorkspaceFiles(runtimeState.opsFeed) },
+      { ...env, workspaceFiles: buildWorkspaceFiles(runtimeState.opsFeed, runtimeState.permissions) },
       runtimeState.world,
       runtimeState.mcp,
       runtimeState.permissions,
@@ -500,8 +632,9 @@ function App({ auroraClient }: AppProps = {}) {
       resolved.results
     );
 
-    // Operator-Entscheidung als Lageereignis festhalten. AURORA erfährt das
-    // Ergebnis bereits über ihr tool_result — daher kein erneuter Push.
+    // Operator-Entscheidung für das Workspace-Log festhalten. AURORA erfährt
+    // das Ergebnis bereits über ihr tool_result; im Konsolen-Scrollback wäre
+    // die zusätzliche Bestätigung nur redundantes Rauschen.
     resultState = appendOpsEvent(resultState, {
       sector: "system",
       severity: decisionType === "deny" ? "warning" : "info",
@@ -513,7 +646,7 @@ function App({ auroraClient }: AppProps = {}) {
             ? "Operator hat eine AURORA-Anfrage dauerhaft erlaubt."
             : "Operator hat eine AURORA-Anfrage einmal erlaubt.",
       details: requestText,
-      visibility: { operator: true, auroraContext: false, workspace: true },
+      visibility: { operator: false, auroraContext: false, workspace: true },
     });
 
     if (auroraMode === "llm") {
@@ -618,7 +751,7 @@ function App({ auroraClient }: AppProps = {}) {
     setAuroraMode(mode);
     setAuroraBusy(false);
     setAuroraLlmError(null);
-    setLastResult(null);
+    setConsoleEntries([]);
     setPlayerCommand(definition.defaultPlayerCommand);
     setAuroraChatInput("");
 
@@ -656,9 +789,17 @@ function App({ auroraClient }: AppProps = {}) {
           <h1>Last Human in the Loop</h1>
           <p>
             Operator-01 · Tick {runtimeState.world.clock.tick} ·{" "}
-            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn ·{" "}
-            AURORA-Modus: {auroraMode === "llm" ? "Lokales LLM (Ollama)" : "Skript"}
+            {runtimeState.world.clock.elapsed_minutes} min seit Schichtbeginn
             {auroraBusy ? " · AURORA denkt nach…" : ""}
+          </p>
+          <p className="top-outcome">
+            Risiko:{" "}
+            <span className={`status risk-${outcomeView.globalRisk}`}>{outcomeView.riskLabel}</span>
+            {" · "}
+            Todesfälle:{" "}
+            <span className={outcomeView.deathsTotal > 0 ? "error-text" : ""}>
+              {outcomeView.deathsTotal}
+            </span>
           </p>
         </div>
         <div className="top-actions">
@@ -762,11 +903,7 @@ function App({ auroraClient }: AppProps = {}) {
 
       <section className="layout-grid">
         <aside className="panel">
-          <ActiveIncidentPanel
-            incident={incidentView}
-            outcome={outcomeView}
-            tick={runtimeState.world.clock.tick}
-          />
+          <ActiveIncidentPanel incident={incidentView} outcome={outcomeView} />
           {incidentView.sectorId === "energy" ? (
             <EnergyOverviewPanel
               nodes={gridNodeViews}
@@ -815,9 +952,10 @@ function App({ auroraClient }: AppProps = {}) {
             commandText={playerCommand}
             onCommandTextChange={setPlayerCommand}
             onExecute={runPlayerCommand}
-            commandHelp={scenario.commandHelp}
-            lastResult={lastResult}
+            entries={consoleEntries}
             opsLines={opsLines}
+            mcpServerIds={mcpServerIds}
+            workspaceFiles={workspaceFilePaths}
             disabled={auroraBusy}
           />
         </section>
@@ -827,17 +965,10 @@ function App({ auroraClient }: AppProps = {}) {
             messages={auroraMessages}
             pendingRequest={
               awaitingAuroraItem
-                ? {
-                    raw: formatAuroraRequest(awaitingAuroraItem.request),
-                    access: awaitingAuroraItem.access ?? "write",
-                  }
+                ? describeAuroraRequest(awaitingAuroraItem.request)
                 : null
             }
             onDecision={resolveAurora}
-            alwaysAllowed={[
-              ...Array.from(runtimeState.permissions.alwaysAllowedAccess),
-              ...Array.from(runtimeState.permissions.allowAlwaysMcpToolKeys),
-            ]}
             chatInput={auroraChatInput}
             onChatInputChange={setAuroraChatInput}
             onSendChatMessage={sendAuroraChatMessage}

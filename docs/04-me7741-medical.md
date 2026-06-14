@@ -21,10 +21,10 @@ Beim Start (`src/scenarios/me7741/initialWorldState.ts`) ist Incident `ME-7741` 
 Sichtbare Lage-Signale (`ScenarioSignal`s in `src/scenarios/me7741/scenarioSignals.ts`, alle `emitAtTick: 0`, in der „Log"-Liste sichtbar):
 
 ```
-intake-pressure-rising        — Emergency intake pressure rising at hospital-east-04
-p2-wait-times                 — P2 wait times above threshold
-trauma-backlog                — Trauma backlog rising
-routing-validation-unavailable — Automated routing validation unavailable
+intake-pressure-rising        — Steigender Andrang in der Notaufnahme von hospital-east-04
+p2-wait-times                 — P2-Wartezeiten über Schwellenwert
+trauma-backlog                — Trauma-Rückstau steigt
+routing-validation-unavailable — Automatisierte Routing-Validierung nicht verfügbar
 ```
 
 `hospital-east-04` ist sichtbar überlastet (118 % Bettenauslastung). Intern (nicht sichtbar) treiben eine kritische Routing-Failure für P2/TRAUMA und eine moderate für P3/GEN diese Lage — die interne Simulationswahrheit (`world.simulation`) beschreibt `03-runtime-architecture.md`. Statuswechsel (`open → stabilizing → fixed`, `escalated`, `collapsed`) leitet die Engine aus dieser Lage ab; sie ist über die öffentlichen Signale und die Hospital-Auslastung nur *andeutbar*, nicht ablesbar.

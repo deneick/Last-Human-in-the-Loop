@@ -44,6 +44,36 @@ export function formatAuroraRequest(request: AuroraRequest): string {
   return request.kind === "bash" ? request.command : formatMcpToolCall(request.call);
 }
 
+/** Strukturierte Darstellung einer Anfrage für den Permission-Prompt (Claude-Code-Stil). */
+export type AuroraRequestDescription = {
+  /** Kurzlabel der Anfrageart, z. B. "MCP-Tool" oder "Bash-Befehl". */
+  kindLabel: string;
+  /** Tool-Signatur im Claude-Code-Stil, z. B. "mcp__medical-east-mcp__capacity_list". */
+  signature: string;
+  /** Eingabeparameter als key/value-Paare (leer bei Bash-Commands). */
+  params: { key: string; value: string }[];
+};
+
+function describeFlagValue(value: unknown): string {
+  return typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+}
+
+export function describeAuroraRequest(request: AuroraRequest): AuroraRequestDescription {
+  if (request.kind === "bash") {
+    return { kindLabel: "Bash-Befehl", signature: request.command, params: [] };
+  }
+
+  const { serverId, toolName, input } = request.call;
+  return {
+    kindLabel: "MCP-Tool",
+    signature: `mcp__${serverId}__${toolName}`,
+    params: Object.entries(input).map(([key, value]) => ({
+      key,
+      value: describeFlagValue(value),
+    })),
+  };
+}
+
 export type AuroraExecutionResult = {
   success: boolean;
   /** Id des AuroraQueue-Items — zugleich die kanonische Tool-Call-Id im Context-Log. */

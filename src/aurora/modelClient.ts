@@ -55,6 +55,12 @@ export type ModelResponse = {
   message: string;
   /** Erste Slice: AURORA versucht pro Zug höchstens einen Tool-Call. */
   toolCalls: ModelToolCall[];
+  /**
+   * Optionaler Reasoning-/Thinking-Text des Modells (z. B. `message.reasoning`
+   * bei Reasoning-Modellen über die OpenAI-kompatible Ollama-API). Nur zur
+   * Anzeige — fließt NICHT zurück in den Model-Request.
+   */
+  reasoning?: string;
 };
 
 export interface AuroraModelClient {

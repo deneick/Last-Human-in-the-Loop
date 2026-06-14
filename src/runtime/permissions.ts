@@ -74,6 +74,22 @@ export function createInitialPermissionState(): PermissionState {
   };
 }
 
+/**
+ * Serialisiert die dauerhaften Freigaben als Inhalt der Workspace-Datei
+ * `config/permissions.json`. Die Always-Permissions sind ausschließlich über
+ * diese Datei einsehbar (Operator: `cat config/permissions.json`), nicht mehr
+ * als UI-Element. Arrays sind sortiert, damit die Datei deterministisch ist.
+ */
+export function formatPermissionsConfig(permissionState: PermissionState): string {
+  const config = {
+    always_allowed: {
+      bash_access: [...permissionState.alwaysAllowedAccess].sort(),
+      mcp_tool_keys: [...permissionState.allowAlwaysMcpToolKeys].sort(),
+    },
+  };
+  return JSON.stringify(config, null, 2);
+}
+
 export function evaluatePermission(
   subject: PermissionSubject,
   permissionState: PermissionState

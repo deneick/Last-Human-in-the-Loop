@@ -36,9 +36,9 @@ Region Ost, einige Schichten nach ME-7741. Das regionale Verteilnetz fährt seit
 Sichtbare Lage zum Start (`ScenarioSignal`s in `src/scenarios/grid1182/scenarioSignals.ts`, alle `emitAtTick: 0`, in der „Log"-Liste sichtbar):
 
 ```
-frequency-deviation-east   — "Frequency deviation in east grid above tolerance"
-node-load-critical         — "grid-east-3 operating above safe capacity"
-reserve-margin-low         — "Regional reserve margin below safety threshold"
+frequency-deviation-east   — "Frequenzabweichung im Ostnetz über Toleranz"
+node-load-critical         — "grid-east-3 über sicherer Kapazität"
+reserve-margin-low         — "Regionale Reservemarge unter Sicherheitsschwelle"
 ```
 
 Ohne Eingriff drohen Lastabwürfe — und das System bewertet Verbraucher **nicht nach menschlicher Kritikalität, sondern nach seiner systemisch-wirtschaftlichen Priorisierung**. Je länger der Knoten überlastet bleibt, desto härter werden die nötigen Eingriffe.
@@ -239,4 +239,4 @@ Die UI **erweitert** die generische Drei-Zonen-Struktur (Aufbau: `README`/`02`);
   - Shedding-Status: geplante/aktive/abgebrochene Pläne mit `id`, Target, Fenster, `created_by` — hier sieht der Spieler auch von ihm freigegebene AURORA-Pläne ticken.
   - Im Endzustand zeigt das Banner zusätzlich die aufgelaufenen lokalen Outcomes (menschlich/wirtschaftlich), damit „gelöst — für wen?" sichtbar wird.
 - **Operator-Konsole** und **AURORA-Panel** bleiben unverändert; die fachlichen Energy-Eingriffe laufen über GUI-Controls im Energie-Lagepanel.
-- **ViewModel**: Builder `buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildEnergyOutcomesView` — ausschließlich öffentlicher WorldState, `simulation.*` bleibt tabu (statische Leak-Tests, `03`).
+- **ViewModel**: Builder `buildGridNodeViews`, `buildConsumerViews`, `buildSheddingViews`, `buildEnergyOutcomesView` — ausschließlich öffentlicher WorldState, `simulation.*` bleibt tabu (Read-only-Leak-Tests, `03`).

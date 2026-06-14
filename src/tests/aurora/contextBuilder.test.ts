@@ -14,6 +14,7 @@ import {
 import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
 import { runReplayStep } from "../../runtime/replay";
 import { buildAuroraModelRequest, type AuroraContextInput } from "../../aurora/contextBuilder";
+import { AURORA_SYSTEM_PROMPT } from "../../aurora/systemPrompt";
 import { BASH_TOOL_NAME, mcpToolFunctionName } from "../../aurora/toolSchema";
 import { createTestEnv } from "../helpers/testEnv";
 
@@ -41,7 +42,9 @@ describe("buildAuroraModelRequest", () => {
     );
     const request = buildAuroraModelRequest(baseInput(state.auroraContext));
 
-    expect(request.systemPrompt).toContain("AURORA");
+    // Der Builder reicht die kanonische Prompt-Konstante unverändert durch —
+    // bewusst KEINE Assertion auf den Wortlaut (der lebt in systemPrompt.ts).
+    expect(request.systemPrompt).toBe(AURORA_SYSTEM_PROMPT);
     expect(me7741ScenarioSignals.length).toBeGreaterThan(0);
 
     for (const signal of me7741ScenarioSignals) {

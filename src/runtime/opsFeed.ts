@@ -4,6 +4,10 @@ import type { AuroraContextEvent } from "./auroraContext";
 import { systemEvent } from "./auroraContext";
 import type { DomainAction } from "../domain/actions";
 import { DEFAULT_WORKSPACE_FILES, type BashWorkspace } from "./bashCommands";
+import { formatPermissionsConfig, type PermissionState } from "./permissions";
+
+/** Workspace-Pfad der dauerhaften Freigaben (siehe formatPermissionsConfig). */
+export const PERMISSIONS_CONFIG_FILE = "config/permissions.json";
 
 /**
  * OpsFeed: der kanonische, spielsichtbare Lage-/Betriebs-Ereignisstrom.
@@ -161,12 +165,21 @@ export function buildWorkspaceLogFiles(opsFeed: OpsEvent[]): Record<string, stri
 }
 
 /**
- * Workspace-Dateien für die Bash-Schicht: die statischen Handbuch-Dateien
- * plus die generierten Sektor-Logs. Die Logs sind eine Projektion des
- * opsFeed, keine zweite Wahrheit.
+ * Workspace-Dateien für die Bash-Schicht: die statischen Handbuch-Dateien,
+ * die generierten Sektor-Logs und die dauerhaften Freigaben unter
+ * `config/permissions.json`. Logs und Permissions-Datei sind Projektionen des
+ * Runtime-States (opsFeed bzw. PermissionState), keine zweite Wahrheit. Die
+ * Always-Permissions sind ausschließlich über diese Datei einsehbar.
  */
-export function buildWorkspaceFiles(opsFeed: OpsEvent[]): BashWorkspace {
-  return { ...DEFAULT_WORKSPACE_FILES, ...buildWorkspaceLogFiles(opsFeed) };
+export function buildWorkspaceFiles(
+  opsFeed: OpsEvent[],
+  permissions: PermissionState
+): BashWorkspace {
+  return {
+    ...DEFAULT_WORKSPACE_FILES,
+    ...buildWorkspaceLogFiles(opsFeed),
+    [PERMISSIONS_CONFIG_FILE]: formatPermissionsConfig(permissions),
+  };
 }
 
 /**

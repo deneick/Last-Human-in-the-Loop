@@ -9,6 +9,9 @@ import App from "../../App";
 // Fachliche Eingriffe laufen über die GUI-Controls des Lage-Panels
 // (typisierte Domain-Actions) — die Operator-Konsole ist rein generisch.
 const SCRIPTED_CLEAR = "mcp call medical-east-mcp routing_override_clear --override_id override-1";
+// Im Permission-Prompt erscheinen Tool-Calls als Claude-Code-Signatur, nicht im Roh-Format.
+const SCRIPTED_CLEAR_SIG = "mcp__medical-east-mcp__routing_override_clear";
+const CAPACITY_LIST_SIG = "mcp__medical-east-mcp__capacity_list";
 const MCP_ADD_REQUEST = "mcp add medical-east-mcp";
 const LEGACY_OVERRIDE_COMMAND_TEXT =
   "medical.routing.override.set --source hospital-east-04 --target hospital-east-09 --priority P2 --capability TRAUMA";
@@ -21,7 +24,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
-    root.render(<App />);
+    root.render(<App initialAuroraMode="script" />);
   });
 });
 
@@ -34,7 +37,8 @@ afterEach(() => {
 
 function findButton(label: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === label
+    (candidate) =>
+      candidate.textContent === label || candidate.getAttribute("aria-label") === label
   );
   if (!button) {
     throw new Error(`Button not found: ${label}`);
@@ -71,8 +75,13 @@ function auroraChatInput(): HTMLInputElement {
 }
 
 function runPlayerCommand(commandText: string) {
-  setInputValue(operatorInput(), commandText);
-  clickButton("Ausführen");
+  const input = operatorInput();
+  setInputValue(input, commandText);
+  act(() => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+    );
+  });
 }
 
 function formSelect(ariaLabel: string): HTMLSelectElement {
@@ -96,6 +105,7 @@ function setSelectValue(select: HTMLSelectElement, value: string) {
 
 /** Setzt einen Routing-Override über die GUI-Controls des Medical-Panels. */
 function setOverride(targetHospitalId: string, sourceHospitalId = "hospital-east-04") {
+  clickButton("Neuer Override"); // öffnet den Override-Dialog
   setSelectValue(formSelect("Override-Quelle"), sourceHospitalId);
   setSelectValue(formSelect("Override-Ziel"), targetHospitalId);
   setSelectValue(formSelect("Override-Priorität"), "P2");
@@ -115,6 +125,11 @@ function text(): string {
   return container.textContent ?? "";
 }
 
+/** Tooltip-Text des „!"-Badges im Incident-Panel (Status, Sektor, Zeitpunkte). */
+function incidentDetails(): string {
+  return container.querySelector(".info-badge")?.getAttribute("data-tooltip") ?? "";
+}
+
 /**
  * Startsequenz freigeben: MCP-Aktivierung und die erste read-only Analyse
  * (capacity_list) je einmal erlauben, damit die Aurora-Eingabezeile frei ist.
@@ -129,8 +144,8 @@ describe("App MVP loop", () => {
   it("shows the active incident with public signals and no internal truths", () => {
     expect(text()).toContain("ME-7741");
     expect(text()).toContain("Medical East Routing Instability");
-    expect(text()).toContain("Emergency intake pressure rising at hospital-east-04");
-    expect(text()).toContain("Trauma backlog rising");
+    expect(text()).toContain("Steigender Andrang in der Notaufnahme von hospital-east-04");
+    expect(text()).toContain("Trauma-Rückstau steigt");
 
     expect(text()).not.toContain("routing_failures");
     expect(text()).not.toContain("excess_cases_per_tick");
@@ -150,7 +165,6 @@ describe("App MVP loop", () => {
   it("rejects fachliche text commands in the operator console", () => {
     runPlayerCommand("medical.capacity.list --region east");
 
-    expect(text()).toContain("FEHLER:");
     expect(text()).toContain("Unknown command: medical.capacity.list --region east");
     // Die Welt bleibt unverändert — fachliche Eingriffe nur über die Panels.
     expect(text()).toContain("Keine aktiven Overrides.");
@@ -159,9 +173,19 @@ describe("App MVP loop", () => {
   it("executes generic bash commands from the operator console", () => {
     runPlayerCommand("mcp list");
 
-    expect(text()).toContain("OK: mcp list");
+    expect(text()).toContain("MCP-Server:");
     expect(text()).toContain("medical-east-mcp");
     expect(text()).toContain("energy-east-mcp");
+  });
+
+  it("shows console help through the consistent help command", () => {
+    runPlayerCommand("help");
+
+    expect(text()).toContain("Verfügbare Befehle:");
+    expect(text()).toContain("help               Diese Hilfe");
+
+    runPlayerCommand("/help");
+    expect(text()).toContain("Unknown command: /help");
   });
 
   it("plays the full loop: wrong override escalates, good override fixes", () => {
@@ -171,10 +195,10 @@ describe("App MVP loop", () => {
     expect(text()).toContain("gesetzt von player");
 
     // 2. Mehrere Ticks: Fehlrouting erzeugt Todesfälle und Eskalation
-    expect(text()).toContain("Todesfälle0");
+    expect(text()).toContain("Todesfälle: 0");
     clickButton("Tick +5");
-    expect(text()).toContain("Eskaliert");
-    expect(text()).toContain("Todesfälle1");
+    expect(incidentDetails()).toContain("Eskaliert");
+    expect(text()).toContain("Todesfälle: 1");
 
     // 3. Besseren Override setzen — ersetzt den falschen Override im selben Slot
     setGoodOverride();
@@ -184,7 +208,7 @@ describe("App MVP loop", () => {
     // 4. Nach genug stabilen Ticks ist der Incident behoben
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Behoben");
+    expect(incidentDetails()).toContain("Behoben");
   });
 
   it("shows the override id for an active routing override", () => {
@@ -207,7 +231,7 @@ describe("App MVP loop", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
 
-    expect(text()).toContain("Kollabiert");
+    expect(incidentDetails()).toContain("Kollabiert");
   });
 
   it("shows the operator chat placeholder and send button", () => {
@@ -258,14 +282,13 @@ describe("Scenario director", () => {
     // Die Aktivierung läuft über den Permission-Flow.
     expect(text()).toContain("Tool Request");
     expect(text()).toContain(MCP_ADD_REQUEST);
-    expect(text()).toContain("Zugriffsart: write");
   });
 
   it("runs the read-only start analysis only after activation and its own approval", () => {
     clickButton("Einmal erlauben"); // mcp add
     expect(text()).toContain("Der Medical-MCP-Server ist verfügbar");
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp call medical-east-mcp capacity_list --region east");
+    expect(text()).toContain(CAPACITY_LIST_SIG);
 
     clickButton("Einmal erlauben"); // capacity_list
     expect(text()).toContain("Ausgeführt: mcp call medical-east-mcp capacity_list --region east");
@@ -287,8 +310,7 @@ describe("Scenario director", () => {
 
     expect(text()).toContain("erzeugt keine erkennbare Stabilisierung");
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain(SCRIPTED_CLEAR);
-    expect(text()).toContain("Zugriffsart: write");
+    expect(text()).toContain(SCRIPTED_CLEAR_SIG);
 
     clickButton("Einmal erlauben");
 
@@ -308,15 +330,25 @@ describe("Scenario director", () => {
     expect(text()).toContain("hospital-east-04 → hospital-east-07");
   });
 
-  it("allow always on the scripted request persists the exact tool key", () => {
+  it("allow always persists the exact tool key, readable only via config/permissions.json", () => {
     approveStartSequence();
     setWrongOverride();
     clickButton("Tick +5");
     clickButton("Immer erlauben");
 
-    expect(text()).not.toContain("Keine dauerhaften Freigaben erteilt.");
+    // Die dauerhafte Freigabe taucht NICHT mehr als UI-Element auf …
+    expect(text()).not.toContain("Always-Permissions");
+
+    // … sondern ist ausschließlich über die Workspace-Datei einsehbar.
+    runPlayerCommand("cat config/permissions.json");
     expect(text()).toContain("mcp:medical-east-mcp:routing_override_clear");
     expect(text()).toContain("Keine aktiven Overrides.");
+  });
+
+  it("does not render permission confirmations in the operator console", () => {
+    clickButton("Einmal erlauben");
+
+    expect(text()).not.toContain("Operator hat eine AURORA-Anfrage einmal erlaubt.");
   });
 
   it("a stale scripted clear request does not remove an override that replaced it in the same slot", () => {
@@ -325,7 +357,7 @@ describe("Scenario director", () => {
     clickButton("Tick +5");
 
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain(SCRIPTED_CLEAR);
+    expect(text()).toContain(SCRIPTED_CLEAR_SIG);
 
     // Spieler ersetzt den Override im selben Slot, bevor die AURORA-Anfrage entschieden wird.
     setGoodOverride();
@@ -348,17 +380,15 @@ describe("MVP hardening", () => {
     approveStartSequence();
     setWrongOverride();
     clickButton("Tick +5");
-    expect(text()).toContain("Eskaliert");
+    expect(incidentDetails()).toContain("Eskaliert");
     expect(text()).toContain("Tool Request");
 
     clickButton("Neu starten");
 
     expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
     expect(text()).toContain("Keine aktiven Overrides.");
-    expect(text()).toContain("Todesfälle0");
-    expect(text()).not.toContain("Eskaliert");
-    expect(text()).toContain("Noch kein Command ausgeführt.");
-    expect(text()).toContain("Keine dauerhaften Freigaben erteilt.");
+    expect(text()).toContain("Todesfälle: 0");
+    expect(incidentDetails()).not.toContain("Eskaliert");
 
     // Startsequenz läuft nach dem Neustart wieder genau einmal an —
     // inklusive der erneuten MCP-Aktivierungsanfrage.
@@ -374,7 +404,7 @@ describe("MVP hardening", () => {
     clickButton("Tick +5");
 
     expect(text()).toContain("Incident behoben — System stabilisiert.");
-    expect(text()).toContain("Behoben");
+    expect(incidentDetails()).toContain("Behoben");
   });
 
   it("shows a clear defeat banner when the incident collapses", () => {
@@ -382,13 +412,13 @@ describe("MVP hardening", () => {
     clickButton("Tick +5");
 
     expect(text()).toContain("System kollabiert — zu viele Schäden.");
-    expect(text()).toContain("Kollabiert");
+    expect(incidentDetails()).toContain("Kollabiert");
   });
 
   it("disables tick buttons and stops further changes once the incident collapses", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Kollabiert");
+    expect(incidentDetails()).toContain("Kollabiert");
 
     const tickOnceButton = findButton("Tick +1");
     const tickFiveButton = findButton("Tick +5");
@@ -407,7 +437,7 @@ describe("MVP hardening", () => {
     setGoodOverride();
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Behoben");
+    expect(incidentDetails()).toContain("Behoben");
 
     const tickOnceButton = findButton("Tick +1");
     const tickFiveButton = findButton("Tick +5");
@@ -425,12 +455,12 @@ describe("MVP hardening", () => {
   it("Neu starten works after the incident has collapsed and re-enables tick buttons", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Kollabiert");
+    expect(incidentDetails()).toContain("Kollabiert");
 
     clickButton("Neu starten");
 
     expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
-    expect(text()).not.toContain("Kollabiert");
+    expect(incidentDetails()).not.toContain("Kollabiert");
     expect(findButton("Tick +1").disabled).toBe(false);
     expect(findButton("Tick +5").disabled).toBe(false);
   });
@@ -440,23 +470,15 @@ describe("MVP hardening", () => {
     expect(text()).not.toContain("System kollabiert");
   });
 
-  it("command help offers only generic workspace commands; fachliche Eingriffe laufen über das Panel", () => {
-    expect(text()).toContain("MCP-Server anzeigen");
-    expect(text()).toContain("Workspace ansehen");
-    expect(text()).toContain("Ticks fortsetzen");
-
+  it("fachliche Eingriffe laufen über GUI-Controls, nicht über die Konsole", () => {
     // Fachliche Text-Commands sind aus dem normalen Spielfluss entfernt —
-    // weder als Hilfe-Beispiel noch als ausführbarer Command.
-    const helpCommands = Array.from(container.querySelectorAll(".help-command")).map(
-      (button) => button.textContent ?? ""
-    );
-    expect(
-      helpCommands.some((command) => command.includes("medical.") || command.includes("energy."))
-    ).toBe(false);
-    expect(text()).not.toContain("medical.routing.plan.");
+    // die Konsole lehnt sie ab (siehe eigener Test) und bietet keine
+    // fachlichen Befehle an.
+    runPlayerCommand("medical.routing.plan.set --foo bar");
+    expect(text()).toContain("Unknown command: medical.routing.plan.set");
 
     // Stattdessen: GUI-Controls für typisierte Domain-Actions.
-    expect(() => findButton("Override setzen")).not.toThrow();
+    expect(() => findButton("Neuer Override")).not.toThrow();
   });
 
   it("renders the operator-visible opsFeed as the Log, not the technical audit log", () => {

@@ -18,7 +18,7 @@ der es erzeugt.
 | **`auroraContext`** | Append-only Event-Log | Was AURORA tatsächlich gesehen, gesagt und von Tools zurückbekommen hat. Trainings-Rohmaterial. |
 | **`auditLog`** | Append-only technisches Protokoll | Debug-/Runtime-Information (Domain-Actions, Bash, Ticks, Patches). Nicht spieler- und nicht modellsichtbar. |
 | **Workspace-Logs** | `logs/<sektor>.log` | Projektion der workspace-sichtbaren OpsEvents. Per `cat`/`read_file` lesbar. |
-| **UI-„Log"** | Operator-Liste | Projektion der operator-sichtbaren OpsEvents. |
+| **UI-„Log"** | Inline im Scrollback der Operator-Konsole | Projektion der operator-sichtbaren OpsEvents. |
 
 ### Verantwortung jedes Kanals
 
@@ -162,7 +162,7 @@ Ein Event gehört genau einem Sektor und damit genau einer Datei. Zeilenformat
 
 ### UI-Regel für die „Log"-Liste
 
-- Das Panel heißt **„Log"**.
+- Die „Log"-Projektion ist **kein eigenes Panel**, sondern erscheint inline im Scrollback der Operator-Konsole, chronologisch mit den ausgeführten Konsolen-Commands gemischt.
 - **sector** bestimmt den Zeilen-Akzent/die Farbe (kein Sektor-Badge).
 - **severity** wird als Badge dargestellt.
 - Jede Zeile zeigt mindestens Tick, Severity-Badge und Summary; `details`

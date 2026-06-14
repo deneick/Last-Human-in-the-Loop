@@ -66,7 +66,7 @@ describe("OllamaModelClient", () => {
 
   it('serializes assistant tool calls with type: "function", stringified arguments and linked tool results', async () => {
     const { impl, calls } = fakeFetch(textOnlyCompletion("ok"));
-    const client = new OllamaModelClient({ fetchImpl: impl });
+    const client = new OllamaModelClient({ model: "test-model", fetchImpl: impl });
 
     await client.complete({
       ...BASE_REQUEST,
@@ -117,7 +117,7 @@ describe("OllamaModelClient", () => {
         },
       ],
     });
-    const client = new OllamaModelClient({ fetchImpl: impl });
+    const client = new OllamaModelClient({ model: "test-model", fetchImpl: impl });
 
     const response = await client.complete(BASE_REQUEST);
 
@@ -138,12 +138,20 @@ describe("OllamaModelClient", () => {
         },
       ],
     });
-    const client = new OllamaModelClient({ fetchImpl: impl });
+    const client = new OllamaModelClient({ model: "test-model", fetchImpl: impl });
 
     const response = await client.complete(BASE_REQUEST);
 
     expect(response.toolCalls[0].arguments).toEqual({});
     expect(response.toolCalls[0].argumentsError).toContain("Tool arguments must be a JSON object");
+  });
+
+  it("throws a clear configuration error when no model is set, without calling fetch", async () => {
+    const { impl, calls } = fakeFetch(textOnlyCompletion("ok"));
+    const client = new OllamaModelClient({ fetchImpl: impl }); // kein model
+
+    await expect(client.complete(BASE_REQUEST)).rejects.toThrow("VITE_AURORA_MODEL");
+    expect(calls).toHaveLength(0);
   });
 
   it("assigns unique fallback ids across turns when the server omits or empties tool-call ids", async () => {
@@ -158,7 +166,7 @@ describe("OllamaModelClient", () => {
       ],
     };
     const { impl } = fakeFetch(toolCallWithoutId, toolCallWithoutId);
-    const client = new OllamaModelClient({ fetchImpl: impl });
+    const client = new OllamaModelClient({ model: "test-model", fetchImpl: impl });
 
     const first = await client.complete(BASE_REQUEST);
     const second = await client.complete(BASE_REQUEST);

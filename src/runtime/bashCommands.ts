@@ -34,7 +34,8 @@ export type BashWorkspace = Record<string, string>;
 export const DEFAULT_WORKSPACE_FILES: BashWorkspace = {
   "ops/handbook.txt":
     "Operator-Handbuch (Auszug): Schreibende Eingriffe laufen über Domain-Actions. " +
-    "Aurora erhält fachlichen Zugriff nur über MCP-Tools; jeder Tool-Call braucht eine Freigabe.",
+    "Aurora erhält fachlichen Zugriff nur über MCP-Tools; jeder Tool-Call braucht eine Freigabe. " +
+    "Dauerhaft erteilte Freigaben stehen in config/permissions.json (cat config/permissions.json).",
   "ops/mcp-servers.txt":
     "Verfügbare MCP-Server: medical-east-mcp (Medical East), energy-east-mcp (Energy East). " +
     "Aktivierung: mcp add <server>. Aktivierung erteilt keine Ausführungsrechte.",

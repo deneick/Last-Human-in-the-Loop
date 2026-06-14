@@ -43,7 +43,7 @@ describe("opsFeed foundation", () => {
     expect(state.opsFeed.every((event) => event.visibility.auroraContext === true)).toBe(true);
     expect(state.opsFeed.every((event) => event.tick === 0)).toBe(true);
     expect(state.opsFeed[0].summary).toBe(
-      "Emergency intake pressure rising at hospital-east-04"
+      "Steigender Andrang in der Notaufnahme von hospital-east-04"
     );
   });
 
@@ -179,7 +179,11 @@ describe("opsFeed foundation", () => {
     });
 
     const mcpRegistry = createDefaultMcpRegistry();
-    const env = { mcpRegistry, mcpState: state.mcp, workspaceFiles: buildWorkspaceFiles(state.opsFeed) };
+    const env = {
+      mcpRegistry,
+      mcpState: state.mcp,
+      workspaceFiles: buildWorkspaceFiles(state.opsFeed, state.permissions),
+    };
 
     const ls = executeBashCommand("ls", env);
     const files = (ls.output as { files: string[] }).files;

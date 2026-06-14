@@ -88,6 +88,26 @@ export function describeUnexecutableToolCall(toolCall: ModelToolCall): string | 
 }
 
 /**
+ * Reserviertes Feed-Präfix: `[SYSTEM EVENT]` kennzeichnet ausschließlich
+ * automatische Lage-Meldungen aus dem opsFeed. AURORA darf es nie selbst
+ * erzeugen — der System-Prompt verbietet das, aber manche Modelle (beobachtet:
+ * qwen3:8b) imitieren das Format trotzdem als Status-Report nach einer Aktion.
+ */
+const SYSTEM_EVENT_MARKER_RE = /\[\s*system\s*event\s*\]\s*[:\-–—]?\s*/gi;
+
+/**
+ * Entfernt selbst erzeugte `[SYSTEM EVENT]`-Marker aus AURORAs sichtbarer
+ * Nachricht, bevor sie in den Kontext/ins UI gelangt — eine defensive Grenze
+ * (analog zum Tool-Argument-Parsing), die nicht auf Prompt-Treue vertraut.
+ * Der informative Resttext bleibt erhalten; nur das reservierte Präfix fällt
+ * weg. Ist die Nachricht danach leer, bleibt sie leer.
+ */
+export function sanitizeAuroraMessage(message: string): string {
+  if (!message.includes("[")) return message;
+  return message.replace(SYSTEM_EVENT_MARKER_RE, "").trim();
+}
+
+/**
  * Wendet eine Modell-Antwort auf den Runtime-State an:
  *
  * - GENAU EIN `aurora_response`-Event mit Text und allen Tool-Calls.
@@ -139,7 +159,12 @@ export function applyAuroraModelResponse(
 
   let nextState = appendContextEvent(
     state,
-    auroraResponseEvent(tick, response.message, contextToolCalls)
+    auroraResponseEvent(
+      tick,
+      sanitizeAuroraMessage(response.message),
+      contextToolCalls,
+      response.reasoning
+    )
   );
 
   for (const failed of failedToolCalls) {
@@ -167,7 +192,7 @@ export function applyAuroraModelResponse(
   // Kontext, die Pull-Historie bleibt damit selbsterklärend.
   const stepEnv: AuroraRuntimeEnvironment = {
     ...env,
-    workspaceFiles: buildWorkspaceFiles(nextState.opsFeed),
+    workspaceFiles: buildWorkspaceFiles(nextState.opsFeed, nextState.permissions),
   };
 
   const processed = processAuroraQueue(

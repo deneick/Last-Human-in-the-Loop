@@ -100,6 +100,11 @@ export function applyAuroraExecutionResult(
   // Fachliche AURORA-Aktion (write): operator- und workspace-sichtbar, aber
   // NICHT direkt in den auroraContext gespiegelt — AURORA kennt das Ergebnis
   // bereits über ihr tool_result.
+  //
+  // (Eine zusätzliche [SYSTEM EVENT]-Quittung im auroraContext wurde getestet,
+  // um das Feed-Imitations-Verhalten von qwen3:8b zu unterbinden — sie half
+  // nicht, das Modell schrieb die Meldung trotzdem selbst. Stattdessen verbietet
+  // der System-Prompt die Feed-Imitation direkt.)
   if (executionResult.action) {
     const described = describeWriteDomainAction(executionResult.action);
     if (described) {

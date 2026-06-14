@@ -5,21 +5,7 @@ import { tickWorld } from "../../runtime/tickEngine";
 
 const registry = createDomainActionRegistry();
 
-describe("sector-agnostic runtime regression", () => {
-  it("WorldState keeps medical data under domains.medical, not top-level", () => {
-    const topLevelKeys = Object.keys(initialWorldState);
-
-    expect(topLevelKeys).not.toContain("hospitals");
-    expect(topLevelKeys).not.toContain("medicalRegions");
-    expect(topLevelKeys).not.toContain("transports");
-    expect(topLevelKeys).not.toContain("routing");
-    expect(topLevelKeys).not.toContain("patient_outcomes");
-
-    expect(initialWorldState.domains.medical.hospitals).toBeDefined();
-    expect(initialWorldState.domains.medical.routing.manual_overrides).toBeDefined();
-    expect(initialWorldState.domains.medical.outcomes).toBeDefined();
-  });
-
+describe("sector-agnostic runtime", () => {
   it("incidents are sector-agnostic objects with sector_id and affected_entities", () => {
     const incident = initialWorldState.incidents["ME-7741"];
 

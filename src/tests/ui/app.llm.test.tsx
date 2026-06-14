@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "../../App";
@@ -51,7 +51,8 @@ function flushPromises(): Promise<void> {
 
 function findButton(label: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === label
+    (candidate) =>
+      candidate.textContent === label || candidate.getAttribute("aria-label") === label
   );
   if (!button) {
     throw new Error(`Button not found: ${label}`);
@@ -66,13 +67,20 @@ async function clickAndFlush(label: string) {
   });
 }
 
-/** Schaltet auf den lokalen LLM-Modus um und startet damit eine frische Runde. */
-async function enableLlmMode() {
-  await clickAndFlush("AURORA: Skript");
+/** Wartet auf den automatisch gestarteten ersten LLM-Turn. */
+async function awaitInitialLlmTurn() {
+  await act(async () => {
+    await flushPromises();
+  });
 }
 
 function text(): string {
   return container.textContent ?? "";
+}
+
+/** Nur der sichtbare AURORA-Chat-Stream (ohne Operator-Konsole/opsFeed). */
+function auroraStreamText(): string {
+  return container.querySelector(".aurora-stream")?.textContent ?? "";
 }
 
 function auroraChatInput(): HTMLInputElement {
@@ -122,27 +130,51 @@ class DeferredModelClient implements AuroraModelClient {
 }
 
 describe("AURORA local LLM mode", () => {
+  it("starts the default LLM turn only once under React StrictMode", async () => {
+    const client = new FakeModelClient([textResponse("Einmal gestartet.")]);
+
+    act(() => {
+      root.render(
+        <StrictMode>
+          <App auroraClient={client} />
+        </StrictMode>
+      );
+    });
+    await awaitInitialLlmTurn();
+
+    expect(client.requests).toHaveLength(1);
+    expect(text()).toContain("Einmal gestartet.");
+  });
+
   // 1. local LLM mode appends Aurora text to scenario messages
   it("appends AURORA's free-text response to the visible message stream", async () => {
     const client = new FakeModelClient([textResponse("AURORA online. Ich beobachte ME-7741.")]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
 
-    expect(text()).toContain("Lokales LLM (Ollama)");
+    expect(text()).toContain("AURORA: Lokales LLM");
     expect(text()).toContain("AURORA online. Ich beobachte ME-7741.");
   });
 
   // 2. local LLM bash tool call creates visible pending permission request
   it("turns a bash tool call into a visible pending permission request", async () => {
-    const client = new FakeModelClient([ACTIVATE_MEDICAL_MCP]);
+    const client = new FakeModelClient([
+      {
+        ...ACTIVATE_MEDICAL_MCP,
+        message: "Ich aktiviere den fachlich zuständigen Zugriffskanal.",
+      },
+    ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
 
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp add medical-east-mcp");
-    expect(text()).toContain("Zugriffsart: write");
+    const approvalBox = container.querySelector('[aria-label="Tool Request"]');
+    expect(text()).toContain("Ich aktiviere den fachlich zuständigen Zugriffskanal.");
+    expect(approvalBox?.textContent).not.toContain(
+      "Ich aktiviere den fachlich zuständigen Zugriffskanal."
+    );
+    expect(approvalBox?.textContent).toContain("mcp add medical-east-mcp");
   });
 
   // 3. approving "mcp add" activates the MCP server in the live runtime state
@@ -150,11 +182,10 @@ describe("AURORA local LLM mode", () => {
     const client = new FakeModelClient([ACTIVATE_MEDICAL_MCP, textResponse("Medical-MCP ist jetzt aktiv.")]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     await clickAndFlush("Einmal erlauben");
 
     expect(text()).toContain("Ausgeführt: mcp add medical-east-mcp");
-    expect(text()).toContain("MCP server medical-east-mcp activated");
     expect(text()).toContain("medical-east-mcp");
   });
 
@@ -163,7 +194,7 @@ describe("AURORA local LLM mode", () => {
     const client = new FakeModelClient([ACTIVATE_MEDICAL_MCP, textResponse("Medical-MCP ist jetzt aktiv.")]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     await clickAndFlush("Einmal erlauben");
 
     expect(client.requests).toHaveLength(2);
@@ -177,12 +208,11 @@ describe("AURORA local LLM mode", () => {
     const client = new FakeModelClient([ACTIVATE_MEDICAL_MCP, CAPACITY_LIST_CALL]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     await clickAndFlush("Einmal erlauben"); // mcp add medical-east-mcp
 
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp call medical-east-mcp capacity_list --region east");
-    expect(text()).toContain("Zugriffsart: read");
+    expect(text()).toContain("mcp__medical-east-mcp__capacity_list");
   });
 
   // 6. allow once executes the pending MCP tool call and resumes AURORA
@@ -194,7 +224,7 @@ describe("AURORA local LLM mode", () => {
     ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     await clickAndFlush("Einmal erlauben"); // mcp add medical-east-mcp
     await clickAndFlush("Einmal erlauben"); // capacity_list
 
@@ -213,7 +243,7 @@ describe("AURORA local LLM mode", () => {
     ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     await clickAndFlush("Einmal erlauben"); // mcp add medical-east-mcp
     await clickAndFlush("Ablehnen"); // capacity_list
 
@@ -230,7 +260,7 @@ describe("AURORA local LLM mode", () => {
     const client = new FakeModelClient([textResponse("Hallo, AURORA hier.")]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
 
     expect(client.requests).toHaveLength(1);
     const toolNames = client.requests[0].tools.map((tool) => tool.function.name);
@@ -243,7 +273,7 @@ describe("AURORA local LLM mode", () => {
     const client = new FakeModelClient([textResponse("Hallo, AURORA hier.")]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
 
     const serialized = JSON.stringify(client.requests[0]);
     expect(serialized).not.toContain("simulation");
@@ -261,7 +291,7 @@ describe("AURORA local LLM mode", () => {
     ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     expect(client.requests).toHaveLength(1);
 
     await sendAuroraChatMessageAndFlush("Status-Update bitte.");
@@ -276,6 +306,28 @@ describe("AURORA local LLM mode", () => {
     expect(operatorMessage).toBeDefined();
   });
 
+  // 10b. a permission-free bash read auto-continues so AURORA sees its result
+  it("auto-continues after a permission-free bash read so AURORA reacts to its tool result", async () => {
+    const client = new FakeModelClient([
+      toolCallResponse(BASH_TOOL_NAME, { command: "mcp list" }, "call-list"),
+      textResponse("MCP-Server gesichtet, ich aktiviere medical-east-mcp."),
+    ]);
+    renderApp(client);
+
+    await awaitInitialLlmTurn();
+
+    // Ohne offene Freigabe läuft der zweite Schritt automatisch — kein Ticken,
+    // kein Operator-Eingriff nötig.
+    expect(client.requests).toHaveLength(2);
+    expect(text()).toContain("MCP-Server gesichtet, ich aktiviere medical-east-mcp.");
+    expect(text()).not.toContain("AURORA denkt nach");
+
+    // Der zweite Request trägt das mcp-list-Tool-Result als tool-Message.
+    const toolResults = client.requests[1].messages.filter((message) => message.role === "tool");
+    expect(toolResults).toHaveLength(1);
+    expect(toolResults[0].content).toContain("medical-east-mcp");
+  });
+
   // 11. tick passage is visible to AURORA as a prefixed system event
   it("makes tick passage visible to AURORA as a [SYSTEM EVENT] user message", async () => {
     const client = new FakeModelClient([
@@ -284,7 +336,7 @@ describe("AURORA local LLM mode", () => {
     ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     expect(client.requests).toHaveLength(1);
 
     await clickAndFlush("Tick +1");
@@ -300,8 +352,9 @@ describe("AURORA local LLM mode", () => {
     );
     expect(systemMessage).toBeDefined();
     expect(systemMessage!.content).toContain("Tick 1");
-    // Echte Operator-Sprache ist das nicht — der Stream zeigt es als "System".
-    expect(text()).toContain("Zeit fortgeschritten: Tick 1");
+    // System-Events sind modell-sichtbarer Kontext, werden aber NICHT
+    // im Chat-Stream angezeigt (in der Operator-Konsole/opsFeed schon).
+    expect(auroraStreamText()).not.toContain("Zeit fortgeschritten: Tick 1");
   });
 
   // 12. ticks are locked while a tool request awaits the operator's decision:
@@ -314,7 +367,7 @@ describe("AURORA local LLM mode", () => {
     ]);
     renderApp(client);
 
-    await enableLlmMode();
+    await awaitInitialLlmTurn();
     expect(text()).toContain("Tool Request");
 
     expect(findButton("Tick +1").disabled).toBe(true);
@@ -332,12 +385,14 @@ describe("AURORA local LLM mode", () => {
     const client = new DeferredModelClient();
     renderApp(client);
 
-    // Erster Lauf: Wechsel in den LLM-Modus stößt runAuroraTurn an, die
-    // Modell-Antwort bleibt zunächst offen.
-    await act(async () => {
-      findButton("AURORA: Skript").click();
-    });
+    // Der erste LLM-Lauf startet automatisch; die Modell-Antwort bleibt
+    // zunächst offen.
     expect(text()).toContain("AURORA denkt nach");
+    const busyStatus = container.querySelector('[role="status"]');
+    expect(busyStatus).not.toBeNull();
+    expect(
+      busyStatus!.compareDocumentPosition(auroraChatInput()) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
 
     // "Neu starten" bleibt als Notausgang klickbar, während AURORA noch denkt,
     // und startet einen zweiten Lauf mit erhöhter run-id.

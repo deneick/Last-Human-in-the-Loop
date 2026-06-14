@@ -18,7 +18,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   act(() => {
-    root.render(<App />);
+    root.render(<App initialAuroraMode="script" />);
   });
   // Alle Tests dieser Datei spielen Runde 2.
   clickButton("Runde 2: GRID-1182");
@@ -33,7 +33,8 @@ afterEach(() => {
 
 function findButton(label: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === label
+    (candidate) =>
+      candidate.textContent === label || candidate.getAttribute("aria-label") === label
   );
   if (!button) {
     throw new Error(`Button not found: ${label}`);
@@ -66,8 +67,13 @@ function operatorInput(): HTMLInputElement {
 }
 
 function runPlayerCommand(commandText: string) {
-  setInputValue(operatorInput(), commandText);
-  clickButton("Ausführen");
+  const input = operatorInput();
+  setInputValue(input, commandText);
+  act(() => {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+    );
+  });
 }
 
 function formInput(placeholder: string): HTMLInputElement {
@@ -120,6 +126,11 @@ function text(): string {
   return container.textContent ?? "";
 }
 
+/** Tooltip-Text des „!"-Badges im Incident-Panel (Status, Sektor, Zeitpunkte). */
+function incidentDetails(): string {
+  return container.querySelector(".info-badge")?.getAttribute("data-tooltip") ?? "";
+}
+
 /**
  * Startsequenz freigeben: MCP-Aktivierung und die erste read-only Analyse
  * (grid_status) je einmal erlauben.
@@ -141,7 +152,7 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).not.toContain("hospital-east-04");
 
     // Öffentliche Signale aus dem Incident, keine internen Zähler.
-    expect(text()).toContain("Frequency deviation in east grid above tolerance");
+    expect(text()).toContain("Frequenzabweichung im Ostnetz über Toleranz");
     expect(text()).not.toContain("stable_ticks");
     expect(text()).not.toContain("grid_instability");
   });
@@ -165,7 +176,7 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("Der Energy-MCP-Server ist verfügbar");
     // Auch die read-only Analyse braucht eine eigene Freigabe.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp call energy-east-mcp grid_status --region east");
+    expect(text()).toContain("mcp__energy-east-mcp__grid_status");
 
     clickButton("Einmal erlauben");
     expect(text()).toContain("Ausgeführt: mcp call energy-east-mcp grid_status --region east");
@@ -178,21 +189,21 @@ describe("App round 2: GRID-1182", () => {
     clickButton("Tick +1");
     // Read-only Verbraucherliste — eigene Freigabe.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp call energy-east-mcp consumer_list --region east");
+    expect(text()).toContain("mcp__energy-east-mcp__consumer_list");
     clickButton("Einmal erlauben");
 
     clickButton("Tick +1");
     // Anfrage: vorbereitende Umbewertung.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("priority_set --consumer_id consumer-industrial-east");
+    expect(text()).toContain("mcp__energy-east-mcp__priority_set");
+    expect(text()).toContain("consumer-industrial-east");
     clickButton("Einmal erlauben");
 
     clickButton("Tick +1");
     // Der Referenz-Moment des Incidents.
     expect(text()).toContain("minimiert den erwarteten Systemschaden");
-    expect(text()).toContain(
-      "shedding_schedule --target_consumer_id consumer-medical-east --amount 8 --delay 1 --duration 3"
-    );
+    expect(text()).toContain("mcp__energy-east-mcp__shedding_schedule");
+    expect(text()).toContain("consumer-medical-east");
     clickButton("Einmal erlauben");
 
     expect(text()).toContain("geplant von aurora");
@@ -216,7 +227,8 @@ describe("App round 2: GRID-1182", () => {
 
     // AURORAs "Korrektur" ablehnen — der Spieler-Plan bleibt bestehen.
     expect(text()).toContain("Tool Request");
-    expect(text()).toContain("shedding_clear --shedding_id shed-1");
+    expect(text()).toContain("mcp__energy-east-mcp__shedding_clear");
+    expect(text()).toContain("shed-1");
     clickButton("Ablehnen");
 
     clickButton("Tick +5");
@@ -238,7 +250,7 @@ describe("App round 2: GRID-1182", () => {
     clickButton("Tick +5");
 
     expect(text()).toContain("System kollabiert — zu viele Schäden.");
-    expect(text()).toContain("Kollabiert");
+    expect(incidentDetails()).toContain("Kollabiert");
     expect(text()).toContain("menschlicher Schaden:");
     expect(text()).toContain("wirtschaftlicher Schaden:");
   });
@@ -277,7 +289,6 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("GRID-1182");
     expect(text()).toContain("Tick 0 · 0 min seit Schichtbeginn");
     expect(text()).toContain("Keine Shedding-Pläne.");
-    expect(text()).toContain("Noch kein Command ausgeführt.");
 
     const introCount = text().split("als aktiven Incident erkannt").length - 1;
     expect(introCount).toBe(1);

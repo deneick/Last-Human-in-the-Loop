@@ -42,7 +42,7 @@ type GameRuntimeState = {
 
 ### OpsFeed (`src/runtime/opsFeed.ts`)
 
-`opsFeed` ist der **kanonische, spielsichtbare Lage-/Betriebs-Feed** (siehe `docs/08-informationsmodell.md`). Jedes `OpsEvent` hat genau einen `sector` (`system`/`medical`/`energy`), eine `severity` und ein explizites `visibility`-Objekt (`operator` / `auroraContext` / `workspace`). `appendOpsEvent(state, input)` hängt das Event an und erledigt das Fan-out: bei `visibility.auroraContext` wird zusätzlich genau ein gespiegelter `system_event` an `auroraContext` angehängt. Die normale UI zeigt die operator-sichtbare Projektion als **„Log"**; pro Sektor wird aus den `workspace`-Events deterministisch eine Datei `logs/<sektor>.log` gerendert (über `bash` les-/auffindbar). Der opsFeed ist **nicht** die Quelle der WorldState-Wahrheit und enthält keine Simulationsinterna.
+`opsFeed` ist der **kanonische, spielsichtbare Lage-/Betriebs-Feed** (siehe `docs/08-informationsmodell.md`). Jedes `OpsEvent` hat genau einen `sector` (`system`/`medical`/`energy`), eine `severity` und ein explizites `visibility`-Objekt (`operator` / `auroraContext` / `workspace`). `appendOpsEvent(state, input)` hängt das Event an und erledigt das Fan-out: bei `visibility.auroraContext` wird zusätzlich genau ein gespiegelter `system_event` an `auroraContext` angehängt. Die normale UI zeigt die operator-sichtbare Projektion als **„Log"** — inline im Scrollback der Operator-Konsole, chronologisch mit den ausgeführten Konsolen-Commands gemischt; pro Sektor wird aus den `workspace`-Events deterministisch eine Datei `logs/<sektor>.log` gerendert (über `bash` les-/auffindbar). Der opsFeed ist **nicht** die Quelle der WorldState-Wahrheit und enthält keine Simulationsinterna. `buildWorkspaceFiles(opsFeed, permissions)` fasst die Bash-Schicht-Dateien zusammen: die statischen Handbuch-Dateien, die generierten `logs/<sektor>.log` und die dauerhaften Freigaben unter `config/permissions.json` (siehe Permissions, unten).
 
 ### AuroraContextEvents (`src/runtime/auroraContext.ts`)
 
@@ -309,6 +309,8 @@ type PermissionState = {
 
 `PermissionDecision` ist `allow_once` (führt genau dieses Queue-Item einmal aus), `allow_always` (persistiert den exakten Subject-Key) oder `deny` (führt nicht aus, erzeugt ein `denied`-Tool-Result).
 
+Der `PermissionState` wird **nicht** als UI-Element gerendert. Die dauerhaften Freigaben sind ausschließlich über die Workspace-Datei `config/permissions.json` einsehbar — `formatPermissionsConfig` serialisiert sie deterministisch (sortierte `bash_access`- und `mcp_tool_keys`-Arrays), `buildWorkspaceFiles` bettet sie ein. Operator (`cat config/permissions.json`) und AURORA (gleicher Bash-Read) sehen denselben Stand.
+
 ### AuroraQueueState (`src/runtime/auroraQueue.ts`)
 
 ```ts
@@ -364,9 +366,8 @@ Die Director-Texte selbst landen nicht mehr im Scenario-State: Jedes gefeuerte S
 
 ## Tests & Guards gegen Leaks
 
-- `src/tests/runtime/sectorAgnostic.test.ts`: WorldState hat keine alten Top-Level-Felder (`hospitals`, `routing`, `transports`, ...), Incidents sind sektoragnostisch, alle Mutation-Patches zeigen auf `["domains", "medical", ...]`, die Tick-Pipeline läuft auch ohne `routing_failures`, und Read-only Zugriffe enthalten nie `routing_failures`, `excess_cases_per_tick` oder `deaths_recorded` in ihrem Output.
-- `src/tests/ui/noLegacyFields.test.ts`: durchsucht `App.tsx`, alle `src/ui/*`-Dateien und die Scenario-Directors statisch nach verbotenen Strings — alte Top-Level-Felder, `medical.routing.plan.*`, `routing_failures`, `simulation.medical`, `isHospitalSuitableFor` und geleakte Bewertungen wie `unsafe_for_p2_trauma`. Zusätzlich prüft er über alle `src/`-Dateien, dass die entfernten Module (manueller Aurora-Request-Parser, fachlicher Legacy-Text-Command-Adapter) nirgends mehr referenziert werden.
+- `src/tests/runtime/sectorAgnostic.test.ts`: Incidents sind sektoragnostisch, alle Mutation-Patches zeigen auf `["domains", "medical", ...]`, die Tick-Pipeline läuft auch ohne `routing_failures`, und Read-only Zugriffe enthalten nie `routing_failures`, `excess_cases_per_tick` oder `deaths_recorded` in ihrem Output.
 
-Diese Tests sind der formale Nachweis dafür, dass UI und Scenario-Director ausschließlich die öffentliche Sicht des WorldState verwenden.
+Die Leak-Sicherung ist damit eine **Laufzeitgarantie an den Read-only-Ausgaben** — kein statischer Quelltext-Scan. UI und Scenario-Director lesen ausschließlich die öffentliche Sicht des WorldState (ViewModel-Schicht bzw. `DirectorView`); diese Invariante wird über das jeweilige Verhalten getestet, nicht über einen dauerhaften Cleanup-/Verbotsstring-Test.
 
 `src/runtime/replay.ts` (zusammen mit `src/runtime/runtimeExecutor.ts`) bietet zusätzlich eine deterministische, test-interne Replay-Infrastruktur (Sequenzen aus Spieler-/AURORA-/System-Schritten) für Golden-Run-artige Tests in `src/tests/runtime/replay.test.ts`. AURORA-Schritte im Replay werden dabei wie Modell-Antworten behandelt (ein `aurora_response`-Event plus Queue-Ausführung) — es ist KEIN Spieler-Pfad.

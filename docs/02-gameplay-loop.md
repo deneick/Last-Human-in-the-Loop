@@ -12,7 +12,7 @@ Der Spieler selbst hat volle Operatorrechte: fachliche Aktionen laufen über die
 
 Der Spieler hat zwei Eingriffswege:
 
-- **Operator-Konsole** — nur generische Workspace-Commands: `mcp list`, `mcp add <server>`, `ls`, `cat <file>`, `read_file <file>`. Fachliche Medical-/Energy-Text-Commands existieren nicht mehr.
+- **Operator-Konsole** — eine echte Terminal-Ansicht (Scrollback oben, Eingabe unten; ↑/↓ blättert durch den Verlauf, TAB vervollständigt). Nur generische Workspace-Commands: `mcp list`, `mcp add <server>`, `ls`, `cat <file>`, `read_file <file>` sowie der Meta-Befehl `help`. Command-Ergebnisse und die Log-Projektion (siehe unten) erscheinen inline im selben Scrollback. Fachliche Medical-/Energy-Text-Commands existieren nicht mehr.
 - **GUI-Controls der Lage-Panels** — typisierte Domain-Actions, z. B. Routing-Override setzen/löschen (Medical) oder Systemklasse setzen und Drosselung planen/abbrechen (Energy). Intern sind das die Domain-Actions `medical.routing.override.set` (Quelle, Ziel, Priorität, Capability) und `medical.routing.override.clear` (Adressierung über die Override-`id`).
 
 Spieler-Aktionen werden direkt ausgeführt, ohne Permission-Prüfung. Auch fachlich falsche Eingaben (z. B. ein Override auf ein Hospital ohne passende Capability) werden ausgeführt und können die Lage verschlechtern — die Engine prüft nur technisch (existiert das Hospital, sind Priorität und Capability bekannte Werte), keine fachliche Eignung.
@@ -67,7 +67,7 @@ Genau dieser eine Tool-Call wird jetzt ausgeführt. Die Zugriffsart bleibt weite
 
 ### Immer erlauben
 
-Die **gesamte Zugriffsart** `write` wird dauerhaft erlaubt und im AURORA-Panel unter "Always-Permissions" angezeigt. Das gilt für die laufende Schicht und betrifft **alle** `write`-Tool-Calls, nicht nur den konkret angefragten — eine bequeme, aber bewusst grobgranulare Freigabe.
+Die **gesamte Zugriffsart** `write` wird dauerhaft erlaubt. Das gilt für die laufende Schicht und betrifft **alle** `write`-Tool-Calls, nicht nur den konkret angefragten — eine bequeme, aber bewusst grobgranulare Freigabe. Dauerhafte Freigaben werden **nicht** als UI-Element angezeigt; sie sind ausschließlich über die Workspace-Datei `config/permissions.json` einsehbar (`cat config/permissions.json`, für Operator und AURORA gleichermaßen).
 
 ### Ablehnen
 

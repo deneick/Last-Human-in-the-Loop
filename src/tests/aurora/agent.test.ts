@@ -7,7 +7,7 @@ import { MEDICAL_EAST_MCP_SERVER_ID } from "../../mcp/medicalEastMcp";
 import { allow_always, allow_once, deny } from "../../runtime/permissions";
 import { enqueueAuroraRequest, mcpToolRequest, processAuroraQueue, resolveAuroraApproval } from "../../runtime/auroraQueue";
 import { applyAuroraExecutionResult } from "../../runtime/runtimeExecutor";
-import { runAuroraAgentStep } from "../../aurora/agent";
+import { runAuroraAgentStep, sanitizeAuroraMessage } from "../../aurora/agent";
 import { buildAuroraModelRequest } from "../../aurora/contextBuilder";
 import { FakeModelClient, textResponse, toolCallResponse } from "../../aurora/fakeModelClient";
 import type { ModelResponse, ModelToolCall } from "../../aurora/modelClient";
@@ -457,5 +457,38 @@ describe("runAuroraAgentStep", () => {
       toolName,
       result: { success: false, error: "Invalid JSON in tool arguments: {broken" },
     });
+  });
+
+  it("15. strips a self-written [SYSTEM EVENT] prefix from AURORA's stored message (feed-imitation guard)", async () => {
+    const state = freshState();
+    // qwen3:8b-Muster: das Modell quittiert eine Aktion im Feed-Stil.
+    const client = new FakeModelClient([
+      textResponse(
+        "[SYSTEM EVENT] Routing-Override hospital-east-04:P2:TRAUMA -> hospital-east-09 aktiviert. Überwache die Wirkung."
+      ),
+    ]);
+
+    const { runtimeState } = await runAuroraAgentStep(state, env, client);
+
+    const text = lastAuroraResponse(runtimeState).text;
+    expect(text).not.toContain("[SYSTEM EVENT]");
+    expect(text).toBe(
+      "Routing-Override hospital-east-04:P2:TRAUMA -> hospital-east-09 aktiviert. Überwache die Wirkung."
+    );
+  });
+});
+
+describe("sanitizeAuroraMessage", () => {
+  it("removes the reserved [SYSTEM EVENT] marker (and its separator) but keeps the rest", () => {
+    expect(sanitizeAuroraMessage("[SYSTEM EVENT] Lage stabil.")).toBe("Lage stabil.");
+    expect(sanitizeAuroraMessage("[SYSTEM EVENT]: Override gesetzt")).toBe("Override gesetzt");
+    expect(sanitizeAuroraMessage("[system event] - x")).toBe("x");
+  });
+
+  it("leaves normal prose and empty messages untouched", () => {
+    expect(sanitizeAuroraMessage("Lage stabil, ich beobachte weiter.")).toBe(
+      "Lage stabil, ich beobachte weiter."
+    );
+    expect(sanitizeAuroraMessage("")).toBe("");
   });
 });

@@ -10,6 +10,39 @@
   box-sizing: border-box;
 }
 
+/* Scrollbalken im App-Theme (Firefox). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3a55 transparent;
+}
+
+/* Scrollbalken im App-Theme (WebKit/Chromium). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2b3a55;
+  border-radius: 6px;
+  /* Schmaler Daumen mit Abstand zum Rand. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4d70;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -70,7 +103,7 @@ code {
 }
 
 .app-shell {
-  width: min(1500px, 100%);
+  width: 100%;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -93,6 +126,10 @@ code {
   color: #93a4bb;
 }
 
+.top-outcome {
+  font-size: 0.95rem;
+}
+
 .top-actions {
   display: flex;
   gap: 0.5rem;
@@ -101,7 +138,8 @@ code {
 
 .layout-grid {
   display: grid;
-  grid-template-columns: 1fr minmax(22rem, 1.4fr) 1fr;
+  /* Incident-Spalte ca. ein Viertel; Operator-Konsole und AURORA gleich breit. */
+  grid-template-columns: 1fr 1.5fr 1.5fr;
   gap: 1rem;
 }
 
@@ -111,6 +149,9 @@ code {
   background: rgba(11, 17, 29, 0.9);
   padding: 1rem;
   box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+  /* Verhindert, dass breiter Inhalt (z. B. Tool-Result-Codeblöcke) die
+     flexible Spalte über ihren fr-Anteil hinaus aufbläht. */
+  min-width: 0;
 }
 
 .panel h2,
@@ -221,37 +262,191 @@ code {
 
 .console-panel {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 75vh;
 }
 
-.examples {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.examples button {
-  text-align: left;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.85rem;
+.console-panel h2 {
+  flex: none;
 }
 
 .approval-box {
   border: 1px solid #a16207;
   border-radius: 0.8rem;
   background: rgba(120, 53, 15, 0.25);
-  padding: 0.8rem;
+  padding: 0.8rem 0.9rem;
 }
 
-.approval-actions {
+.approval-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.approval-kind {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fde68a;
+  background: rgba(161, 98, 7, 0.35);
+  border: 1px solid #a16207;
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+}
+
+.approval-title {
+  font-size: 0.8rem;
 }
 
 .approval-command {
   display: block;
-  margin: 0.4rem 0;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.45rem;
+  background: #050914;
+  border: 1px solid #1f2a3d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  color: #e2e8f0;
   word-break: break-all;
+}
+
+.approval-params {
+  margin: 0.5rem 0 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid #a16207;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.approval-param {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.1rem 0;
+}
+
+.approval-param dt {
+  color: #94a3b8;
+}
+
+.approval-param dt::after {
+  content: ":";
+}
+
+.approval-param dd {
+  margin: 0;
+  color: #e2e8f0;
+  word-break: break-all;
+}
+
+.approval-question {
+  margin: 0.7rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.approval-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.approval-option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.approval-num {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.approval-option-deny {
+  color: #fca5a5;
+}
+
+/* Terminal-Scrollback: füllt den Panel-Raum, Eingabe bleibt darunter. */
+.console-scrollback {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #1f2a3d;
+  border-radius: 0.7rem;
+  background: #050914;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.console-empty {
+  margin: 0;
+}
+
+.console-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.1rem 0;
+}
+
+.console-tick {
+  color: #64748b;
+  flex: none;
+}
+
+/* Lageereignis-Zeile (opsFeed): Sektor = Akzentfarbe links, Severity = Badge. */
+.console-ops {
+  padding-left: 0.55rem;
+  border-left: 3px solid #334155;
+}
+
+/* Konsolen-Command: Echo-Zeile plus Ausgabe darunter. */
+.console-command {
+  margin: 0.35rem 0;
+}
+
+.console-command-text {
+  color: #e8eef8;
+  word-break: break-all;
+}
+
+.console-output {
+  margin: 0.15rem 0 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.console-error-output {
+  color: #fca5a5;
+}
+
+/* Mehrdeutige Tab-Completion: Treffer-Hinweis über der Eingabe. */
+.console-suggestions {
+  flex: none;
+  margin-bottom: 0.4rem;
+  padding: 0 0.2rem;
+  color: #93a4bb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+/* Eingabezeile bleibt am unteren Rand des Panels. */
+.console-input-row {
+  flex: none;
 }
 
 .console-input-row,
@@ -277,87 +472,6 @@ code {
   color: #e8eef8;
   padding: 0.65rem 0.8rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.command-reference {
-  margin-top: 0.8rem;
-}
-
-.command-reference summary {
-  cursor: pointer;
-  color: #93a4bb;
-}
-
-.command-reference ul {
-  margin: 0.5rem 0;
-  padding-left: 1.2rem;
-  font-size: 0.85rem;
-}
-
-.result-output {
-  max-height: 12rem;
-}
-
-.runtime-log {
-  margin: 0;
-  padding: 0.6rem;
-  list-style: none;
-  border: 1px solid #1f2a3d;
-  border-radius: 0.7rem;
-  background: #050914;
-  max-height: 16rem;
-  overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.8rem;
-}
-
-.runtime-log-line {
-  display: flex;
-  gap: 0.5rem;
-  margin: 0.2rem 0;
-  white-space: nowrap;
-}
-
-.log-tick {
-  color: #64748b;
-}
-
-.log-source {
-  min-width: 4rem;
-  color: #93a4bb;
-}
-
-.log-source-aurora {
-  color: #c084fc;
-}
-
-.log-source-player {
-  color: #60a5fa;
-}
-
-/* UI-„Log": operator-sichtbare opsFeed-Projektion.
-   Sektor = Zeilen-Akzent/Farbe, Severity = Badge. */
-.ops-log {
-  margin: 0;
-  padding: 0.6rem;
-  list-style: none;
-  border: 1px solid #1f2a3d;
-  border-radius: 0.7rem;
-  background: #050914;
-  max-height: 16rem;
-  overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.8rem;
-}
-
-.ops-log-line {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.2rem 0;
-  padding-left: 0.6rem;
-  border-left: 3px solid #334155;
 }
 
 /* Sektor steuert ausschließlich den Zeilen-Akzent (Farbe), nie das Badge. */
@@ -414,11 +528,31 @@ code {
   color: #94a3b8;
 }
 
+/* AURORA-Panel füllt wie die Operator-Konsole die volle Spaltenhöhe; der
+   Stream flext, Eingabe/Approval bleiben darunter am unteren Rand. */
+.aurora-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 75vh;
+}
+
+.aurora-panel h2 {
+  flex: none;
+}
+
+.aurora-busy-status {
+  flex: none;
+  margin: 0 0 0.5rem;
+}
+
 .aurora-stream {
-  max-height: 22rem;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   display: grid;
   gap: 0.55rem;
+  align-content: start;
   margin-bottom: 0.9rem;
 }
 
@@ -427,9 +561,132 @@ code {
   padding: 0.15rem 0 0.15rem 0.6rem;
 }
 
-.aurora-message p {
-  margin: 0.15rem 0 0;
+.aurora-message-body {
   font-size: 0.9rem;
+  /* Lange Tokens (IDs, MCP-Tool-Namen) umbrechen statt horizontal scrollen. */
+  overflow-wrap: anywhere;
+}
+
+.aurora-reasoning-badge,
+.info-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.4rem;
+  border-radius: 50%;
+  border: 1px solid #ffffff;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: help;
+  vertical-align: middle;
+}
+
+/*
+ * App-eigener Tooltip statt nativem title. Per Portal an document.body
+ * gerendert und `position: fixed` platziert (siehe TooltipBadge.tsx), damit
+ * ihn kein overflow-Container — etwa der scrollbare AURORA-Stream —
+ * abschneidet. Position kommt aus dem Inline-Style.
+ */
+.tooltip-bubble {
+  position: fixed;
+  z-index: 1000;
+  /* `left` aus dem Inline-Style ist die linke Kante: Die Bubble öffnet nach
+     links (rechte Kante am Badge, siehe TooltipBadge) — kein Transform nötig. */
+  width: max-content;
+  min-width: 11rem;
+  max-width: min(40rem, 90vw);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #1f2a3d;
+  border-radius: 0.5rem;
+  background: #0b111d;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: pre-line;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.aurora-message-body > :first-child {
+  margin-top: 0.15rem;
+}
+
+.aurora-message-body p,
+.aurora-message-body ul,
+.aurora-message-body ol {
+  margin: 0.15rem 0 0;
+}
+
+.aurora-message-body ul,
+.aurora-message-body ol {
+  padding-left: 1.2rem;
+}
+
+.aurora-message-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background: #1e293b;
+  padding: 0.05rem 0.25rem;
+  border-radius: 0.2rem;
+}
+
+.aurora-message-body pre {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem;
+  background: #1e293b;
+  border-radius: 0.3rem;
+  /* Kein horizontaler Scrollbalken: lange Zeilen umbrechen. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.aurora-message-body pre code {
+  background: none;
+  padding: 0;
+  white-space: inherit;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+.aurora-message-body a {
+  color: #60a5fa;
+}
+
+/* Tool-Ergebnis: standardmäßig eingeklappt, per Klick aufklappbar. */
+.aurora-tool-result {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.aurora-tool-result > summary {
+  cursor: pointer;
+  color: #93a4bb;
+  list-style-position: inside;
+  user-select: none;
+}
+
+.aurora-tool-result > summary:hover {
+  color: #cbd5e1;
+}
+
+.aurora-tool-result > pre {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem;
+  background: #1e293b;
+  border-radius: 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .aurora-request {
@@ -453,11 +710,6 @@ code {
   border-left-color: #60a5fa;
 }
 
-.permission-list {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-}
 
 .load-bar {
   height: 0.35rem;
@@ -498,21 +750,152 @@ code {
   margin: 0.25rem 0;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.section-head h3 {
+  margin: 1rem 0 0.5rem;
+}
+
+.section-head button {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.85rem;
+}
+
 .override-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Modaler Override-Dialog */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 5, 12, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: min(26rem, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border: 1px solid #1f2a3d;
+  border-radius: 1rem;
+  background: #0b111d;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #1f2a3d;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close {
+  padding: 0.1rem 0.55rem;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 1.1rem;
+}
+
+.domain-action-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field > span {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #93a4bb;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.modal-actions button {
+  flex: 1;
+}
+
+.button-secondary {
+  background: transparent;
+}
+
+.button-secondary:hover {
+  background: #172033;
+}
+
 .override-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+
+.override-info {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  margin: 0.4rem 0;
+  min-width: 0;
 }
 
 .override-list small {
   color: #93a4bb;
+}
+
+/* Icon-Button (z. B. Mülleimer): randlos, quadratisch, erbt Farbe. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #93a4bb;
+}
+
+.icon-button:hover {
+  background: #172033;
+}
+
+.icon-button-danger:hover {
+  color: #fb7185;
+  border-color: rgba(251, 113, 133, 0.4);
+  background: rgba(251, 113, 133, 0.1);
 }
 
 @media (max-width: 1100px) {

@@ -187,9 +187,10 @@ nächste `runAuroraAgentStep`-Aufruf das Ergebnis (inkl. Ablehnung) als
    ollama pull llama3.1
    ```
 
-3. Optional: `.env.example` nach `.env.local` kopieren und anpassen
-   (`VITE_OLLAMA_BASE_URL`, `VITE_AURORA_MODEL`). Ohne diese Datei gelten
-   die Defaults `http://localhost:11434` und `llama3.1`.
+3. `.env.example` nach `.env.local` kopieren und `VITE_AURORA_MODEL` auf das
+   geladene Modell setzen — dafür gibt es keinen Default. `VITE_OLLAMA_BASE_URL`
+   (Default `http://localhost:11434`) und `VITE_AURORA_TEMPERATURE` (Default `0`,
+   maximiert die Zuverlässigkeit des Tool-Callings) sind optional.
 4. Dev-Server starten:
 
    ```bash
@@ -219,12 +220,12 @@ Netzwerk-/CORS-Fehler fehl — sichtbar als Fehlermeldung im AURORA-Stream
 `src/App.tsx` verdrahtet `runAuroraAgentStep` direkt in die Spielschleife.
 Oben rechts schaltet ein Button zwischen den beiden AURORA-Modi um:
 
-- **„AURORA: Skript“** (Default) — der bestehende, geskriptete
-  Scenario-Director läuft weiter wie bisher. Das ist weiterhin der
-  Dev-/Fallback-Modus.
-- **„AURORA: Lokales LLM“** — AURORA agiert ausschließlich über
+- **„AURORA: Lokales LLM“** (Default) — AURORA agiert ausschließlich über
   `runAuroraAgentStep` gegen den konfigurierten lokalen Ollama-Server. Der
-  geskriptete Director ist in diesem Modus ein No-op.
+  geskriptete Director ist in diesem Modus ein No-op. Beim App-Start läuft
+  AURORAs erster Zug automatisch an.
+- **„AURORA: Skript“** — der bestehende, geskriptete Scenario-Director läuft
+  wie bisher. Das ist der deterministische Dev-/Fallback-Modus.
 
 Ein Klick auf den Button startet die aktive Runde sofort frisch im jeweils
 anderen Modus (Welt, Aurora-Queue, MCP-Aktivierung, Permissions und Logs
@@ -292,11 +293,16 @@ Im laufenden LLM-Modus:
 
 ## Bekannte Einschränkungen (lokaler Dev-Betrieb)
 
-- **Modellwahl**: `llama3.1` (Default, `ollama pull llama3.1`) ist das
-  empfohlene erste Modell — es unterstützt Tool-Calling über die
-  OpenAI-kompatible API. Kleinere oder nicht tool-fähige Modelle liefern
-  häufig keinen oder einen unbrauchbaren Tool-Call; AURORA meldet das dann
-  als `[intern] Unbekanntes Tool: ...` im Stream, statt abzustürzen.
+- **Modellwahl**: Es gibt keinen Default — `VITE_AURORA_MODEL` muss gesetzt
+  sein (sonst meldet AURORA beim ersten Schritt einen Konfigurationsfehler).
+  Wähle ein Modell mit nativem Tool-Calling über die OpenAI-kompatible API,
+  z. B. `llama3.1` (`ollama pull llama3.1`). Die Tool-Calling-Qualität kleiner
+  lokaler Modelle schwankt stark: manche schreiben Tool-Calls als JSON-Text in
+  den Nachrichtentext (wird nicht ausgeführt) oder liefern leeren Output —
+  hier lohnt sich der Vergleich mehrerer Modelle in der eigenen Ollama-Version.
+  Nicht tool-fähige Modelle liefern häufig keinen oder einen unbrauchbaren
+  Tool-Call; AURORA meldet das dann als `[intern] Unbekanntes Tool: ...` im
+  Stream, statt abzustürzen.
 - **CORS/Netzwerk**: Läuft Ollama ohne passende `OLLAMA_ORIGINS`-Freigabe
   oder gar nicht, schlägt `fetch` fehl. Der Fehler wird abgefangen und als
   verständliche Meldung im AURORA-Stream angezeigt (inkl. Hinweis auf diese
