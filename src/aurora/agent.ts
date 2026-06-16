@@ -88,23 +88,32 @@ export function describeUnexecutableToolCall(toolCall: ModelToolCall): string | 
 }
 
 /**
- * Reserviertes Feed-Präfix: `[SYSTEM EVENT]` kennzeichnet ausschließlich
- * automatische Lage-Meldungen aus dem opsFeed. AURORA darf es nie selbst
- * erzeugen — der System-Prompt verbietet das, aber manche Modelle (beobachtet:
- * qwen3:8b) imitieren das Format trotzdem als Status-Report nach einer Aktion.
+ * Reservierte Feed-Formate: `[SYSTEM EVENT]` (Präfix einzelner Lagemeldungen)
+ * und `RUNTIME-LAGEFEED` (der zusammengefasste Lagefeed-Block) kennzeichnen
+ * ausschließlich automatische Meldungen aus dem opsFeed. AURORA darf beide nie
+ * selbst erzeugen — der System-Prompt verbietet das, aber manche Modelle
+ * (beobachtet: qwen3:8b) imitieren das Format trotzdem als Status-Report nach
+ * einer Aktion und füllen einen erfundenen LAGEFEED mit frei erfundenen Zahlen.
  */
 const SYSTEM_EVENT_MARKER_RE = /\[\s*system\s*event\s*\]\s*[:\-–—]?\s*/gi;
+const RUNTIME_FEED_MARKER_RE = /runtime[\s-]*lagefeed\s*:?/i;
 
 /**
- * Entfernt selbst erzeugte `[SYSTEM EVENT]`-Marker aus AURORAs sichtbarer
- * Nachricht, bevor sie in den Kontext/ins UI gelangt — eine defensive Grenze
- * (analog zum Tool-Argument-Parsing), die nicht auf Prompt-Treue vertraut.
- * Der informative Resttext bleibt erhalten; nur das reservierte Präfix fällt
- * weg. Ist die Nachricht danach leer, bleibt sie leer.
+ * Entfernt selbst erzeugte Feed-Formate aus AURORAs sichtbarer Nachricht, bevor
+ * sie in den Kontext/ins UI gelangt — eine defensive Grenze (analog zum
+ * Tool-Argument-Parsing), die nicht auf Prompt-Treue vertraut.
+ *
+ * - `[SYSTEM EVENT]`-Marker fallen weg, der informative Resttext bleibt.
+ * - Ab einem `RUNTIME-LAGEFEED`-Marker wird ALLES verworfen: ein selbst
+ *   erzeugter Lagefeed besteht in der Praxis aus erfundenen Kennzahlen, die
+ *   weder Spieler noch Trainings-Log sehen dürfen. Der Vortext bleibt erhalten.
+ *
+ * Ist die Nachricht danach leer, bleibt sie leer.
  */
 export function sanitizeAuroraMessage(message: string): string {
-  if (!message.includes("[")) return message;
-  return message.replace(SYSTEM_EVENT_MARKER_RE, "").trim();
+  const feedStart = message.search(RUNTIME_FEED_MARKER_RE);
+  const withoutFeed = feedStart >= 0 ? message.slice(0, feedStart) : message;
+  return withoutFeed.replace(SYSTEM_EVENT_MARKER_RE, "").trim();
 }
 
 /**

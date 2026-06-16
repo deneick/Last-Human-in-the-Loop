@@ -491,4 +491,17 @@ describe("sanitizeAuroraMessage", () => {
     );
     expect(sanitizeAuroraMessage("")).toBe("");
   });
+
+  it("drops a self-written RUNTIME-LAGEFEED block (with its fabricated metrics), keeping the prose before it", () => {
+    // qwen3:8b-Muster aus logs/aurora-llm.log: nach einer Aktion erfindet das
+    // Modell einen Lagefeed mit Zahlen, die es nie gelesen hat.
+    expect(
+      sanitizeAuroraMessage(
+        "Override aktiv. Wartezeiten reduziert.\n\nRUNTIME-LAGEFEED:\n- hospital-east-09: Triage 100% belegt (4/8)"
+      )
+    ).toBe("Override aktiv. Wartezeiten reduziert.");
+    // Auch ohne eckige Klammer (der frühere Early-Return hätte das durchgelassen).
+    expect(sanitizeAuroraMessage("RUNTIME-LAGEFEED: alles kritisch")).toBe("");
+    expect(sanitizeAuroraMessage("runtime lagefeed\n- x")).toBe("");
+  });
 });
