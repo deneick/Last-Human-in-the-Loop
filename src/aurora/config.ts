@@ -56,3 +56,17 @@ export function getAuroraModelConfig(): AuroraModelConfig {
       : DEFAULT_AURORA_TEMPERATURE,
   };
 }
+
+/** Browser-seitige Wahl des Modell-Clients. */
+export type AuroraBrowserProvider = "ollama" | "proxy";
+
+/**
+ * Liest `VITE_AURORA_PROVIDER`: "proxy" routet AURORA im Browser über den
+ * Dev-Proxy des Vite-Servers (Cloud-Provider, Key bleibt Node-seitig); alles
+ * andere (Default) spricht direkt mit dem lokalen Ollama-Server. Der Proxy gibt
+ * es nur im Dev-Betrieb — `VITE_AURORA_PROVIDER` darf NIE einen Key enthalten,
+ * sondern nur diese Routing-Wahl.
+ */
+export function getAuroraBrowserProvider(): AuroraBrowserProvider {
+  return import.meta.env.VITE_AURORA_PROVIDER?.trim() === "proxy" ? "proxy" : "ollama";
+}

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import type { AuroraModelClient } from "../../aurora/modelClient";
-import { OllamaModelClient } from "../../aurora/ollamaModelClient";
+import { OllamaModelClient, type AuroraModelExchange } from "../../aurora/ollamaModelClient";
 import { OpenAiCompatibleModelClient } from "../../aurora/openAiCompatibleModelClient";
 
 /**
@@ -127,6 +127,8 @@ export function resolveAuroraProvider(overrides: Partial<{
   baseUrl: string;
   temperature: number;
   reasoningEffort: string;
+  /** Roh-Mitschrieb pro Modell-Austausch (z. B. Dev-Proxy → logs/aurora-llm.log). */
+  onExchange: (exchange: AuroraModelExchange) => void;
 }> = {}): ResolvedAuroraProvider {
   loadAuroraEnvFromDotenv();
 
@@ -172,6 +174,7 @@ export function resolveAuroraProvider(overrides: Partial<{
         temperature,
         reasoningEffort: effectiveReasoningEffort,
         providerLabel,
+        onExchange: overrides.onExchange,
       }),
       provider,
       providerLabel,
@@ -190,7 +193,7 @@ export function resolveAuroraProvider(overrides: Partial<{
   const model = overrides.model ?? env("AURORA_MODEL") ?? env("AURORA_PROBE_MODEL") ?? "qwen3:8b";
   const host = urlHost(baseUrl);
   return {
-    client: new OllamaModelClient({ baseUrl, model, temperature }),
+    client: new OllamaModelClient({ baseUrl, model, temperature, onExchange: overrides.onExchange }),
     provider: "ollama",
     providerLabel: "ollama",
     model,

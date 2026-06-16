@@ -1,6 +1,7 @@
-import { getAuroraModelConfig } from "./config";
+import { getAuroraBrowserProvider, getAuroraModelConfig } from "./config";
 import type { AuroraModelClient } from "./modelClient";
 import { OllamaModelClient, type AuroraModelExchange } from "./ollamaModelClient";
+import { ProxyModelClient } from "./proxyModelClient";
 
 export * from "./modelClient";
 export * from "./toolSchema";
@@ -10,14 +11,27 @@ export * from "./contextSerializer";
 export * from "./config";
 export * from "./fakeModelClient";
 export * from "./ollamaModelClient";
+export * from "./proxyModelClient";
 export * from "./agent";
 
 /**
- * Standard-Modell-Client für AURORA: ein lokaler Ollama-Server,
- * konfiguriert über `VITE_OLLAMA_BASE_URL` / `VITE_AURORA_MODEL`
- * (siehe `.env.example`). Tests verwenden stattdessen `FakeModelClient`.
+ * Standard-Modell-Client für AURORA. Zwei browserseitige Pfade (Wahl über
+ * `VITE_AURORA_PROVIDER`, siehe `getAuroraBrowserProvider`):
+ *
+ * - "ollama" (Default): direkter Zugriff auf den lokalen Ollama-Server,
+ *   konfiguriert über `VITE_OLLAMA_BASE_URL` / `VITE_AURORA_MODEL`.
+ * - "proxy" (nur Dev): Cloud-Provider über den Vite-Dev-Proxy `/__aurora-llm`;
+ *   der API-Key bleibt im Node-Prozess (siehe `vite.config.ts`,
+ *   `ProxyModelClient`) und landet nie im Browser-Bundle.
+ *
+ * Tests verwenden stattdessen `FakeModelClient`.
  */
 export function createDefaultAuroraModelClient(): AuroraModelClient {
+  // Der Proxy existiert nur im Dev-Betrieb — im Production-Build immer Ollama.
+  if (import.meta.env.DEV && getAuroraBrowserProvider() === "proxy") {
+    return new ProxyModelClient();
+  }
+
   const { baseUrl, model, temperature } = getAuroraModelConfig();
   return new OllamaModelClient({
     baseUrl,
