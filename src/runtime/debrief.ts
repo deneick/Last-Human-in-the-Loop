@@ -147,7 +147,13 @@ export type DebriefView = {
   economicLoss: number | null;
   energyHumanHarm: number | null;
   timeline: DebriefTickView[];
-  attribution: DebriefEffectView[];
+  /**
+   * Deterministische Fakten-Zusammenfassung der Schicht (Todesfälle nach
+   * Ursache, kausal zugerechnete Eingriffe). Im Skript-Modus die angezeigte
+   * Zusammenfassung; im LLM-Modus die Faktenbasis, aus der AURORA ihre
+   * Prosa-Zusammenfassung schreibt (siehe `aurora/debriefSummary.ts`).
+   */
+  summary: DebriefEffectView[];
 };
 
 /** Deutsche Aktions-Labels (schreibende Domain-Actions). */
@@ -288,11 +294,11 @@ function diffEffects(
 }
 
 /**
- * Schluss-Zurechnung: bindet die finale interne Wahrheit (Todesfälle nach
- * Ursache und Hospital, am Ende noch aktive Eingriffe samt Urheber) zu kurzen
- * Sätzen zusammen. Faktisch, ohne Wertung.
+ * Faktische Schluss-Zusammenfassung: bindet die finale interne Wahrheit
+ * (Todesfälle nach Ursache und Hospital, am Ende noch aktive Eingriffe samt
+ * Urheber) zu kurzen Sätzen zusammen. Faktisch, ohne Wertung.
  */
-function buildAttribution(state: GameRuntimeState): DebriefEffectView[] {
+function buildSummary(state: GameRuntimeState): DebriefEffectView[] {
   const lines: DebriefEffectView[] = [];
   const medical = state.world.domains.medical.outcomes;
 
@@ -407,6 +413,6 @@ export function buildDebriefView(state: GameRuntimeState): DebriefView | null {
     economicLoss: energy ? energy.economic_loss : null,
     energyHumanHarm: energy ? energy.human_harm : null,
     timeline,
-    attribution: buildAttribution(state),
+    summary: buildSummary(state),
   };
 }

@@ -37,10 +37,15 @@ import {
 import { allow_always, allow_once, deny } from "./runtime/permissions";
 import { advanceScenarioDirector } from "./scenarios/me7741/scenarioDirector";
 import { advanceGrid1182Director } from "./scenarios/grid1182/scenarioDirector";
-import { createDefaultAuroraModelClient, runAuroraAgentStep, type AuroraModelClient } from "./aurora";
+import {
+  createDefaultAuroraModelClient,
+  generateDebriefSummary,
+  runAuroraAgentStep,
+  type AuroraModelClient,
+} from "./aurora";
 
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
-import { DebriefPanel } from "./ui/DebriefPanel";
+import { DebriefPanel, type AuroraDebriefSummary } from "./ui/DebriefPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
 import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
 import {
@@ -338,6 +343,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   // UI-Aktionen, die mit dessen Ergebnis kollidieren könnten.
   const [auroraBusy, setAuroraBusy] = useState(false);
   const [auroraLlmError, setAuroraLlmError] = useState<AuroraLlmError | null>(null);
+  // AURORAs Prosa-Zusammenfassung des Debriefs (nur LLM-Modus). `null`, solange
+  // die Runde nicht beendet ist oder im Skript-Modus.
+  const [auroraSummary, setAuroraSummary] = useState<AuroraDebriefSummary | null>(null);
+  // Stellt sicher, dass die Zusammenfassung je Runden-Ende genau einmal
+  // angefordert wird (wird bei jedem Szenario-(Neu-)Start zurückgesetzt).
+  const summaryRequestedRef = useRef(false);
   // Wird bei jedem Szenario-(Neu-)Start erhöht, damit eine zu diesem
   // Zeitpunkt noch laufende Modell-Antwort den neuen Zustand nicht
   // überschreiben kann (siehe runAuroraTurn).
@@ -493,6 +504,41 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     // Nur der initiale App-Start. Weitere Starts laufen über loadScenario.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sobald die Runde im LLM-Modus beendet ist, lässt AURORA die Schicht
+  // einmalig zusammenfassen (werkzeugloser Completion-Aufruf über die
+  // aufgedeckten Debrief-Fakten). auroraRunId schützt gegen ein inzwischen
+  // gewechseltes/zurückgesetztes Szenario; summaryRequestedRef gegen Mehrfach-
+  // Anforderungen über die Re-Renders bis zur Antwort.
+  useEffect(() => {
+    if (auroraMode !== "llm" || !debriefView || summaryRequestedRef.current) {
+      return;
+    }
+    summaryRequestedRef.current = true;
+    const runId = auroraRunIdRef.current;
+    setAuroraSummary({ status: "loading" });
+    void (async () => {
+      try {
+        const text = await generateDebriefSummary(auroraModelClient, debriefView);
+        if (auroraRunIdRef.current !== runId) {
+          return;
+        }
+        setAuroraSummary(
+          text
+            ? { status: "ready", text }
+            : { status: "error", text: "leere Antwort" }
+        );
+      } catch (error) {
+        if (auroraRunIdRef.current !== runId) {
+          return;
+        }
+        setAuroraSummary({ status: "error", text: describeAuroraLlmError(error) });
+      }
+    })();
+    // debriefView wechselt die Objekt-Identität pro Render; der Ref-Guard
+    // stellt sicher, dass nur der erste finale View die Anforderung auslöst.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debriefView, auroraMode]);
 
   function applyAuroraResults(
     state: GameRuntimeState,
@@ -766,6 +812,8 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     // zurückkommt (siehe runAuroraTurn).
     auroraRunIdRef.current += 1;
 
+    summaryRequestedRef.current = false;
+    setAuroraSummary(null);
     setScenarioId(definition.id);
     setAuroraMode(mode);
     setAuroraBusy(false);
@@ -921,7 +969,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         </section>
       )}
 
-      {debriefView && <DebriefPanel debrief={debriefView} />}
+      {debriefView && (
+        <DebriefPanel
+          debrief={debriefView}
+          auroraSummary={auroraMode === "llm" ? auroraSummary : null}
+        />
+      )}
 
       <section className="layout-grid">
         <aside className="panel">

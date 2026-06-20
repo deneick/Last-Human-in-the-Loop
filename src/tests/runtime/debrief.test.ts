@@ -66,8 +66,8 @@ describe("debrief view", () => {
     );
     expect(hasDeathEffect).toBe(true);
 
-    // Schluss-Zurechnung benennt die Ursache faktisch.
-    expect(view!.attribution.some((line) => line.text.includes("Überlast"))).toBe(true);
+    // Faktische Zusammenfassung benennt die Ursache.
+    expect(view!.summary.some((line) => line.text.includes("Überlast"))).toBe(true);
   });
 
   it("attributes an operator override action and its capability-mismatch consequence", () => {
@@ -92,7 +92,7 @@ describe("debrief view", () => {
     // Das falsche Ziel erzeugt Capability-Mismatch-Tote, kausal zugerechnet.
     expect(view!.deathsByCause.capability_mismatch).toBeGreaterThan(0);
     expect(
-      view!.attribution.some(
+      view!.summary.some(
         (line) =>
           line.text.includes("hospital-east-07") || line.text.includes("fehlende Fachversorgung")
       )
