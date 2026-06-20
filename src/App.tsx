@@ -800,14 +800,6 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
   return (
     <main className="app-shell">
-      <div className="window-titlebar">
-        <div className="window-dots" aria-hidden="true">
-          <span className="window-dot window-dot-red" />
-          <span className="window-dot window-dot-yellow" />
-          <span className="window-dot window-dot-green" />
-        </div>
-        <span className="window-title">Last Human in the Loop — Operator Terminal</span>
-      </div>
       <header className="top-bar">
         <div>
           <h1>Last Human in the Loop</h1>
