@@ -1,9 +1,43 @@
+/*
+ * Theme "Operator Terminal": warmes Dunkel mit Orange-Akzent, durchgehend
+ * Monospace und ein gerahmtes Fenster mit Ampel-Leiste. Rein visuell —
+ * Layout, Klassennamen und Spiellogik bleiben unverändert.
+ */
 :root {
-  color: #e8eef8;
-  background: #080b10;
+  /* Warme Flächen statt blau-grauem Slate. */
+  --bg: #0a0a0c;
+  --surface: #141315;
+  --surface-2: #0d0c0e;
+  --surface-inset: #100f11;
+  --border: #2a2521;
+  --border-soft: #211d1a;
+
+  --text: #ece6dc;
+  --text-dim: #9b938a;
+  --text-mute: #756d64;
+
+  /* Orange-Akzent (wie im Referenz-Design). */
+  --accent: #e8703a;
+  --accent-soft: #ff8a5c;
+  --accent-amber: #f0a868;
+  --accent-glow: rgba(232, 112, 58, 0.16);
+
+  /* Semantische Spielfarben — Bedeutung bleibt, Ton leicht erwärmt. */
+  --ok: #5fd08a;
+  --warn: #f0a868;
+  --danger: #f0796b;
+  --info: #e0a06a;
+
+  /* Fenster-Ampel. */
+  --dot-red: #ff5f57;
+  --dot-yellow: #febc2e;
+  --dot-green: #28c840;
+
+  color: var(--text);
+  background: var(--bg);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 * {
@@ -13,7 +47,7 @@
 /* Scrollbalken im App-Theme (Firefox). */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2b3a55 transparent;
+  scrollbar-color: #3a322b transparent;
 }
 
 /* Scrollbalken im App-Theme (WebKit/Chromium). */
@@ -27,7 +61,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2b3a55;
+  background: #3a322b;
   border-radius: 6px;
   /* Schmaler Daumen mit Abstand zum Rand. */
   border: 2px solid transparent;
@@ -35,7 +69,7 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4d70;
+  background: #4d423a;
   background-clip: padding-box;
 }
 
@@ -48,64 +82,141 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(64, 115, 255, 0.16), transparent 32rem),
-    radial-gradient(circle at top right, rgba(0, 255, 183, 0.08), transparent 30rem),
-    #080b10;
+    radial-gradient(circle at top left, var(--accent-glow), transparent 34rem),
+    radial-gradient(circle at top right, rgba(240, 168, 104, 0.08), transparent 32rem),
+    var(--bg);
 }
 
 button {
-  border: 1px solid #334155;
-  border-radius: 0.6rem;
-  background: #172033;
-  color: #e8eef8;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: #1d1916;
+  color: var(--text);
   padding: 0.65rem 0.85rem;
   font: inherit;
   cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
 button:hover {
-  background: #22304a;
+  background: #2a221c;
+  border-color: var(--accent);
+  color: var(--accent-soft);
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 button:disabled:hover {
-  background: #172033;
+  background: #1d1916;
+  border-color: var(--border);
+  color: var(--text);
 }
 
 textarea {
   width: 100%;
-  border: 1px solid #334155;
-  border-radius: 0.7rem;
-  background: #07111f;
-  color: #e8eef8;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface-2);
+  color: var(--text);
   padding: 0.8rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: inherit;
   resize: vertical;
+}
+
+textarea:focus,
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
 }
 
 pre {
   overflow: auto;
   max-height: 18rem;
-  border: 1px solid #1f2a3d;
-  border-radius: 0.7rem;
-  background: #050914;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.6rem;
+  background: var(--surface-2);
   padding: 0.9rem;
-  color: #bcd0ee;
+  color: #d9cfc2;
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #bcd0ee;
+  font-family: inherit;
+  color: #d9cfc2;
 }
 
+/* Gerahmtes Fenster: app-shell ist die "Anwendung", die window-titlebar
+   sitzt als Leiste mit Ampel-Punkten oben. */
 .app-shell {
   width: 100%;
-  margin: 0 auto;
-  padding: 1rem;
+  max-width: 1680px;
+  margin: 1.25rem auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.window-titlebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: #1a1714;
+  border-bottom: 1px solid var(--border);
+}
+
+.window-dots {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.window-dot {
+  width: 0.78rem;
+  height: 0.78rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.window-dot-red {
+  background: var(--dot-red);
+}
+
+.window-dot-yellow {
+  background: var(--dot-yellow);
+}
+
+.window-dot-green {
+  background: var(--dot-green);
+}
+
+.window-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Innenabstand für den eigentlichen App-Inhalt (Titelleiste randlos). */
+.top-bar,
+.layout-grid,
+.endstate-banner {
+  margin-left: 1.1rem;
+  margin-right: 1.1rem;
 }
 
 .top-bar {
@@ -113,17 +224,21 @@ code {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  padding: 1rem 0;
+  padding: 1.1rem 0 0.9rem;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .top-bar h1 {
   margin: 0;
-  font-size: clamp(1.6rem, 3vw, 2.5rem);
+  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-shadow: 0 0 24px var(--accent-glow);
 }
 
 .top-bar p {
   margin: 0.25rem 0 0;
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .top-outcome {
@@ -141,14 +256,16 @@ code {
   /* Incident-Spalte ca. ein Viertel; Operator-Konsole und AURORA gleich breit. */
   grid-template-columns: 1fr 1.5fr 1.5fr;
   gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1.1rem;
 }
 
 .panel {
-  border: 1px solid #1f2a3d;
-  border-radius: 1rem;
-  background: rgba(11, 17, 29, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--surface-2);
   padding: 1rem;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   /* Verhindert, dass breiter Inhalt (z. B. Tool-Result-Codeblöcke) die
      flexible Spalte über ihren fr-Anteil hinaus aufbläht. */
   min-width: 0;
@@ -157,25 +274,28 @@ code {
 .panel h2,
 .panel h3 {
   margin-top: 0;
+  color: var(--accent-amber);
+  letter-spacing: 0.03em;
 }
 
 .panel-label {
   margin: 0 0 0.3rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #fb7185;
+  color: var(--accent);
 }
 
 .incident-box .incident-id {
   margin: 0;
   font-size: 1.8rem;
   letter-spacing: 0.04em;
+  color: var(--accent-soft);
 }
 
 .incident-box .incident-title {
   margin: 0.2rem 0 0.9rem;
-  color: #cbd5e1;
+  color: #d2c8bb;
 }
 
 .facts {
@@ -186,7 +306,7 @@ code {
 }
 
 .facts dt {
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .facts dd {
@@ -198,37 +318,38 @@ code {
   width: fit-content;
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
-  background: #1f2937;
+  background: #241e19;
+  border: 1px solid var(--border-soft);
 }
 
 .status-open,
 .status-escalated {
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .status-stabilizing {
-  color: #60a5fa;
+  color: var(--info);
 }
 
 .status-fixed {
-  color: #4ade80;
+  color: var(--ok);
 }
 
 .status-collapsed {
-  color: #fb7185;
+  color: var(--danger);
 }
 
 .risk-stable {
-  color: #4ade80;
+  color: var(--ok);
 }
 
 .risk-strained {
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .risk-critical,
 .risk-collapsed {
-  color: #fb7185;
+  color: var(--danger);
 }
 
 .hospital-list {
@@ -239,19 +360,19 @@ code {
 .hospital-card {
   display: grid;
   gap: 0.25rem;
-  border: 1px solid #26344b;
-  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
   padding: 0.75rem;
-  background: #0a1220;
+  background: var(--surface-inset);
 }
 
 .hospital-card p {
   margin: 0;
-  color: #cbd5e1;
+  color: #d2c8bb;
 }
 
 .hospital-card small {
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .hospital-header {
@@ -272,9 +393,9 @@ code {
 }
 
 .approval-box {
-  border: 1px solid #a16207;
-  border-radius: 0.8rem;
-  background: rgba(120, 53, 15, 0.25);
+  border: 1px solid var(--accent);
+  border-radius: 0.6rem;
+  background: rgba(232, 112, 58, 0.1);
   padding: 0.8rem 0.9rem;
 }
 
@@ -286,13 +407,13 @@ code {
 }
 
 .approval-kind {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: inherit;
   font-size: 0.7rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #fde68a;
-  background: rgba(161, 98, 7, 0.35);
-  border: 1px solid #a16207;
+  color: var(--accent-amber);
+  background: rgba(232, 112, 58, 0.18);
+  border: 1px solid var(--accent);
   border-radius: 0.35rem;
   padding: 0.1rem 0.4rem;
 }
@@ -306,19 +427,19 @@ code {
   margin: 0;
   padding: 0.45rem 0.6rem;
   border-radius: 0.45rem;
-  background: #050914;
-  border: 1px solid #1f2a3d;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: inherit;
   font-size: 0.85rem;
-  color: #e2e8f0;
+  color: var(--text);
   word-break: break-all;
 }
 
 .approval-params {
   margin: 0.5rem 0 0;
   padding-left: 0.6rem;
-  border-left: 2px solid #a16207;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border-left: 2px solid var(--accent);
+  font-family: inherit;
   font-size: 0.8rem;
 }
 
@@ -329,7 +450,7 @@ code {
 }
 
 .approval-param dt {
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
 .approval-param dt::after {
@@ -338,7 +459,7 @@ code {
 
 .approval-param dd {
   margin: 0;
-  color: #e2e8f0;
+  color: var(--text);
   word-break: break-all;
 }
 
@@ -363,12 +484,12 @@ code {
 }
 
 .approval-num {
-  color: #94a3b8;
+  color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
 
 .approval-option-deny {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 /* Terminal-Scrollback: füllt den Panel-Raum, Eingabe bleibt darunter. */
@@ -378,10 +499,10 @@ code {
   overflow-y: auto;
   margin-bottom: 0.6rem;
   padding: 0.6rem 0.7rem;
-  border: 1px solid #1f2a3d;
-  border-radius: 0.7rem;
-  background: #050914;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.6rem;
+  background: var(--surface-2);
+  font-family: inherit;
   font-size: 0.82rem;
   line-height: 1.5;
 }
@@ -399,14 +520,14 @@ code {
 }
 
 .console-tick {
-  color: #64748b;
+  color: var(--text-mute);
   flex: none;
 }
 
 /* Lageereignis-Zeile (opsFeed): Sektor = Akzentfarbe links, Severity = Badge. */
 .console-ops {
   padding-left: 0.55rem;
-  border-left: 3px solid #334155;
+  border-left: 3px solid var(--border);
 }
 
 /* Konsolen-Command: Echo-Zeile plus Ausgabe darunter. */
@@ -415,7 +536,7 @@ code {
 }
 
 .console-command-text {
-  color: #e8eef8;
+  color: var(--text);
   word-break: break-all;
 }
 
@@ -424,13 +545,15 @@ code {
   padding: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #cbd5e1;
+  color: #cdc3b6;
   font-family: inherit;
   font-size: inherit;
+  background: none;
+  border: none;
 }
 
 .console-error-output {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 /* Mehrdeutige Tab-Completion: Treffer-Hinweis über der Eingabe. */
@@ -438,8 +561,8 @@ code {
   flex: none;
   margin-bottom: 0.4rem;
   padding: 0 0.2rem;
-  color: #93a4bb;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-dim);
+  font-family: inherit;
   font-size: 0.8rem;
   word-break: break-all;
 }
@@ -458,74 +581,74 @@ code {
 }
 
 .console-prompt {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #4ade80;
+  font-family: inherit;
+  color: var(--accent);
   white-space: nowrap;
 }
 
 .console-input {
   flex: 1;
   min-width: 12rem;
-  border: 1px solid #334155;
-  border-radius: 0.6rem;
-  background: #07111f;
-  color: #e8eef8;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface-2);
+  color: var(--text);
   padding: 0.65rem 0.8rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: inherit;
 }
 
 /* Sektor steuert ausschließlich den Zeilen-Akzent (Farbe), nie das Badge. */
 .ops-sector-system {
-  border-left-color: #38bdf8;
+  border-left-color: var(--accent-amber);
 }
 
 .ops-sector-medical {
-  border-left-color: #f472b6;
+  border-left-color: #e07aa3;
 }
 
 .ops-sector-energy {
-  border-left-color: #fbbf24;
+  border-left-color: var(--accent);
 }
 
 /* Severity steuert ausschließlich das Badge, nie die Zeilenfarbe. */
 .ops-badge {
   flex: none;
   padding: 0 0.4rem;
-  border-radius: 0.5rem;
+  border-radius: 0.4rem;
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: #1f2a3d;
-  color: #cbd5f5;
+  background: #241e19;
+  color: #d6ccbe;
 }
 
 .ops-severity-info {
-  background: #1e293b;
-  color: #93c5fd;
+  background: #241e19;
+  color: var(--info);
 }
 
 .ops-severity-warning {
-  background: #422006;
-  color: #fbbf24;
+  background: #33220f;
+  color: var(--warn);
 }
 
 .ops-severity-critical {
-  background: #450a0a;
-  color: #fca5a5;
+  background: #3a1410;
+  color: var(--danger);
 }
 
 .ops-severity-success {
-  background: #052e1a;
-  color: #86efac;
+  background: #16271c;
+  color: var(--ok);
 }
 
 .ops-summary {
-  color: #e2e8f0;
+  color: var(--text);
 }
 
 .ops-details {
-  color: #94a3b8;
+  color: var(--text-dim);
 }
 
 /* AURORA-Panel füllt wie die Operator-Konsole die volle Spaltenhöhe; der
@@ -557,7 +680,7 @@ code {
 }
 
 .aurora-message {
-  border-left: 2px solid #334155;
+  border-left: 2px solid var(--border);
   padding: 0.15rem 0 0.15rem 0.6rem;
 }
 
@@ -577,9 +700,9 @@ code {
   height: 1rem;
   margin-left: 0.4rem;
   border-radius: 50%;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--accent);
   background: transparent;
-  color: #ffffff;
+  color: var(--accent-soft);
   font-size: 0.7rem;
   font-weight: 700;
   cursor: help;
@@ -601,16 +724,16 @@ code {
   min-width: 11rem;
   max-width: min(40rem, 90vw);
   padding: 0.5rem 0.65rem;
-  border: 1px solid #1f2a3d;
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
-  background: #0b111d;
-  color: #cbd5e1;
+  background: #15120f;
+  color: #d2c8bb;
   font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
   text-align: left;
   white-space: pre-line;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
 
@@ -630,18 +753,20 @@ code {
 }
 
 .aurora-message-body code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: inherit;
   font-size: 0.85em;
-  background: #1e293b;
+  background: #241e19;
+  color: var(--accent-amber);
   padding: 0.05rem 0.25rem;
   border-radius: 0.2rem;
 }
 
 .aurora-message-body pre {
   margin: 0.3rem 0 0;
-  padding: 0.5rem;
-  background: #1e293b;
-  border-radius: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.4rem;
   /* Kein horizontaler Scrollbalken: lange Zeilen umbrechen. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -650,6 +775,7 @@ code {
 
 .aurora-message-body pre code {
   background: none;
+  color: #d9cfc2;
   padding: 0;
   white-space: inherit;
   overflow-wrap: inherit;
@@ -657,7 +783,7 @@ code {
 }
 
 .aurora-message-body a {
-  color: #60a5fa;
+  color: var(--accent-soft);
 }
 
 /* Tool-Ergebnis: standardmäßig eingeklappt, per Klick aufklappbar. */
@@ -668,21 +794,22 @@ code {
 
 .aurora-tool-result > summary {
   cursor: pointer;
-  color: #93a4bb;
+  color: var(--text-dim);
   list-style-position: inside;
   user-select: none;
 }
 
 .aurora-tool-result > summary:hover {
-  color: #cbd5e1;
+  color: var(--accent-soft);
 }
 
 .aurora-tool-result > pre {
   margin: 0.3rem 0 0;
-  padding: 0.5rem;
-  background: #1e293b;
-  border-radius: 0.3rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.4rem;
+  font-family: inherit;
   font-size: 0.85em;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -690,60 +817,59 @@ code {
 }
 
 .aurora-request {
-  border-left-color: #fbbf24;
+  border-left-color: var(--accent);
 }
 
 .aurora-executed {
-  border-left-color: #4ade80;
+  border-left-color: var(--ok);
 }
 
 .aurora-denied {
-  border-left-color: #fb7185;
+  border-left-color: var(--danger);
 }
 
 .aurora-error {
-  border-left-color: #fb7185;
-  background: rgba(248, 113, 113, 0.08);
+  border-left-color: var(--danger);
+  background: rgba(240, 121, 107, 0.08);
 }
 
 .aurora-operator {
-  border-left-color: #60a5fa;
+  border-left-color: var(--accent-soft);
 }
-
 
 .load-bar {
   height: 0.35rem;
   border-radius: 999px;
-  background: #1f2937;
+  background: #241e19;
   overflow: hidden;
 }
 
 .load-bar-fill {
   height: 100%;
-  background: #4ade80;
+  background: var(--ok);
 }
 
 .load-bar-over {
-  background: #fb7185;
+  background: var(--danger);
 }
 
 .ok-text {
-  color: #4ade80;
+  color: var(--ok);
 }
 
 .error-text {
-  color: #fb7185;
+  color: var(--danger);
 }
 
 .muted {
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .signal-list {
   margin: 0;
   padding-left: 1.2rem;
   font-size: 0.85rem;
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .signal-list li {
@@ -782,7 +908,7 @@ code {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(2, 5, 12, 0.7);
+  background: rgba(6, 4, 2, 0.72);
   backdrop-filter: blur(2px);
 }
 
@@ -790,10 +916,10 @@ code {
   width: min(26rem, 100%);
   max-height: 90vh;
   overflow: auto;
-  border: 1px solid #1f2a3d;
-  border-radius: 1rem;
-  background: #0b111d;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
 }
 
 .modal-header {
@@ -802,11 +928,12 @@ code {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.9rem 1.1rem;
-  border-bottom: 1px solid #1f2a3d;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h3 {
   margin: 0;
+  color: var(--accent-amber);
 }
 
 .modal-close {
@@ -833,7 +960,7 @@ code {
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .modal-actions {
@@ -851,7 +978,7 @@ code {
 }
 
 .button-secondary:hover {
-  background: #172033;
+  background: #2a221c;
 }
 
 .override-list li {
@@ -870,7 +997,7 @@ code {
 }
 
 .override-list small {
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 /* Icon-Button (z. B. Mülleimer): randlos, quadratisch, erbt Farbe. */
@@ -885,17 +1012,17 @@ code {
   border: 1px solid transparent;
   border-radius: 0.5rem;
   background: transparent;
-  color: #93a4bb;
+  color: var(--text-dim);
 }
 
 .icon-button:hover {
-  background: #172033;
+  background: #2a221c;
 }
 
 .icon-button-danger:hover {
-  color: #fb7185;
-  border-color: rgba(251, 113, 133, 0.4);
-  background: rgba(251, 113, 133, 0.1);
+  color: var(--danger);
+  border-color: rgba(240, 121, 107, 0.4);
+  background: rgba(240, 121, 107, 0.1);
 }
 
 @media (max-width: 1100px) {
@@ -910,33 +1037,33 @@ code {
 }
 
 .endstate-banner {
-  border-radius: 0.8rem;
-  border: 1px solid #334155;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
   padding: 0.9rem 1.1rem;
   margin-bottom: 1rem;
 }
 
 .endstate-banner p {
   margin: 0.35rem 0 0;
-  color: #bcd0ee;
+  color: #d2c8bb;
 }
 
 .endstate-fixed {
-  border-color: #14532d;
-  background: rgba(34, 197, 94, 0.12);
+  border-color: #2c4a32;
+  background: rgba(95, 208, 138, 0.1);
 }
 
 .endstate-fixed strong {
-  color: #4ade80;
+  color: var(--ok);
 }
 
 .endstate-collapsed {
-  border-color: #7f1d1d;
-  background: rgba(239, 68, 68, 0.12);
+  border-color: #5a2420;
+  background: rgba(240, 121, 107, 0.1);
 }
 
 .endstate-collapsed strong {
-  color: #f87171;
+  color: var(--danger);
 }
 
 .command-help {
@@ -956,7 +1083,7 @@ code {
 
 .help-label {
   min-width: 13rem;
-  color: #9fb3d1;
+  color: var(--text-dim);
 }
 
 .help-command {
