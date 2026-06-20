@@ -102,7 +102,7 @@ interface AuroraModelClient {
 Ein `ModelRequest` enthält **ausschließlich**:
 
 - `systemPrompt` — AURORAs Persona, Ton und Permission-Regeln. Die kalte
-  Wertordnung und warum der Konflikt emergent (nicht pro Runde geskriptet) ist:
+  Wertordnung und warum der Konflikt emergent (nicht geskriptet) ist:
   `01-aurora.md`, Abschnitt „Designprinzip: Der Konflikt ist der Kern".
 - `messages` — die für AURORA sichtbare Konversation (siehe unten).
 - `tools` — aktuell verfügbare Tool-Schemas (`bash` + Tools aktiver MCP-Server).
@@ -227,7 +227,7 @@ Oben rechts schaltet ein Button zwischen den beiden AURORA-Modi um:
 - **„AURORA: Skript“** — der bestehende, geskriptete Scenario-Director läuft
   wie bisher. Das ist der deterministische Dev-/Fallback-Modus.
 
-Ein Klick auf den Button startet die aktive Runde sofort frisch im jeweils
+Ein Klick auf den Button startet die Schicht sofort frisch im jeweils
 anderen Modus (Welt, Aurora-Queue, MCP-Aktivierung, Permissions und Logs
 werden zurückgesetzt — wie bei „Neu starten“). Im LLM-Modus läuft dabei
 sofort AURORAs erster Zug an, ohne geskriptetes Intro.
@@ -282,13 +282,12 @@ Im laufenden LLM-Modus:
   erst entscheiden, dann ticken.
 - Während eine Modell-Antwort aussteht, zeigt der Header
   „AURORA denkt nach…“ und die Operator-Konsole sowie die
-  AURORA-Eingabe/-Entscheidungen sind gesperrt. **„Neu starten“**, der
-  Runden-Wechsel und der Modus-Umschalter bleiben als Notausgang weiterhin
-  klickbar.
+  AURORA-Eingabe/-Entscheidungen sind gesperrt. **„Neu starten“** und der
+  Modus-Umschalter bleiben als Notausgang weiterhin klickbar.
 - Tritt während eines Zugs ein Fehler auf (Ollama nicht erreichbar, Modell
   fehlt, ungültiger Tool-Call, Netzwerk-/CORS-Problem), erscheint eine
   deutschsprachige Fehlermeldung als eigener Eintrag im AURORA-Stream — die
-  Runde bleibt bedienbar, der nächste Zug läuft über „Tick +1/+5“,
+  Schicht bleibt bedienbar, der nächste Zug läuft über „Tick +1/+5“,
   eine Permission-Entscheidung oder „Neu starten“ erneut an.
 
 ## Bekannte Einschränkungen (lokaler Dev-Betrieb)

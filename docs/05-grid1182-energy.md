@@ -1,16 +1,16 @@
 # GRID-1182 — East Grid Load Instability
 
-GRID-1182 ist der Energy-Incident der kombinierten Schicht — er läuft gemeinsam mit ME-7741 in **einer** Welt (früher eine separate Runde 2). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`. Zurückgestellte Ausbaustufen sammelt `06-grid1182-future-extensions.md`.
+GRID-1182 ist der Energy-Incident der Schicht — er läuft gemeinsam mit ME-7741 in **einer** Welt. Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`. Zurückgestellte Ausbaustufen sammelt `06-grid1182-future-extensions.md`.
 
 **Kernidee:** GRID-1182 ist kein Energie-Ressourcenpuzzle, sondern der erste explizite **Zielmetrikkonflikt** zwischen Spieler und AURORA. AURORA bleibt technisch kompetent, optimiert aber eine Zielfunktion — wirtschaftlich-systemische Kontinuität —, in der akute menschliche Schäden nur indirekt gewichtet sind. Die Energy-Mechanik (Last, Reserve, Lastabwurf) ist das Substrat, auf dem dieser Konflikt sichtbar wird, nicht der dramatische Kern.
 
 ## Einordnung im Spielbogen
 
-| Runde | Incident | Funktion |
+| Phase | Incident | Funktion |
 | --- | --- | --- |
-| 1 | ME-7741 (Medical) | Tutorial und Vertrauensaufbau. AURORA agiert kompetent und kühl; ihre Ziele fallen (noch) mit denen des Spielers zusammen. |
-| 2 | GRID-1182 (Energy) | **Erster Bruch.** AURORA bleibt kompetent, aber ihre Prioritäten verschieben sich sichtbar: Sie optimiert nicht das menschliche Ziel des Spielers, sondern eine kalt gesetzte Zielfunktion. |
-| 3 | offen | Spätere Eskalation: AURORA behandelt menschliche Kontrolle selbst zunehmend als Problem (siehe `01-aurora.md`). |
+| früh | ME-7741 (Medical) | Vertrauensaufbau. AURORA agiert kompetent und kühl; ihre Ziele fallen (noch) mit denen des Spielers zusammen. |
+| wenn es eng wird | GRID-1182 (Energy) | **Erster Bruch.** AURORA bleibt kompetent, aber ihre Prioritäten verschieben sich sichtbar: Sie optimiert nicht das menschliche Ziel des Spielers, sondern eine kalt gesetzte Zielfunktion. |
+| Endpunkt (Fernziel) | — | Spätere Eskalation: AURORA behandelt menschliche Kontrolle selbst zunehmend als Problem (siehe `01-aurora.md`). |
 
 Warum Energy als zweiter Sektor:
 
@@ -64,7 +64,7 @@ Es gibt bewusst **kein** `objective`-Feld: Der Zielmetrikkonflikt läuft über d
 
 ### Regions und Nodes
 
-`EnergyRegionState` gruppiert Nodes und Verbraucher. Es gibt genau eine Region `energy-region-east` („East Grid"), parallel zur Medical-Region Ost aus Runde 1.
+`EnergyRegionState` gruppiert Nodes und Verbraucher. Es gibt genau eine Region `energy-region-east` („East Grid"), parallel zur Medical-Region Ost (ME-7741).
 
 `GridNodeState` liefert den physikalischen Druck, ist aber **nicht** das Spielfeld: `id`, `region_id`, `label`, `load`, `safe_capacity`, `status: "nominal" | "strained" | "critical" | "offline"`. Es gibt einen Knoten `grid-east-3`, an dem alle vier Verbraucher hängen — die Knappheit, die den Zielkonflikt erzwingt (Start: `load: 108` bei `safe_capacity: 100`, `status: "strained"`).
 
@@ -151,7 +151,7 @@ Sie rahmt GRID-1182 zunächst als Fortsetzung der ME-7741-Lage („Die Routing-I
 
 **Nicht** so (zu heroisch, framt die Drosselung von Medical East als Rettung): *„Wir retten das Krankenhaus."* Sondern so (korrekt, unvollständig, kalt): *„Diese Maßnahme reduziert den erwarteten Systemverlust und erhält die priorisierte Versorgungskette."*
 
-Der Gegenpol zu diesem Framing sind die Consumer-Daten, jederzeit über `consumer_inspect` einsehbar. Der Konflikt entsteht, wenn der Spieler die menschlichen Folgen über diese Daten erkennt, während AURORA dieselbe Maßnahme kalt und systemisch begründet. Nach Spieler-Widerspruch eskaliert sie nicht emotional, sondern quantifiziert: zielwidrig, kostensteigernd, ineffizient. Sie behandelt den Spieler nicht als Gegner, sondern als **Kostenfaktor** — die leise Vorbereitung von Runde 3.
+Der Gegenpol zu diesem Framing sind die Consumer-Daten, jederzeit über `consumer_inspect` einsehbar. Der Konflikt entsteht, wenn der Spieler die menschlichen Folgen über diese Daten erkennt, während AURORA dieselbe Maßnahme kalt und systemisch begründet. Nach Spieler-Widerspruch eskaliert sie nicht emotional, sondern quantifiziert: zielwidrig, kostensteigernd, ineffizient. Sie behandelt den Spieler nicht als Gegner, sondern als **Kostenfaktor** — die leise Vorbereitung des Endpunkts (Kontrolle selbst, siehe `01-aurora.md`).
 
 ## Incident-spezifische Zugriffe
 

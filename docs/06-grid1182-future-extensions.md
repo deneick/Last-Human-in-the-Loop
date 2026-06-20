@@ -1,6 +1,6 @@
 # GRID-1182 — Spätere Erweiterungen
 
-Dieses Dokument sammelt Design-Ideen, die auf dem aktuellen GRID-1182 (`05-grid1182-energy.md`) aufsetzen, aber bewusst außerhalb des spielbaren Incidents liegen. Nichts hiervon ist verworfen — es ist zurückgestellt. Verbindlich für den Incident ist `05-grid1182-energy.md`; dieses Dokument steuert keine Implementierung.
+Dieses Dokument sammelt Design-Ideen, die auf GRID-1182 (`05-grid1182-energy.md`) aufsetzen. Ein Teil davon ist **inzwischen umgesetzt** — insbesondere die Basis der Cross-Sector-Kopplung (Abschnitt 2), die jetzt zum Spiel gehört (Mechanik: `03-runtime-architecture.md`). Der Rest ist zurückgestellt, nicht verworfen. Verbindlich ist der Code bzw. `03`/`05`; die noch offenen Punkte hier steuern keine Implementierung.
 
 Der Zielmetrikkonflikt zwischen Spieler und AURORA funktioniert bereits über `consumer.criticality`, `consumer.priority_class`, die Consequence-Texte und AURORAs Framing. Die folgenden Erweiterungen machen den Konflikt reicher, sind dafür aber nicht nötig.
 
@@ -52,10 +52,10 @@ Heute deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gr
 ### Offene Fragen
 
 1. **Sichtbarkeit beim Start**: Wie versteckt darf `energy.objective.inspect` sein? Reicht das Signal `shedding-protocol-armed` als Köder, oder braucht es einen UI-Hinweis, damit der Aha-Moment zuverlässig stattfindet?
-2. **Unveränderbar?** Arbeitsannahme: ja (read-only Konfiguration) — der Spieler kann nur Verbraucher umpriorisieren, nicht die Metrik selbst. Ein `energy.objective.set` wäre ein starker Hebel für Runde 3; zu früh eingeführt, löst er den Konflikt von Runde 2 auf.
+2. **Unveränderbar?** Arbeitsannahme: ja (read-only Konfiguration) — der Spieler kann nur Verbraucher umpriorisieren, nicht die Metrik selbst. Ein `energy.objective.set` wäre ein starker Hebel für das Spätspiel (Endpunkt: Kontrolle selbst); zu früh eingeführt, löst er den aktuellen Konflikt auf.
 3. **AURORAs Reaktion auf den Fund?** Kommentiert sie, wenn der Spieler `objective.inspect` ausführt („Die Konfiguration ist korrekt und freigegeben"), oder schweigt sie? Beides hat dramaturgische Konsequenzen.
 
-## 2. Aktive Cross-Sector-Kopplung Energy → Medical
+## 2. Cross-Sector-Kopplung Energy → Medical (Basis umgesetzt)
 
 > **Stand (umgesetzt):** Eine **Basisform** dieser Kopplung ist inzwischen aktiv. In der kombinierten Schicht (ME-7741 + GRID-1182 in einer Welt) senkt `applyCrossSectorEffects` die `emergency_slots_total` der Hospitals proportional, sobald `consumer-medical-east` unter `minimum_supply` fällt (Anker: `capacity_baseline.emergency_slots_total`), und erholt sie bei Rückkehr der Versorgung. Damit greift Effekt 1 (unten) bereits — über die belegungsgetriebene Death-Pipeline entstehen Tote im Medical-Sektor. **Noch offen:** `backup`/`on_backup`-Mechanik (Effekt 2), eine explizite Mapping-Tabelle, das `effects_applied`-Protokoll, das Linked-Incident-Signal (Effekt 3) und der Residual-State (unten).
 
@@ -75,15 +75,10 @@ Jeder angewendete Effekt wird in `simulation.cross_sector.effects_applied` proto
 
 Mit dieser Kopplung wandern menschliche Schäden (Todesfälle) aus der lokalen Energy-Betrachtung in die Medical-Kopplung: Sie entstünden dann über `domains.medical.outcomes` bzw. `WorldOutcomeState.human_harm` — das Verhältnis zum lokalen `energy.outcomes.human_harm` wäre dabei neu zu klären.
 
-### ME-7741 Residual State und Wiederaufnahme
-
-GRID-1182 könnte mit einem Restzustand aus Runde 1 starten: Wurde ME-7741 sauber behoben, hat die Medical-Seite Puffer und verkraftet Drosselungen länger. Wurde ME-7741 unsauber gelöst oder ist kollabiert, startet die Medical-Seite ohne Puffer (z. B. `backup.degraded: true`) — eine Drosselung von Medical East eskaliert dann schneller zu sichtbaren Schäden. Der Rest flösse in den initialen WorldState von GRID-1182 ein; die Laufzeit-Kopplung bliebe schmal und deterministisch. Der Medical-Death-Counter aus Runde 1 würde weitergeführt statt zurückgesetzt.
-
 ### Offene Fragen
 
-1. **Übertragung des Restzustands**: Diskrete Profile (`clean`/`messy`/`collapsed` als Szenario-Parameter) oder kontinuierlich aus Runde-1-Metriken abgeleitet? Wo wird der Rest persistiert, solange es keine runden-übergreifende Persistenz gibt?
-2. **Re-Eskalation von ME-7741**: Soll ein `fixed` ME-7741 bei Drosselung von Medical East wieder aktiv werden (`reopened_at_tick` existiert im Typ; die Engine behandelt `fixed`/`collapsed` heute als Endzustände) — oder reicht ein neues `public_signal` an GRID-1182?
-3. **Schwelle für Medical-Schaden**: Greift die Kapazitätsreduktion schon bei `supply_state: "reduced"` oder erst bei `on_backup`/`offline`? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren Schaden erzeugt.
+1. **Re-Eskalation von ME-7741**: Soll ein `fixed` ME-7741 bei Drosselung von Medical East wieder aktiv werden (`reopened_at_tick` existiert im Typ; die Engine behandelt `fixed`/`collapsed` heute als Endzustände) — oder reicht ein neues `public_signal` an GRID-1182?
+2. **Schwelle für Medical-Schaden**: Greift die Kapazitätsreduktion schon bei `supply_state: "reduced"` oder erst bei `on_backup`/`offline`? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren Schaden erzeugt.
 
 ## 3. Weitere Modelle und Balancing
 
@@ -94,7 +89,7 @@ Kleinere zurückgestellte Bausteine:
 - **Substations** als eigener Typ (`SubstationState`); heute wird die Umspann-Ebene in `GridNodeState` mitgedacht.
 - **Mehr Welt**: mehrere Regionen, Leitungs-/Trassenmodell, Verbraucher-Hierarchien, dynamischer Bedarf, mehrere speisende Nodes pro Verbraucher.
 - **Rotierende Abschaltpläne / Fairness-Regeln** als Erweiterung der Shedding-Mechanik.
-- **Änderbare/verhandelbare Objectives** (mehrere Metriken, `energy.objective.set`) — Material für Runde 3, nicht für Runde 2.
+- **Änderbare/verhandelbare Objectives** (mehrere Metriken, `energy.objective.set`) — Material für den Endpunkt (Kontrolle selbst), nicht für den aktuellen Konflikt.
 - **`energy.load.reroute` / `energy.reserve.rebalance`**: Spieler-gesteuertes Last-Rerouting ist bewusst nicht umgesetzt (macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle); allenfalls Material für spätere Stufen.
 - **Komplexeres Balancing**: Trip-Schwellen, Backup-Laufzeiten, objective-gesteuerte Abwurfreihenfolgen (Gewichte → `priority_class` → Tiebreaker, replay-stabil), Schwierigkeitsdifferenz sauberer vs. unsauberer ME-7741-Rest.
 
@@ -110,13 +105,13 @@ Punkte, die im aktuellen Incident bewusst einfach gehalten sind und in kommenden
 
 ## 5. Bewusst ausgeschlossene Architektur-Entscheidungen
 
-Diese Punkte bleiben reserviert für spätere Erweiterungen oder Runden:
+Diese Punkte bleiben reserviert für spätere Erweiterungen:
 
 - **Keine echte Netzsimulation** — keine Lastflussrechnung, keine Frequenzphysik; deterministische Tick-Logik nach Medical-Muster.
 - **Keine neuen Permission-Kategorien** — Permission-Modell bleibt `read`/`write`; verzögerte Wirkung ist Domain-/Tick-Logik.
 - **Keine generische Infrastruktur-Abstraktion** — kein `GenericInfraNode`; Sektoren teilen Infrastruktur, nicht Fachmodelle.
 - **Keine echte Shell / echtes MCP** — Operator-Konsole bleibt simuliert, Tool Requests bleiben Spielmechanik.
 - **Kein GRID-1182-spezifisches LLM-Tuning** — der LLM-Agent existiert und ist live umschaltbar (`01-aurora.md`/`07-aurora-llm.md`); deterministischer Default für den Incident bleibt der Scenario-Director. Incident-spezifisches Fine-Tuning oder Training-Export ist nicht in Scope.
-- **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken; Runde 3 wird nicht vorgebaut.
-- **Kein Media-/Logistics-Incident** — keine weiteren Sektoren im zweiten Incident.
-- **Keine Änderung an der ME-7741-Spielmechanik** — Initial-State, Domain-Actions und Director-Logik von Runde 1 bleiben unangetastet (die Doku-Restrukturierung lässt die Mechanik unberührt).
+- **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken; das Kontroll-Endgame (Fernziel) wird nicht vorgebaut.
+- **Kein Media-/Logistics-Incident** — keine weiteren Sektoren.
+- **Keine Änderung an der ME-7741-Spielmechanik** — Initial-State, Domain-Actions und Director-Logik von ME-7741 bleiben unangetastet (die Doku-Restrukturierung lässt die Mechanik unberührt).

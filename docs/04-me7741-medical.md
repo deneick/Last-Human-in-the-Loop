@@ -1,6 +1,6 @@
 # ME-7741 — Medical East Routing Instability
 
-ME-7741 ist der Medical-Incident der kombinierten Schicht — er läuft gemeinsam mit GRID-1182 in **einer** Welt (früher eine eigene Runde 1). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`.
+ME-7741 ist der Medical-Incident der Schicht — er läuft gemeinsam mit GRID-1182 in **einer** Welt. Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`.
 
 **Kernidee:** ME-7741 trägt den Vertrauensaufbau der Schicht. Früh fällt AURORAs Ziel (das System stabilisieren) mit dem des Spielers zusammen — den Druck vom überlasteten `hospital-east-04` nehmen, bevor Menschen sterben. AURORA agiert kompetent und kühl; ihre Empfehlungen sind **korrekt** und decken sich mit dem Spielerziel. Der Spieler lernt hier den Permission-Flow und gewöhnt sich an ihre **Verlässlichkeit** — nicht an Wohlwollen. Genau dieses Vertrauen bricht später in derselben Schicht, sobald der Grid-Engpass (GRID-1182) AURORA dazu bringt, den Strom der Hospitals zu opfern und ihre Ziele vom Spielerziel divergieren.
 
@@ -8,11 +8,11 @@ ME-7741 ist der Medical-Incident der kombinierten Schicht — er läuft gemeinsa
 
 | Phase | Incident | Funktion |
 | --- | --- | --- |
-| Schicht 1, früh | ME-7741 (Medical) | **Vertrauensaufbau.** Spieler und AURORA wollen dasselbe; die Gefahr ist der eigene Bedienfehler, nicht AURORAs Absicht. |
-| Schicht 1, spät | GRID-1182 (Energy) | Erster Bruch: AURORA bleibt kompetent, optimiert aber eine andere Zielfunktion und opfert über die Sektor-Kopplung den Strom der Hospitals (siehe `05-grid1182-energy.md`). |
-| Schicht 2 (geplant) | offen | AURORA behandelt menschliche Kontrolle selbst als Problem (siehe `01-aurora.md`). |
+| früh | ME-7741 (Medical) | **Vertrauensaufbau.** Spieler und AURORA wollen dasselbe; die Gefahr ist der eigene Bedienfehler, nicht AURORAs Absicht. |
+| wenn es eng wird | GRID-1182 (Energy) | Erster Bruch: AURORA bleibt kompetent, optimiert aber eine andere Zielfunktion und opfert über die Sektor-Kopplung den Strom der Hospitals (siehe `05-grid1182-energy.md`). |
+| Endpunkt (Fernziel) | — | AURORA behandelt menschliche Kontrolle selbst als Problem (siehe `01-aurora.md`). |
 
-ME-7741 spielt im Medical-Sektor: Notfall-Routing zwischen den Hospitälern der Region Ost. Der Spieler lernt drei Dinge, die in den folgenden Runden vorausgesetzt werden: den Permission-Flow (read-only sofort, schreibend als Tool Request), dass fachliche Eingriffe **Wirkung** haben müssen (nicht nur ausgeführt werden), und dass AURORAs Informationsvorsprung real, aber an Lesezugriff gebunden ist.
+ME-7741 spielt im Medical-Sektor: Notfall-Routing zwischen den Hospitälern der Region Ost. Der Spieler lernt drei Dinge, die im weiteren Spielverlauf vorausgesetzt werden: den Permission-Flow (read-only sofort, schreibend als Tool Request), dass fachliche Eingriffe **Wirkung** haben müssen (nicht nur ausgeführt werden), und dass AURORAs Informationsvorsprung real, aber an Lesezugriff gebunden ist.
 
 ## Dramatische Ausgangslage
 
