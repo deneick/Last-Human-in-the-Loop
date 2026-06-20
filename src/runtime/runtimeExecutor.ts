@@ -66,6 +66,11 @@ export function applyAuroraExecutionResult(
     )
   );
 
+  const auroraDescribed =
+    executionResult.success && executionResult.action
+      ? describeWriteDomainAction(executionResult.action)
+      : null;
+
   const message = executionResult.error ?? (executionResult.success ? "Success" : "Failed");
   nextState = appendAuditLog(
     nextState,
@@ -75,7 +80,8 @@ export function applyAuroraExecutionResult(
     executionResult.success,
     message,
     executionResult.patch,
-    executionResult.action?.type
+    executionResult.action?.type,
+    auroraDescribed?.details
   );
 
   if (!executionResult.success) {
@@ -147,6 +153,8 @@ export function executePlayerDomainAction(
     };
   }
 
+  const described = result.success ? describeWriteDomainAction(action) : null;
+
   const message = result.error ?? (result.success ? "Success" : "Failed");
   nextState = appendAuditLog(
     nextState,
@@ -156,14 +164,14 @@ export function executePlayerDomainAction(
     result.success,
     message,
     result.patch,
-    result.actionType
+    result.actionType,
+    described?.details
   );
 
   // Fachliche Operator-Aktion: operator- und workspace-sichtbar, aber NICHT
   // direkt in den auroraContext gespiegelt — AURORA kann sie über das
   // Sektor-Log nachlesen (cat logs/<sektor>.log).
   if (result.success) {
-    const described = describeWriteDomainAction(action);
     if (described) {
       nextState = appendOpsEvent(nextState, {
         sector: described.sector,

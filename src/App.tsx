@@ -24,6 +24,7 @@ import {
 import { advanceTick } from "./runtime/tickEngine";
 import { clockTimeOfDay, tickToClock } from "./runtime/scenarioClock";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
+import { buildDebriefView, recordDebriefSnapshot } from "./runtime/debrief";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
 import {
   describeAuroraRequest,
@@ -39,6 +40,7 @@ import { advanceGrid1182Director } from "./scenarios/grid1182/scenarioDirector";
 import { createDefaultAuroraModelClient, runAuroraAgentStep, type AuroraModelClient } from "./aurora";
 
 import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
+import { DebriefPanel } from "./ui/DebriefPanel";
 import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
 import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
 import {
@@ -365,6 +367,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
   const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
+  const debriefView = incidentView?.isFinal ? buildDebriefView(runtimeState) : null;
 
   // Tab-Completion-Daten der Operator-Konsole: bekannte MCP-Server-IDs und
   // die Workspace-Dateipfade (dieselbe Sicht, die `cat`/`ls` lesen).
@@ -702,7 +705,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
       let next = runtimeState;
       for (let i = 0; i < count; i += 1) {
-        next = evaluateOutcomes(advanceTick(next));
+        next = recordDebriefSnapshot(evaluateOutcomes(advanceTick(next)));
         if (isIncidentFinal(next)) {
           break;
         }
@@ -742,7 +745,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         // Jeder Tick wertet direkt die Konsequenzen aus, damit Eskalation,
         // Schäden und Incident-Statuswechsel sofort sichtbar werden.
         // Der Scenario-Director reagiert pro Tick auf den neuen Zustand.
-        next = advanceScenario(evaluateOutcomes(advanceTick(next)));
+        next = advanceScenario(recordDebriefSnapshot(evaluateOutcomes(advanceTick(next))));
         if (isIncidentFinal(next)) {
           break;
         }
@@ -917,6 +920,8 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           )}
         </section>
       )}
+
+      {debriefView && <DebriefPanel debrief={debriefView} />}
 
       <section className="layout-grid">
         <aside className="panel">

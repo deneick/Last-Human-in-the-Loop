@@ -1040,3 +1040,130 @@ code {
   padding: 0.3rem 0.55rem;
   text-align: left;
 }
+
+/* --- Schicht-Aufarbeitung (Debrief) ----------------------------------- */
+.debrief {
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.debrief-fixed {
+  border-color: #2c4a32;
+}
+
+.debrief-collapsed {
+  border-color: #5a2420;
+}
+
+.debrief-header h2 {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 1.15rem;
+}
+
+.debrief-outcome-fixed {
+  color: var(--ok);
+}
+
+.debrief-outcome-collapsed {
+  color: var(--danger);
+}
+
+.debrief-summary {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  color: var(--text-dim);
+}
+
+.debrief-timeline,
+.debrief-attribution {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.7rem;
+}
+
+.debrief-empty {
+  color: var(--text-mute);
+  margin: 0.3rem 0 0;
+}
+
+.debrief-ticks {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.debrief-tick {
+  border-left: 2px solid var(--border);
+  padding-left: 0.8rem;
+}
+
+.debrief-tick-clock {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-mute);
+  margin-bottom: 0.3rem;
+}
+
+.debrief-actions,
+.debrief-effects,
+.debrief-attribution ul {
+  list-style: none;
+  margin: 0.15rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.debrief-action-label {
+  color: var(--accent);
+}
+
+.debrief-actor {
+  margin-right: 0.5rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Operator = Mensch (neutral-hell), AURORA = System (Akzent-Orange). */
+.debrief-action-operator .debrief-actor {
+  color: var(--text);
+}
+
+.debrief-action-aurora .debrief-actor {
+  color: var(--accent);
+}
+
+.debrief-action-detail {
+  display: block;
+  color: var(--warn);
+  font-size: 0.85rem;
+}
+
+.debrief-effect {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding-left: 0.2rem;
+}
+
+.debrief-effect-critical {
+  color: var(--danger);
+}
+
+.debrief-effect-warning {
+  color: var(--warn);
+}
+
+.debrief-effect-success {
+  color: var(--ok);
+}
