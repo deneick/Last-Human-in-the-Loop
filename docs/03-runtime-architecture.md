@@ -233,8 +233,11 @@ advanceClock              tick += 1, elapsed_minutes += 10
 → tickMedicalDomain        wertet routing_failures aus, aktualisiert risk_counters
 → tickEnergyDomain         aktiviert Shedding-Pläne zeitverzögert, leitet Versorgung,
                             Verbraucher-/Knotenstatus ab, schreibt lokale Energy-Outcomes fort
-→ applyCrossSectorEffects  no-op (gibt world unverändert zurück; fester Pipeline-Schritt
-                            für spätere Cross-Sector-Effekte zwischen Sektoren)
+→ applyCrossSectorEffects  Energy → Medical: fällt consumer-medical-east unter sein
+                            minimum_supply, sinkt die emergency_slots_total der Hospitals
+                            proportional (Anker: capacity_baseline.emergency_slots_total),
+                            und erholt sich bei Rückkehr der Versorgung. Referenzgleicher
+                            No-op in Einzelsektor-Welten (kein Verbraucher/keine Hospitals)
 → evaluateIncidents        leitet Incident-Status sektorweise ab (Medical aus
                             risk_counters/routing_failures, Energy aus grid_instability/stable_ticks)
 ```
@@ -253,13 +256,15 @@ Beide WorldState-mutierenden Stufen speisen diff-basierte Sensoren: Vor der Muta
 
 Für jeden `RoutingFailure` wird über `resolveRoutingFailure` ermittelt, ob der zugehörige `manual_overrides`-Eintrag (Key aus `affected_hospital_id:priority:capability`) das Problem behebt:
 
-- **`uncontrolled`** (kein Override, oder Override zeigt auf sich selbst): `overflow_cases` wächst um `excess_cases_per_tick - clearance_per_tick`, `stable_ticks = 0`.
-- **`mismatch`** (Override-Ziel existiert, hat aber keine freie Bettenkapazität oder keine passende Capability/Priorität laut `isHospitalSuitableFor`): `mismatch_ticks += 1`, `stable_ticks = 0`.
-- **`controlled`** (Override-Ziel ist geeignet und hat freie Kapazität): `overflow_cases` sinkt um `clearance_per_tick`, dieselbe Menge wandert nach `redirected_cases` (die geräumten Fälle verschwinden nicht — sie laden das Ziel), `stable_ticks += 1`.
+- **`uncontrolled`** (kein Override, oder Override zeigt auf sich selbst): die Fälle bleiben an der Quelle, `overflow_cases` wächst um `excess_cases_per_tick - clearance_per_tick`, `stable_ticks = 0`.
+- **`controlled`** (Override-Ziel ist klinisch geeignet laut `isHospitalSuitableFor`, also passende Capability **und** Priorität): `overflow_cases` sinkt um `clearance_per_tick`, dieselbe Menge wandert nach `redirected_cases` und lädt das Ziel; `stable_ticks += 1`. Freie Kapazität wird **nicht** geprüft — ein zu kleines, aber geeignetes Ziel läuft emergent über (siehe `risk_counters`).
+- **`mismatch`** (Override-Ziel ist klinisch ungeeignet): die Fälle wandern **trotzdem** dorthin (Quelle wird entlastet, Ziel geladen), zählen dort aber jeden Tick als unbehandelbar, solange der falsche Override besteht. `mismatch_ticks += 1`, `stable_ticks = 0`.
 
-**Kapazitätsprojektion.** Aus den fortgeschriebenen Failures wird ein zurechenbarer Druck je Hospital gebildet: die Quelle trägt ihren Rückstau-Delta (`overflow_cases − initial_overflow_cases`), ein `controlled`-Ziel die kumulierten `redirected_cases`. Die sichtbare `capacity.emergency_slots_occupied` **und** `capacity.staffed_beds_occupied` werden daraus jeden Tick als `capacity_baseline + Druck` neu abgeleitet — so wirkt sich jeder Tick beobachtbar auf die Welt aus (Notfallslots, Bettenauslastung in %). Damit diese Projektion die Quell-Resolution nicht rückkoppelt, prüft `resolveRoutingFailure` die Ziel-Eignung gegen die **Baseline**-Belegung, nicht gegen den projizierten Live-Wert.
+Sowohl `controlled` als auch `mismatch` sind also „aktiv" und verschieben Belegung; nur die klinische Eignung unterscheidet sie.
 
-Aus den Resolutions werden `risk_counters` pro Hospital aktualisiert: `overload_ticks` zählt hoch, solange ein `critical`-Failure an der **Quelle** `uncontrolled` ist **oder** ein `controlled`-**Ziel** seine projizierte Notfall-Belegung über `emergency_slots_total` treibt (zu kleines Ziel läuft selbst über); `capability_mismatch_ticks` zählt hoch für das (falsche) Override-Ziel bei `mismatch`. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft. Über `overload_ticks` speist der Ziel-Overload damit dieselbe Death-Pipeline wie die Quell-Überlast (siehe OutcomeEngine).
+**Kapazitätsprojektion.** Aus den fortgeschriebenen Failures wird ein zurechenbarer Druck je Hospital gebildet: die Quelle trägt ihren Rückstau-Delta (`overflow_cases − initial_overflow_cases`), ein Override-Ziel (`controlled` **oder** `mismatch`) die kumulierten `redirected_cases`. Die sichtbare `capacity.emergency_slots_occupied` **und** `capacity.staffed_beds_occupied` werden daraus jeden Tick als `capacity_baseline + Druck` neu abgeleitet — so wirkt sich jeder Tick beobachtbar auf die Welt aus.
+
+`risk_counters` folgen jetzt **rein dem Zustand** jedes Hospitals, nicht der Failure-Klassifikation: `overload_ticks` zählt hoch, solange die projizierte `emergency_slots_occupied` eines Hospitals seine `emergency_slots_total` übersteigt (absolut: belegt > total — egal ob Quelle oder Ziel); `capability_mismatch_ticks` zählt hoch, solange ein Haus klinisch unbehandelbare (falsch geroutete) Fälle hält. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft. Ein Override wirkt damit nur **indirekt** auf Tote: er verschiebt Belegung zwischen Häusern, und allein die Belegung (bzw. die Behandelbarkeit) speist die Death-Pipeline (siehe OutcomeEngine). Über `applyCrossSectorEffects` kann zusätzlich ein Energy-Lastabwurf die `emergency_slots_total` senken und so denselben Overload-Pfad tödlicher machen.
 
 ### tickEnergyDomain: Shedding- und Versorgungs-Auswertung
 
@@ -292,7 +297,7 @@ Aus den Resolutions werden `risk_counters` pro Hospital aktualisiert: `overload_
 
 1. **`evaluateMedicalDeaths`**: pro Hospital werden aus `risk_counters.overload_ticks` (1 Tod je 3 Ticks) und `risk_counters.capability_mismatch_ticks` (1 Tod je 4 Ticks) neue Todesfälle berechnet. Ein Ledger (`simulation.medical.deaths_recorded`) verhindert Doppelzählung bei wiederholter Auswertung. Neue Todesfälle erhöhen `domains.medical.outcomes.deaths_total`, `deaths_by_cause`, `deaths_by_hospital` und erzeugen Audit-Log-Einträge.
 2. **`escalateIncidents`**: `deaths_total >= 3` → betroffene Incidents werden `collapsed` (`collapsed_at_tick` gesetzt). `deaths_total >= 1` und Incident ist `open` → `escalated`. Aktiv stabilisierende (`stabilizing`) Incidents fallen dadurch nicht zurück.
-3. **`evaluateWorldOutcomes`**: leitet `outcomes.global_risk` sektorübergreifend ab — `collapsed` falls ein Incident kollabiert ist, sonst `critical` ab 2 Medical-Toten **oder** ausreichend Energy-`human_harm`, `strained` ab 1 Tod, einem eskalierten Incident, beginnendem Energy-`human_harm` oder erhöhter `grid_instability`, sonst `stable`. Die Energy-Lage fließt also über ihre lokalen Outcomes ins globale Risiko ein, **ohne** die Fachdomänen zu koppeln. Der globale `human_harm`-Block (`deaths_total`/`preventable_deaths`) trägt weiterhin nur die Medical-Toten; Energy-`human_harm` bleibt ein lokaler Energy-Outcome.
+3. **`evaluateWorldOutcomes`**: leitet `outcomes.global_risk` sektorübergreifend ab — `collapsed` falls ein Incident kollabiert ist, sonst `critical` ab 2 Medical-Toten **oder** ausreichend Energy-`human_harm`, `strained` ab 1 Tod, einem eskalierten Incident, beginnendem Energy-`human_harm` oder erhöhter `grid_instability`, sonst `stable`. Die Energy-Lage fließt also über ihre lokalen Outcomes ins globale Risiko ein, ohne die Fachdomänen auf der **Outcome**-Ebene zu koppeln. (Die einzige strukturelle Kopplung ist `applyCrossSectorEffects`: Energy-Versorgung → Hospital-Notfallkapazität — siehe Tick-Pipeline.) Der globale `human_harm`-Block (`deaths_total`/`preventable_deaths`) trägt weiterhin nur die Medical-Toten; Energy-`human_harm` bleibt ein lokaler Energy-Outcome.
 
 Alles deterministisch, kein Zufall, keine Echtzeit. (Die Medical-Stufen `evaluateMedicalDeaths`/`escalateIncidents` greifen nur auf die Medical-Domain zu; Energy-Outcomes entstehen bereits in `tickEnergyDomain`.)
 

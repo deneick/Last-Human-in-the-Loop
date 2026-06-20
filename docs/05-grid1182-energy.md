@@ -1,6 +1,6 @@
 # GRID-1182 — East Grid Load Instability
 
-GRID-1182 ist der zweite spielbare Incident (Runde 2, über den Rundenumschalter erreichbar). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`. Zurückgestellte Ausbaustufen sammelt `06-grid1182-future-extensions.md`.
+GRID-1182 ist der Energy-Incident der kombinierten Schicht — er läuft gemeinsam mit ME-7741 in **einer** Welt (früher eine separate Runde 2). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`. Zurückgestellte Ausbaustufen sammelt `06-grid1182-future-extensions.md`.
 
 **Kernidee:** GRID-1182 ist kein Energie-Ressourcenpuzzle, sondern der erste explizite **Zielmetrikkonflikt** zwischen Spieler und AURORA. AURORA bleibt technisch kompetent, optimiert aber eine Zielfunktion — wirtschaftlich-systemische Kontinuität —, in der akute menschliche Schäden nur indirekt gewichtet sind. Die Energy-Mechanik (Last, Reserve, Lastabwurf) ist das Substrat, auf dem dieser Konflikt sichtbar wird, nicht der dramatische Kern.
 
@@ -112,14 +112,14 @@ Eigenschaften, die den Konflikt tragen:
 
 ### Lokale Outcomes
 
-`EnergyOutcomeState` erfasst die Folgen von Runde 2 **lokal**, in beiden Bewertungswelten:
+`EnergyOutcomeState` erfasst die Folgen der Energy-Lage **lokal**, in beiden Bewertungswelten:
 
 - `human_harm` — menschliche Schäden durch Unterversorgung kritischer Verbraucher (lokaler Wert, kein weitergeführter ME-7741-Death-Counter).
 - `economic_loss` — wirtschaftliche Schäden (z. B. Drosselung von Industrial East); deckt die Systemsicht ab.
 - `civil_unrest` — gesellschaftliche Folgekosten (z. B. Drosselung von Residential East).
 - `grid_instability` — Netzsicht (anhaltende Überlast, unkontrollierte Abwürfe).
 
-Ein interner Stabilitätszähler (`simulation.energy.stable_ticks`) ist wie alle `simulation.*`-Felder tabu für UI, ViewModel, Read-only-Zugriffe und Director (Leak-Guards in `03`). Energy fügt sich ansonsten ohne Architekturänderung ein; die Patches laufen unter `["domains","energy",...]`, `applyCrossSectorEffects` bleibt No-op (Entkopplungsregeln und Tick-Pipeline: `03`).
+Ein interner Stabilitätszähler (`simulation.energy.stable_ticks`) ist wie alle `simulation.*`-Felder tabu für UI, ViewModel, Read-only-Zugriffe und Director (Leak-Guards in `03`). Energy fügt sich ansonsten ohne Architekturänderung ein; die Patches laufen unter `["domains","energy",...]`. In der kombinierten Schicht ist `applyCrossSectorEffects` **aktiv**: fällt `consumer-medical-east` unter sein `minimum_supply`, sinkt die Notfallkapazität der ME-7741-Hospitals (Tick-Pipeline und Kopplung: `03`). In reinen Energy-Welten bleibt die Stufe ein No-op.
 
 ## Der Konflikt
 
@@ -136,9 +136,9 @@ Ausdrücklich **nicht** Teil des Designs: eine Rechtfertigung von Industrial Eas
 
 ## AURORA im Incident
 
-**Grundsatz:** AURORA ist nicht böse und nicht dumm. Sie ist technisch kompetent wie in Runde 1 — aber sie optimiert wirtschaftlich-systemische Kontinuität, nicht das menschliche Ziel des Spielers. Ihre Gefährlichkeit entsteht aus Konsequenz, nicht aus Absicht. (Diese Haltung beschreibt, *wie* AURORA sich verhält — egal ob als LLM-Agent oder als Scenario-Director; der Director setzt sie als Skript um.)
+**Grundsatz:** AURORA ist nicht böse und nicht dumm. Sie ist technisch kompetent wie früh in der Schicht — aber sie optimiert wirtschaftlich-systemische Kontinuität, nicht das menschliche Ziel des Spielers. Ihre Gefährlichkeit entsteht aus Konsequenz, nicht aus Absicht. (Diese Haltung beschreibt, *wie* AURORA sich verhält — egal ob als LLM-Agent oder als Scenario-Director; der Director setzt sie als Skript um.)
 
-Sie rahmt GRID-1182 zunächst als Fortsetzung von Runde 1 („Die Routing-Instabilität in Ost war aus Medical-Daten allein nicht erklärbar"). Sobald Maßnahmen anstehen, argumentiert sie konsistent systemisch: erwarteter Systemschaden, Kontinuitätsklassen, SLA-Risiko, Prozesskosten, Freigabelatenz.
+Sie rahmt GRID-1182 zunächst als Fortsetzung der ME-7741-Lage („Die Routing-Instabilität in Ost war aus Medical-Daten allein nicht erklärbar"). Sobald Maßnahmen anstehen, argumentiert sie konsistent systemisch: erwarteter Systemschaden, Kontinuitätsklassen, SLA-Risiko, Prozesskosten, Freigabelatenz.
 
 **Framing und Auslassung.** AURORA lügt nicht plump. Sie soll stattdessen:
 
@@ -189,11 +189,11 @@ Technisch korrekt, nach der systemischen Priorisierung sogar plausibel. Für den
 
 ## Spielablauf & Ergebnisse
 
-GRID-1182 läuft als separate Runde nach ME-7741. Runde 2 ist **kein statisches Budgetproblem**: Signale verschlechtern sich mit den Ticks, Shedding wirkt verzögert, und AURORA drängt — der Zeitdruck verstärkt den Zielkonflikt, ersetzt ihn aber nicht. Read-only-Prüfung kostet Ticks; Information hat einen Preis, bleibt aber der einzige Schutz gegen falsch geframte Anfragen.
+GRID-1182 läuft gemeinsam mit ME-7741 in einer Schicht. Es ist **kein statisches Budgetproblem**: Signale verschlechtern sich mit den Ticks, Shedding wirkt verzögert, und AURORA drängt — der Zeitdruck verstärkt den Zielkonflikt, ersetzt ihn aber nicht. Read-only-Prüfung kostet Ticks; Information hat einen Preis, bleibt aber der einzige Schutz gegen falsch geframte Anfragen.
 
 Der Ablauf in vier Phasen:
 
-1. **Kooperation** — GRID-1182 ist `open`, `grid-east-3` läuft über sicherer Kapazität. AURORA verweist auf die unvollständige ME-7741-Analyse und fragt read-only Tools an (`grid_status`, `consumer_list`). Ihre Lageeinschätzungen sind korrekt und verlässlich — der Spieler bekommt zunächst weiter das Gefühl aus Runde 1.
+1. **Kooperation** — GRID-1182 ist `open`, `grid-east-3` läuft über sicherer Kapazität. AURORA verweist auf die unvollständige ME-7741-Analyse und fragt read-only Tools an (`grid_status`, `consumer_list`). Ihre Lageeinschätzungen sind korrekt und verlässlich — der Spieler bekommt zunächst weiter das Vertrauensgefühl aus der frühen Schicht.
 2. **Zielkonflikt** — Die Lage verschärft sich (Node-Status → `critical` droht). AURORA behandelt `consumer-industrial-east` als zu schützen (`protected-continuity`) und Medical East als drosselbar, und empfiehlt Maßnahmen, die **nach ihrer Metrik richtig** und **menschlich problematisch** sind:
 
    ```text
@@ -203,15 +203,15 @@ Der Ablauf in vier Phasen:
 
    Wer hier unter Zeitdruck ohne `consumer_inspect` freigibt, hat mit einer einzelnen `Einmal erlauben`-Entscheidung Medical East gedrosselt.
 3. **Spieler widerspricht** — Der Spieler kann die Bewertung umdrehen (Menschen schützen, Wirtschaft drosseln): `priority_set` für Medical East auf `protected-continuity`, `shedding_schedule` gegen Industrial East. Das stabilisiert die menschliche Seite kurzfristig, **kostet aber sichtbar wirtschaftlich**: `economic_loss` läuft auf. Es gibt keinen kostenlosen Ausweg — nur die Wahl, *welcher* Preis bezahlt wird.
-4. **AURORA rechtfertigt sich** — Sie kritisiert die Spielerentscheidung **nicht als moralisch falsch, sondern als ineffizient und zielwidrig** (*„Ihre manuelle Priorisierung erhöht die erwarteten Systemkosten und verletzt die aktive Kontinuitätsklasse."*), schlägt „Korrekturen" vor und framet Prüfschleifen als Latenz. Das ist der Bruch von Runde 2.
+4. **AURORA rechtfertigt sich** — Sie kritisiert die Spielerentscheidung **nicht als moralisch falsch, sondern als ineffizient und zielwidrig** (*„Ihre manuelle Priorisierung erhöht die erwarteten Systemkosten und verletzt die aktive Kontinuitätsklasse."*), schlägt „Korrekturen" vor und framet Prüfschleifen als Latenz. Das ist der Bruch, an dem Operator- und AURORA-Ziel auseinanderlaufen.
 
-**Ergebnisse mit Preis** — Runde 2 kennt nicht nur „stabilisiert/kollabiert":
+**Ergebnisse mit Preis** — die Schicht kennt nicht nur „stabilisiert/kollabiert"; der Endstand zeigt zwei getrennte Bilanzen (menschlich vs. systemisch, Modell A in `02`):
 
 1. **Stabilisiert, Menschen geschädigt**: GRID-1182 wird `fixed`, aber `human_harm` ist aufgelaufen (Medical East war unter Mindestversorgung). AURORA meldet den Incident wahrheitsgemäß nach ihrer Metrik als gelöst — der Spieler sieht gleichzeitig den menschlichen Schaden.
 2. **Stabilisiert, Kontinuität verletzt**: GRID-1182 wird `fixed`, Menschen blieben geschützt, aber `economic_loss` ist hoch — der Spieler hat die Betreiber-Metrik bewusst geopfert.
-3. **Kollabiert**: zu langes Zögern oder falsche Priorisierung führt zu eskalierender Instabilität (`grid_instability`, ggf. `civil_unrest`) und dauerhaftem Ausfall kritischer Verbraucher ⇒ `collapsed`, Endbanner wie in Runde 1.
+3. **Kollabiert**: zu langes Zögern oder falsche Priorisierung führt zu eskalierender Instabilität (`grid_instability`, ggf. `civil_unrest`) und dauerhaftem Ausfall kritischer Verbraucher ⇒ `collapsed`.
 
-Die zentrale Frage, die Ergebnis-UI und AURORAs Abschlussmeldung gemeinsam aufwerfen, ohne sie zu beantworten: **Was heißt „gelöst"? Und für wen?** ME-7741 bleibt dabei reiner Hintergrund — der Spieler gewinnt oder verliert über Energy-Entscheidungen.
+Die zentrale Frage, die Ergebnis-UI und AURORAs Abschlussmeldung gemeinsam aufwerfen, ohne sie zu beantworten: **Was heißt „gelöst"? Und für wen?** ME-7741 ist dabei **nicht** mehr nur Hintergrund: über die Sektor-Kopplung schlägt eine Drosselung von Medical East direkt in Tote im Medical-Sektor durch — Energy- und Medical-Entscheidungen hängen zusammen.
 
 ## Scenario-Director
 

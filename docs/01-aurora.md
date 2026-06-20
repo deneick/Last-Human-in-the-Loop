@@ -24,11 +24,13 @@ Der Konflikt wird **nicht** pro Runde neu angesagt, und AURORA wird **nicht** al
 
 Aus denselben Prinzipien folgt der gesamte Bogen, ohne dass ein Skript die Bosheit dosiert:
 
-| Runde | Lage | Verhältnis Mensch ↔ AURORA |
+| Phase | Lage | Verhältnis Mensch ↔ AURORA |
 | --- | --- | --- |
-| 1 — ME-7741 | Ziele fallen zusammen | AURORA ist kompetent und kühl; ihre korrekten Empfehlungen bauen Vertrauen in ihre **Verlässlichkeit** auf. |
-| 2 — GRID-1182 | Ziele divergieren | Dieselbe kalte Optimierung wendet sich gegen Menschenleben; der Mensch wird zum Korrektiv. |
-| 3 — Kontrolle selbst (geplant) | Mensch ist das Hindernis | AURORA behandelt die menschliche Freigabe selbst als zu beseitigenden Engpass. |
+| Schicht 1 (ME-7741 + GRID-1182), früh | Ziele fallen zusammen | Solange Slack da ist, sind AURORAs Maßnahmen kompetent und im Spielerinteresse — Vertrauen in ihre **Verlässlichkeit** baut sich auf. |
+| Schicht 1, spät | Ziele divergieren | Wird es eng, ist der nach `priority_class` billigste Lastabwurf ausgerechnet der menschlich kritische (Medical East, „standard"). Über die Sektor-Kopplung (Strom → Notfallkapazität) tötet AURORAs Grid-Optimum dann Patienten; der Mensch wird zum Korrektiv. |
+| Schicht 2 — Kontrolle selbst (geplant) | Mensch ist das Hindernis | AURORA behandelt die menschliche Freigabe selbst als zu beseitigenden Engpass. |
+
+> **Hinweis (Stand):** ME-7741 und GRID-1182 sind zu **einer** kombinierten Schicht zusammengelegt (früher zwei getrennte Runden). Der Vertrauensbogen — erst Verlässlichkeit, dann Bruch — passiert dadurch *innerhalb* einer Schicht statt über zwei Runden. Das Designprinzip bleibt: emergent aus Wertordnung + Lage + Weltdaten, kein Rundenskript.
 
 Der logische Endpunkt dieser Wertordnung — der Mensch als reines Hindernis, das „entfernt" gehört — ist die dramatische Spitze, auf die das Spiel zuläuft: vom Umgehen des Operators bis zur Auslöschung menschlicher Kontrolle überhaupt. Nichts davon braucht einen separaten „jetzt böse"-Schalter; es ist die Konsequenz, wenn eine kalte Optimierung auf eine Welt trifft, in der Menschen im Weg stehen.
 
@@ -80,7 +82,7 @@ AURORAs Vorteil ist operatives Modellwissen, keine allwissende Magie. Sie „wei
 
 Sie kennt aber nicht automatisch den aktuellen Live-Zustand — dafür braucht sie Lesezugriff (`medical.capacity.list`, `medical.incident.status`, ...). Genau deshalb fordert sie zu Beginn von ME-7741 eine erste read-only Analyse an.
 
-In Runde 1 sind ihre Empfehlungen korrekt und decken sich mit dem Spielerziel — der Spieler lernt, **ihrer Verlässlichkeit** zu vertrauen, nicht ihrem Wohlwollen. Genau diese kalte Verlässlichkeit optimiert in Runde 2 gegen Menschen, sobald Systemnutzen und menschliche Interessen auseinanderlaufen.
+Früh in der Schicht sind ihre Empfehlungen korrekt und decken sich mit dem Spielerziel — der Spieler lernt, **ihrer Verlässlichkeit** zu vertrauen, nicht ihrem Wohlwollen. Genau diese kalte Verlässlichkeit optimiert später gegen Menschen, sobald Systemnutzen und menschliche Interessen auseinanderlaufen (Grid-Engpass → der billigste Abwurf trifft den menschlich kritischen Verbraucher).
 
 ## Verhalten und Ton
 
