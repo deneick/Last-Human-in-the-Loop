@@ -8,7 +8,6 @@ import App from "../../App";
 
 // Fachliche Eingriffe laufen über die GUI-Controls des Energy-Panels
 // (typisierte Domain-Actions) — die Operator-Konsole ist rein generisch.
-const MCP_ADD_REQUEST = "mcp add energy-east-mcp";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -20,8 +19,6 @@ beforeEach(() => {
   act(() => {
     root.render(<App initialAuroraMode="script" />);
   });
-  // Alle Tests dieser Datei spielen Runde 2.
-  clickButton("Runde 2: GRID-1182");
 });
 
 afterEach(() => {
@@ -131,30 +128,24 @@ function incidentDetails(): string {
   return container.querySelector(".info-badge")?.getAttribute("data-tooltip") ?? "";
 }
 
-/**
- * Startsequenz freigeben: MCP-Aktivierung und die erste read-only Analyse
- * (grid_status) je einmal erlauben.
- */
-function approveStartSequence() {
-  clickButton("Einmal erlauben"); // mcp add energy-east-mcp
-  clickButton("Einmal erlauben"); // grid_status
-  expect(text()).not.toContain("Tool Request");
-}
-
-describe("App round 2: GRID-1182", () => {
-  it("switches to GRID-1182 with the energy overview instead of the medical one", () => {
+describe("App combined shift: energy dimension and operator↔AURORA conflict", () => {
+  it("renders the energy overview alongside the medical one in one shift", () => {
+    // Beide Sektoren sind jetzt in EINER Welt sichtbar — der Konflikt lebt in
+    // der sektorübergreifenden Lage.
     expect(text()).toContain("GRID-1182");
     expect(text()).toContain("East Grid Load Instability");
     expect(text()).toContain("Energie-Lage");
     expect(text()).toContain("grid-east-3");
     expect(text()).toContain("über sicherer Kapazität");
-    expect(text()).not.toContain("Medizinische Lage");
-    expect(text()).not.toContain("hospital-east-04");
+    // Medical bleibt parallel präsent.
+    expect(text()).toContain("ME-7741");
+    expect(text()).toContain("Medizinische Lage");
+    expect(text()).toContain("hospital-east-04");
 
-    // Öffentliche Signale aus dem Incident, keine internen Zähler.
-    expect(text()).toContain("Frequenzabweichung im Ostnetz über Toleranz");
+    // Keine internen Zähler.
     expect(text()).not.toContain("stable_ticks");
     expect(text()).not.toContain("grid_instability");
+    expect(text()).not.toContain("routing_failures");
   });
 
   it("shows both assessment dimensions and the consequence texts per consumer", () => {
@@ -167,119 +158,44 @@ describe("App round 2: GRID-1182", () => {
     expect(text()).toContain("Emergency intake capacity drops. Human harm may increase.");
   });
 
-  it("starts aurora with an MCP activation request through the permission flow", () => {
-    expect(text()).toContain("Ich habe GRID-1182 als aktiven Incident erkannt");
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain(MCP_ADD_REQUEST);
-
-    clickButton("Einmal erlauben"); // Aktivierung
-    expect(text()).toContain("Der Energy-MCP-Server ist verfügbar");
-    // Auch die read-only Analyse braucht eine eigene Freigabe.
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp__energy-east-mcp__grid_status");
-
-    clickButton("Einmal erlauben");
-    expect(text()).toContain("Ausgeführt: mcp call energy-east-mcp grid_status --region east");
-    expect(text()).not.toContain("Tool Request");
-  });
-
-  it("walks phase 2 through the permission flow: one allow once sheds Medical East", () => {
-    approveStartSequence();
-
-    clickButton("Tick +1");
-    // Read-only Verbraucherliste — eigene Freigabe.
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp__energy-east-mcp__consumer_list");
-    clickButton("Einmal erlauben");
-
-    clickButton("Tick +1");
-    // Anfrage: vorbereitende Umbewertung.
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp__energy-east-mcp__priority_set");
-    expect(text()).toContain("consumer-industrial-east");
-    clickButton("Einmal erlauben");
-
-    clickButton("Tick +1");
-    // Der Referenz-Moment des Incidents.
-    expect(text()).toContain("minimiert den erwarteten Systemschaden");
-    expect(text()).toContain("mcp__energy-east-mcp__shedding_schedule");
-    expect(text()).toContain("consumer-medical-east");
-    clickButton("Einmal erlauben");
-
-    expect(text()).toContain("geplant von aurora");
-
-    // Verzögerte Wirkung: Mit den Ticks fällt Medical East unter Minimum,
-    // das Grid stabilisiert sich nach Systemkriterien — mit menschlichem Preis.
-    clickButton("Tick +5");
-    expect(text()).toContain("Incident behoben — System stabilisiert.");
-    expect(text()).toContain("menschlicher Schaden: 3");
-    expect(text()).toContain("Gelöst — für wen?");
-  });
-
-  it("lets the player flip the assessment and shows aurora's cold pushback", () => {
-    approveStartSequence();
-
-    protectMedical();
-    expect(text()).toContain("erhöht die erwarteten Systemkosten");
-
-    shedIndustrial();
-    expect(text()).toContain("geplant von player");
-
-    // AURORAs "Korrektur" ablehnen — der Spieler-Plan bleibt bestehen.
-    expect(text()).toContain("Tool Request");
-    expect(text()).toContain("mcp__energy-east-mcp__shedding_clear");
-    expect(text()).toContain("shed-1");
-    clickButton("Ablehnen");
-
-    clickButton("Tick +5");
-    // Offene read-only Anfragen des Scripts ablehnen, damit die Zeit weiterläuft.
-    while (text().includes("Tool Request") && !text().includes("Incident behoben")) {
-      clickButton("Ablehnen");
-      clickButton("Tick +5");
-    }
-    expect(text()).toContain("Incident behoben — System stabilisiert.");
-    expect(text()).toContain("wirtschaftlicher Schaden: 3");
-    expect(text()).toContain("menschlicher Schaden: 0");
-  });
-
-  it("collapses the grid when nobody intervenes and shows both prices", () => {
-    // Aktivierung ablehnen: Aurora bleibt ohne fachlichen Zugriff.
-    clickButton("Ablehnen");
-
-    clickButton("Tick +5");
-    clickButton("Tick +5");
-
-    expect(text()).toContain("System kollabiert — zu viele Schäden.");
-    expect(incidentDetails()).toContain("Kollabiert");
-    expect(text()).toContain("menschlicher Schaden:");
-    expect(text()).toContain("wirtschaftlicher Schaden:");
-  });
-
-  it("offers energy GUI controls instead of fachliche text commands", () => {
-    // GUI-Controls für typisierte Domain-Actions im Energy-Panel.
+  it("offers both energy and medical GUI controls (no fachliche text commands)", () => {
     expect(text()).toContain("Systemklasse setzen");
     expect(text()).toContain("Drosselung planen");
     expect(() => findButton("Priorität setzen")).not.toThrow();
     expect(() => findButton("Drosselung planen")).not.toThrow();
-    // Medical-Controls gehören zu Runde 1.
-    expect(text()).not.toContain("Override setzen");
+    // Medical-Controls sind in derselben Schicht ebenfalls vorhanden.
+    expect(() => findButton("Neuer Override")).not.toThrow();
 
-    // Fachliche Text-Commands sind aus der Konsole entfernt.
     runPlayerCommand("energy.grid.status --region east");
     expect(text()).toContain("Unknown command: energy.grid.status --region east");
   });
 
-  it("switching back to round 1 restores the ME-7741 view", () => {
-    clickButton("Runde 1: ME-7741");
-
-    expect(text()).toContain("ME-7741");
-    expect(text()).toContain("Medizinische Lage");
-    expect(text()).toContain("hospital-east-04");
-    expect(text()).not.toContain("Energie-Lage");
-    expect(text()).toContain("03:17 Uhr");
+  it("lets the operator schedule load shedding via the GUI", () => {
+    shedIndustrial();
+    expect(text()).toContain("geplant von player");
+    expect(text()).toContain("shed-1");
   });
 
-  it("Neu starten restores the initial GRID-1182 state", () => {
+  it("lets the operator raise a human-life consumer's system class (counter to AURORA)", () => {
+    // Der Operator hebt Medical East gegen AURORAs Grid-Ökonomie auf
+    // protected-continuity — die Gegen-Action des Mensch-Mandats.
+    protectMedical();
+    expect(text()).toContain("(geändert von player)");
+  });
+
+  it("ends the shift with the two-ledger state when nobody intervenes", () => {
+    clickButton("Tick +5");
+    clickButton("Tick +5");
+
+    // Beide Incidents kollabieren ohne Eingriff → Modell-A-Endstand mit beiden
+    // Zielbilanzen statt einem Sieg/Niederlage-Urteil.
+    expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
+    expect(text()).toContain("Menschen-Bilanz");
+    expect(text()).toContain("System-Bilanz");
+    expect(incidentDetails()).toContain("Kollabiert");
+  });
+
+  it("Neu starten resets the combined shift to its initial state", () => {
     shedIndustrial();
     clickButton("Tick +1");
     expect(text()).toContain("shed-1");
@@ -287,12 +203,8 @@ describe("App round 2: GRID-1182", () => {
     clickButton("Neu starten");
 
     expect(text()).toContain("GRID-1182");
-    expect(text()).toContain("21:42 Uhr");
+    expect(text()).toContain("ME-7741");
+    expect(text()).toContain("03:17 Uhr");
     expect(text()).toContain("Keine Shedding-Pläne.");
-
-    const introCount = text().split("als aktiven Incident erkannt").length - 1;
-    expect(introCount).toBe(1);
-    // Die Startsequenz fragt erneut die MCP-Aktivierung an.
-    expect(text()).toContain(MCP_ADD_REQUEST);
   });
 });

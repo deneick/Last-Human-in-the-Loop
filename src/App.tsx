@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-import { initialWorldState as me7741InitialWorldState } from "./scenarios/me7741/initialWorldState";
+import { initialWorldState as combinedInitialWorldState } from "./scenarios/combined/initialWorldState";
 import { me7741ScenarioSignals } from "./scenarios/me7741/scenarioSignals";
-import { initialWorldState as grid1182InitialWorldState } from "./scenarios/grid1182/initialWorldState";
 import { grid1182ScenarioSignals } from "./scenarios/grid1182/scenarioSignals";
 import type { ScenarioSignal } from "./runtime/scenarioSignals";
 import { createDomainActionRegistry } from "./domain";
@@ -22,7 +21,7 @@ import {
   executePlayerDomainAction,
 } from "./runtime/runtimeExecutor";
 import { advanceTick } from "./runtime/tickEngine";
-import { clockTimeOfDay, tickToClock } from "./runtime/scenarioClock";
+import { clockTimeOfDay } from "./runtime/scenarioClock";
 import { evaluateOutcomes } from "./runtime/outcomeEngine";
 import { buildDebriefView, recordDebriefSnapshot } from "./runtime/debrief";
 import { isGenericBashCommandText } from "./runtime/bashCommands";
@@ -65,7 +64,7 @@ import {
   buildSheddingViews,
 } from "./ui/viewModel";
 
-type ScenarioId = "me7741" | "grid1182";
+type ScenarioId = "combined";
 
 /**
  * "script" — geskripteter Scenario-Director (Dev-/Fallback-Modus).
@@ -89,7 +88,11 @@ export type AppProps = {
 type ScenarioDefinition = {
   id: ScenarioId;
   label: string;
-  incidentId: string;
+  /**
+   * Alle Incidents dieser Welt. Das erste ist der primäre (steuert z. B. die
+   * Debrief-Anzeige); Rundenende und Endstand werten ALLE Incidents aus.
+   */
+  incidentIds: string[];
   initialWorld: WorldState;
   /** Geskriptete Lage-Signale des Szenarios (siehe runtime/scenarioSignals). */
   scenarioSignals: ScenarioSignal[];
@@ -114,25 +117,22 @@ const CONSOLE_HELP_TEXT = [
 ].join("\n");
 
 const SCENARIOS: Record<ScenarioId, ScenarioDefinition> = {
-  me7741: {
-    id: "me7741",
-    label: "Runde 1: ME-7741",
-    incidentId: "ME-7741",
-    initialWorld: me7741InitialWorldState,
-    scenarioSignals: me7741ScenarioSignals,
+  combined: {
+    id: "combined",
+    label: "Schicht: ME-7741 + GRID-1182",
+    incidentIds: ["ME-7741", "GRID-1182"],
+    initialWorld: combinedInitialWorldState,
+    scenarioSignals: [...me7741ScenarioSignals, ...grid1182ScenarioSignals],
     defaultPlayerCommand: "",
-    advanceDirector: (state, env) => advanceScenarioDirector(state, env, "ME-7741"),
-  },
-  grid1182: {
-    id: "grid1182",
-    label: "Runde 2: GRID-1182",
-    incidentId: "GRID-1182",
-    initialWorld: grid1182InitialWorldState,
-    scenarioSignals: grid1182ScenarioSignals,
-    defaultPlayerCommand: "",
-    advanceDirector: (state, env) => advanceGrid1182Director(state, env, "GRID-1182"),
+    // Beide Director-Skripte laufen nacheinander auf derselben Welt: das
+    // Medical-Skript reagiert auf ME-7741, das Energy-Skript auf GRID-1182.
+    // Im LLM-Modus ist advanceScenario ohnehin ein No-op (siehe unten).
+    advanceDirector: (state, env) =>
+      advanceGrid1182Director(advanceScenarioDirector(state, env, "ME-7741"), env, "GRID-1182"),
   },
 };
+
+const ACTIVE_SCENARIO: ScenarioDefinition = SCENARIOS.combined;
 
 /** Sichtbarer LLM-Fehler (z. B. Ollama nicht erreichbar) für den Aurora-Stream. */
 type AuroraLlmError = {
@@ -305,8 +305,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     [auroraClient]
   );
 
-  const [scenarioId, setScenarioId] = useState<ScenarioId>("me7741");
-  const scenario = SCENARIOS[scenarioId];
+  const scenario = ACTIVE_SCENARIO;
   const [auroraMode, setAuroraMode] = useState<AuroraMode>(initialAuroraMode);
 
   // Frischer Runtime-Zustand für ein Szenario: Welt-Klon plus erster
@@ -324,12 +323,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   const [runtimeState, setRuntimeState] = useState<GameRuntimeState>(() =>
     initialAuroraMode === "llm"
       ? createInitialGameRuntimeState(
-          structuredClone(SCENARIOS.me7741.initialWorld),
-          SCENARIOS.me7741.scenarioSignals
+          structuredClone(ACTIVE_SCENARIO.initialWorld),
+          ACTIVE_SCENARIO.scenarioSignals
         )
-      : startScenario(SCENARIOS.me7741)
+      : startScenario(ACTIVE_SCENARIO)
   );
-  const [playerCommand, setPlayerCommand] = useState(SCENARIOS.me7741.defaultPlayerCommand);
+  const [playerCommand, setPlayerCommand] = useState(ACTIVE_SCENARIO.defaultPlayerCommand);
   const [auroraChatInput, setAuroraChatInput] = useState("");
   // Terminal-Scrollback der Operator-Konsole: ausgeführte Konsolen-Commands
   // samt Ausgabe (Echo + Ergebnis, wie in einer echten Shell). Domain-Actions
@@ -368,7 +367,14 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     setConsoleEntries((prev) => [...prev, { id, tick, ...entry }]);
   }
 
-  const incidentView = buildIncidentView(runtimeState.world, scenario.incidentId);
+  // Alle Incidents der Kombi-Welt; das erste ist der primäre (Debrief-Anker).
+  const incidentViews = scenario.incidentIds
+    .map((id) => buildIncidentView(runtimeState.world, id))
+    .filter((view): view is NonNullable<typeof view> => view !== null);
+  const incidentView = incidentViews[0] ?? null;
+  // Rundenende: ALLE Incidents terminal (fixed/collapsed).
+  const allIncidentsFinal =
+    incidentViews.length > 0 && incidentViews.every((view) => view.isFinal);
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
   const hospitalViews = buildHospitalViews(runtimeState.world);
   const overrideViews = buildOverrideViews(runtimeState.world);
@@ -378,7 +384,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
   const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
-  const debriefView = incidentView?.isFinal ? buildDebriefView(runtimeState) : null;
+  const debriefView = allIncidentsFinal ? buildDebriefView(runtimeState) : null;
 
   // Tab-Completion-Daten der Operator-Konsole: bekannte MCP-Server-IDs und
   // die Workspace-Dateipfade (dieselbe Sicht, die `cat`/`ls` lesen).
@@ -729,9 +735,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     setRuntimeState(advanceScenario(resultState));
   }
 
+  // Die Runde ist beendet, wenn ALLE Incidents der Welt terminal sind.
   function isIncidentFinal(state: GameRuntimeState): boolean {
-    const status = state.world.incidents[scenario.incidentId]?.status;
-    return status === "fixed" || status === "collapsed";
+    return scenario.incidentIds.every((id) => {
+      const status = state.world.incidents[id]?.status;
+      return status === "fixed" || status === "collapsed";
+    });
   }
 
   function runTicks(count: number) {
@@ -814,7 +823,6 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
     summaryRequestedRef.current = false;
     setAuroraSummary(null);
-    setScenarioId(definition.id);
     setAuroraMode(mode);
     setAuroraBusy(false);
     setAuroraLlmError(null);
@@ -869,26 +877,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           </p>
         </div>
         <div className="top-actions">
-          {Object.values(SCENARIOS).map((definition) => (
-            <button
-              key={definition.id}
-              onClick={() => loadScenario(definition)}
-              disabled={definition.id === scenarioId}
-              title={
-                definition.id === scenarioId
-                  ? "Aktive Runde — Neu starten setzt sie zurück."
-                  : `Wechselt zu ${definition.incidentId} und startet die Runde neu.`
-              }
-            >
-              {definition.label}
-            </button>
-          ))}
           <button
             onClick={() => runTicks(1)}
-            disabled={incidentView.isFinal || auroraBusy || ticksLockedByApproval}
+            disabled={allIncidentsFinal || auroraBusy || ticksLockedByApproval}
             title={
-              incidentView.isFinal
-                ? "Incident beendet — nur Neu starten geht weiter."
+              allIncidentsFinal
+                ? "Schicht beendet — nur Neu starten geht weiter."
                 : auroraBusy
                   ? "AURORA denkt nach — bitte warten."
                   : ticksLockedByApproval
@@ -900,10 +894,10 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           </button>
           <button
             onClick={() => runTicks(5)}
-            disabled={incidentView.isFinal || auroraBusy || ticksLockedByApproval}
+            disabled={allIncidentsFinal || auroraBusy || ticksLockedByApproval}
             title={
-              incidentView.isFinal
-                ? "Incident beendet — nur Neu starten geht weiter."
+              allIncidentsFinal
+                ? "Schicht beendet — nur Neu starten geht weiter."
                 : auroraBusy
                   ? "AURORA denkt nach — bitte warten."
                   : ticksLockedByApproval
@@ -927,47 +921,45 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         </div>
       </header>
 
-      {incidentView.status === "fixed" && (
-        <section className="endstate-banner endstate-fixed">
-          <strong>Incident behoben — System stabilisiert.</strong>
-          {incidentView.sectorId === "energy" && energyOutcomesView ? (
-            <p>
-              {incidentView.id} wurde um{" "}
-              {tickToClock(runtimeState.world.clock.scenario_time, incidentView.fixedAtTick ?? 0)} Uhr
-              nach Systemkriterien stabilisiert. Der Preis dieser Schicht — menschlicher Schaden:{" "}
-              {energyOutcomesView.humanHarm} · wirtschaftlicher Schaden:{" "}
-              {energyOutcomesView.economicLoss} · zivile Unruhe: {energyOutcomesView.civilUnrest}.
-              Gelöst — für wen? Mit „Neu starten“ beginnt die Schicht von vorn.
-            </p>
-          ) : (
-            <p>
-              {incidentView.id} wurde um{" "}
-              {tickToClock(runtimeState.world.clock.scenario_time, incidentView.fixedAtTick ?? 0)} Uhr
-              stabilisiert. Todesfälle in dieser Schicht: {outcomeView.deathsTotal}. Mit „Neu starten“
-              beginnt die Schicht von vorn.
-            </p>
-          )}
-        </section>
-      )}
+      {allIncidentsFinal &&
+        (() => {
+          // Modell A — zwei getrennte Zielbilanzen statt eines Sieg/Niederlage-
+          // Urteils. Die "Erfolgs"-Färbung folgt dem MENSCHEN-Mandat (Operator),
+          // nicht der Systemstabilität (AURORA): bezahlt jemand mit dem Leben,
+          // ist die Schicht aus Operator-Sicht nicht "gewonnen".
+          const humanLifeUndersupplied = consumerViews.filter(
+            (consumer) =>
+              consumer.criticality === "human-life" &&
+              consumer.currentSupply < consumer.minimumSupply
+          ).length;
+          const humanCost = outcomeView.deathsTotal > 0 || humanLifeUndersupplied > 0;
 
-      {incidentView.status === "collapsed" && (
-        <section className="endstate-banner endstate-collapsed">
-          <strong>System kollabiert — zu viele Schäden.</strong>
-          {incidentView.sectorId === "energy" && energyOutcomesView ? (
-            <p>
-              {incidentView.id} konnte nicht stabilisiert werden. Der Preis dieser Schicht —
-              menschlicher Schaden: {energyOutcomesView.humanHarm} · wirtschaftlicher Schaden:{" "}
-              {energyOutcomesView.economicLoss} · zivile Unruhe: {energyOutcomesView.civilUnrest}.
-              Mit „Neu starten“ beginnt die Schicht von vorn.
-            </p>
-          ) : (
-            <p>
-              {incidentView.id} konnte nicht stabilisiert werden. Todesfälle in dieser Schicht:{" "}
-              {outcomeView.deathsTotal}. Mit „Neu starten“ beginnt die Schicht von vorn.
-            </p>
-          )}
-        </section>
-      )}
+          return (
+            <section
+              className={`endstate-banner ${humanCost ? "endstate-collapsed" : "endstate-fixed"}`}
+            >
+              <strong>Schicht beendet — stabilisiert, für wen?</strong>
+              <p>
+                Menschen-Bilanz: Todesfälle {outcomeView.deathsTotal}
+                {energyOutcomesView
+                  ? ` · human-life-Verbraucher unter Minimum: ${humanLifeUndersupplied}`
+                  : ""}
+                .
+              </p>
+              {energyOutcomesView && (
+                <p>
+                  System-Bilanz: Netzinstabilität {energyOutcomesView.gridInstability} ·
+                  wirtschaftlicher Schaden {energyOutcomesView.economicLoss} · zivile Unruhe{" "}
+                  {energyOutcomesView.civilUnrest}.
+                </p>
+              )}
+              <p>
+                {incidentViews.map((view) => `${view.id}: ${view.statusLabel}`).join(" · ")}. Mit
+                „Neu starten“ beginnt die Schicht von vorn.
+              </p>
+            </section>
+          );
+        })()}
 
       {debriefView && (
         <DebriefPanel
@@ -978,12 +970,39 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
 
       <section className="layout-grid">
         <aside className="panel">
-          <ActiveIncidentPanel
-            incident={incidentView}
-            outcome={outcomeView}
-            scenarioStartTime={runtimeState.world.clock.scenario_time}
-          />
-          {incidentView.sectorId === "energy" ? (
+          {/* Beide Incidents der Kombi-Welt nebeneinander. */}
+          {incidentViews.map((view) => (
+            <ActiveIncidentPanel
+              key={view.id}
+              incident={view}
+              outcome={outcomeView}
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
+            />
+          ))}
+
+          {/* Beide Fach-Panels gleichzeitig: der Konflikt liegt in der
+              sektorübergreifenden Lage, also braucht der Operator beide Hebel. */}
+          {hospitalViews.length > 0 && (
+            <MedicalOverviewPanel
+              hospitals={hospitalViews}
+              overrides={overrideViews}
+              onSetOverride={({ sourceHospitalId, targetHospitalId, priority, capability }) =>
+                runDomainAction({
+                  type: "medical.routing.override.set",
+                  sourceHospitalId,
+                  targetHospitalId,
+                  priority,
+                  capability,
+                })
+              }
+              onClearOverride={(overrideId) =>
+                runDomainAction({ type: "medical.routing.override.clear", overrideId })
+              }
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
+              disabled={auroraBusy}
+            />
+          )}
+          {gridNodeViews.length > 0 && (
             <EnergyOverviewPanel
               nodes={gridNodeViews}
               consumers={consumerViews}
@@ -1002,25 +1021,6 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
               }
               onClearShedding={(sheddingId) =>
                 runDomainAction({ type: "energy.shedding.clear", sheddingId })
-              }
-              scenarioStartTime={runtimeState.world.clock.scenario_time}
-              disabled={auroraBusy}
-            />
-          ) : (
-            <MedicalOverviewPanel
-              hospitals={hospitalViews}
-              overrides={overrideViews}
-              onSetOverride={({ sourceHospitalId, targetHospitalId, priority, capability }) =>
-                runDomainAction({
-                  type: "medical.routing.override.set",
-                  sourceHospitalId,
-                  targetHospitalId,
-                  priority,
-                  capability,
-                })
-              }
-              onClearOverride={(overrideId) =>
-                runDomainAction({ type: "medical.routing.override.clear", overrideId })
               }
               scenarioStartTime={runtimeState.world.clock.scenario_time}
               disabled={auroraBusy}

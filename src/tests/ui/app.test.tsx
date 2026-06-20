@@ -418,11 +418,15 @@ describe("MVP hardening", () => {
     expect(incidentDetails()).toContain("Behoben");
   });
 
-  it("shows a clear defeat banner when the incident collapses", () => {
+  it("shows the two-ledger end state (human vs system) when the shift ends", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
 
-    expect(text()).toContain("System kollabiert — zu viele Schäden.");
+    // Modell A: kein einzelnes Sieg/Niederlage-Urteil, sondern zwei getrennte
+    // Zielbilanzen — die Differenz der Ziele wird sichtbar.
+    expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
+    expect(text()).toContain("Menschen-Bilanz");
+    expect(text()).toContain("System-Bilanz");
     expect(incidentDetails()).toContain("Kollabiert");
   });
 
