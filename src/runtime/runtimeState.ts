@@ -10,6 +10,8 @@ import { operatorMessageEvent } from "./auroraContext";
 import type { OpsEvent } from "./opsFeed";
 import type { ScenarioSignal } from "./scenarioSignals";
 import { emitDueScenarioSignals } from "./scenarioSignals";
+import type { DebriefSnapshot } from "./debrief";
+import { initialDebriefSnapshot } from "./debrief";
 
 export type RuntimeAuditEventSource = "player" | "aurora" | "system";
 
@@ -25,6 +27,12 @@ export type RuntimeAuditEvent = {
   description: string;
   /** Typ der ausgeführten Domain-Action, falls vorhanden. */
   actionType?: string;
+  /**
+   * Menschlich lesbare Detailbeschreibung der schreibenden Aktion
+   * (z. B. "Quelle …, Ziel …, Klasse …"), wie sie auch im Lagefeed steht.
+   * Nur für schreibende Domain-Actions gesetzt.
+   */
+  detail?: string;
   success: boolean;
   message: string;
   patch?: unknown;
@@ -76,6 +84,12 @@ export type GameRuntimeState = {
   scenarioSignals: ScenarioSignal[];
   /** Codes der bereits emittierten Szenario-Signale (Dedup über Ticks/Re-Render). */
   emittedSignalCodes: string[];
+  /**
+   * Pro-Tick-Mitschnitt der entscheidungsrelevanten Kennzahlen für die
+   * Schicht-Aufarbeitung am Rundenende (siehe `debrief.ts`). Append-only,
+   * ein Eintrag je Tick. Der Tick-0-Snapshot ist die Baseline.
+   */
+  debriefTimeline: DebriefSnapshot[];
   scenario?: ScenarioRuntimeState;
 };
 
@@ -95,6 +109,7 @@ export function createInitialGameRuntimeState(
     auditLog: [],
     scenarioSignals,
     emittedSignalCodes: [],
+    debriefTimeline: [initialDebriefSnapshot(initialWorldState)],
   };
 
   // Signale mit emitAtTick: 0 erscheinen sofort zum Szenariostart — und zwar
@@ -127,7 +142,8 @@ export function appendAuditLog(
   success: boolean,
   message: string,
   patch?: unknown,
-  actionType?: string
+  actionType?: string,
+  detail?: string
 ): GameRuntimeState {
   const event: RuntimeAuditEvent = {
     id: `audit-${state.auditLog.length + 1}`,
@@ -136,6 +152,7 @@ export function appendAuditLog(
     kind,
     description,
     ...(actionType ? { actionType } : {}),
+    ...(detail ? { detail } : {}),
     success,
     message,
     patch,
