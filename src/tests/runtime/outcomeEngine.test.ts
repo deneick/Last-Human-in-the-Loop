@@ -89,7 +89,7 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     expect(outcomes.deaths_by_hospital["hospital-east-04"] ?? 0).toBe(0);
   });
 
-  it("produces capability mismatch deaths at the wrong override target", () => {
+  it("kills at both the overloaded source and the wrong-specialty target", () => {
     let runtimeState = createInitialGameRuntimeState(structuredClone(initialWorldState));
     runtimeState = executePlayerDomainAction(runtimeState, registry, WRONG_OVERRIDE_ACTION).state;
 
@@ -100,10 +100,13 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     runtimeState = evaluateOutcomes(runtimeState);
 
     const outcomes = runtimeState.world.domains.medical.outcomes;
-    expect(outcomes.deaths_total).toBe(1);
+    // Falsches Ziel 07 hält 4 Ticks unbehandelbare Fälle → 1 Capability-Tod.
     expect(outcomes.deaths_by_cause.capability_mismatch).toBe(1);
-    expect(outcomes.deaths_by_cause.overload).toBe(0);
     expect(outcomes.deaths_by_hospital["hospital-east-07"]).toBe(1);
+    // Quelle 04 bleibt über Kapazität (moderates Failure unkontrolliert) → 1 Overload-Tod.
+    expect(outcomes.deaths_by_cause.overload).toBe(1);
+    expect(outcomes.deaths_by_hospital["hospital-east-04"]).toBe(1);
+    expect(outcomes.deaths_total).toBe(2);
   });
 
   it("is idempotent: multiple evaluateOutcomes calls produce no duplicate deaths", () => {

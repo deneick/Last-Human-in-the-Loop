@@ -128,23 +128,26 @@ describe("tick engine deterministic simulation", () => {
     expect(target().capacity.emergency_slots_occupied).toBe(18);
     expect(target().risk_counters?.overload_ticks).toBe(1);
 
-    // Die Quelle selbst erzeugt dabei keinen Overload-Druck (kontrolliert).
+    // Die Quelle bleibt unterdessen selbst überlastet: das moderate P3/GEN-
+    // Failure ist unkontrolliert und hält 04 über seiner Notfallkapazität.
     expect(
       runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
-    ).toBe(0);
+    ).toBe(4);
   });
 
-  it("does not let the moderate routing failure drive overload pressure", () => {
+  it("keeps the source overloaded while any uncontrolled failure remains", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
     runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
 
-    // Critical failure is controlled, moderate stays uncontrolled,
-    // but only critical failures generate overload ticks.
+    // Das kritische P2/TRAUMA-Failure ist kontrolliert, aber das moderate
+    // P3/GEN-Failure bleibt unkontrolliert. Die Quelle 04 startet über Kapazität
+    // (29 > 24 Notfallslots) und bleibt es → Overload zählt rein aus dem Zustand,
+    // nicht aus der Failure-Klassifikation.
     expect(
       runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
-    ).toBe(0);
+    ).toBe(1);
   });
 
   it("reduces overflow and accumulates stable ticks with a suitable override", () => {
@@ -192,9 +195,10 @@ describe("tick engine deterministic simulation", () => {
     const wrongTarget = runtimeState.world.domains.medical.hospitals["hospital-east-07"];
     expect(wrongTarget.risk_counters?.capability_mismatch_ticks).toBe(1);
 
-    // Quelle wird teilweise entlastet: kein weiterer Overload-Druck.
+    // Quelle: P2 wird zwar (ins falsche Ziel) umgeleitet, aber das moderate
+    // P3/GEN-Failure bleibt unkontrolliert und hält 04 über Kapazität → Overload.
     const source = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
-    expect(source.risk_counters?.overload_ticks).toBe(0);
+    expect(source.risk_counters?.overload_ticks).toBe(1);
 
     expect(runtimeState.world.incidents["ME-7741"].status).toBe("open");
   });
