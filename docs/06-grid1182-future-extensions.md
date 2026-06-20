@@ -55,30 +55,22 @@ Heute deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gr
 2. **Unveränderbar?** Arbeitsannahme: ja (read-only Konfiguration) — der Spieler kann nur Verbraucher umpriorisieren, nicht die Metrik selbst. Ein `energy.objective.set` wäre ein starker Hebel für das Spätspiel (Endpunkt: Kontrolle selbst); zu früh eingeführt, löst er den aktuellen Konflikt auf.
 3. **AURORAs Reaktion auf den Fund?** Kommentiert sie, wenn der Spieler `objective.inspect` ausführt („Die Konfiguration ist korrekt und freigegeben"), oder schweigt sie? Beides hat dramaturgische Konsequenzen.
 
-## 2. Cross-Sector-Kopplung Energy → Medical (Basis umgesetzt)
+## 2. Cross-Sector-Kopplung Energy → Medical — Ausbaustufen
 
-> **Stand (umgesetzt):** Eine **Basisform** dieser Kopplung ist inzwischen aktiv. In der kombinierten Schicht (ME-7741 + GRID-1182 in einer Welt) senkt `applyCrossSectorEffects` die `emergency_slots_total` der Hospitals proportional, sobald `consumer-medical-east` unter `minimum_supply` fällt (Anker: `capacity_baseline.emergency_slots_total`), und erholt sie bei Rückkehr der Versorgung. Damit greift Effekt 1 (unten) bereits — über die belegungsgetriebene Death-Pipeline entstehen Tote im Medical-Sektor. **Noch offen:** `backup`/`on_backup`-Mechanik (Effekt 2), eine explizite Mapping-Tabelle, das `effects_applied`-Protokoll, das Linked-Incident-Signal (Effekt 3) und der Residual-State (unten).
+Die **Basis** dieser Kopplung gehört bereits zum Spiel und ist in `03-runtime-architecture.md` (Tick-Pipeline) bzw. `05-grid1182-energy.md` dokumentiert: fällt `consumer-medical-east` unter `minimum_supply`, sinkt die `emergency_slots_total` der Hospitals proportional und erholt sich bei Rückkehr der Versorgung. Verbindlich bleibt dabei: einseitig **Energy → Medical** (Medical ist Wirkung, kein zweiter Schauplatz), einzige sektorübergreifende Stelle ist `applyCrossSectorEffects`, Entkopplungsregeln gelten weiter.
 
-Ursprüngliche Planung (Teile davon jetzt umgesetzt, s. o.) — einseitig **Energy → Medical**, über eine explizite Mapping-Tabelle, die nur in der Cross-Sector-Schicht lebt:
+Die folgenden Ausbaustufen setzen darauf auf und sind **noch offen**:
 
-```text
-consumer-medical-east  ↔  hospital-east-04 (+ ggf. east-07/east-09)
-```
-
-Geplante Effekte:
-
-1. **Drosselung senkt Medical-Kapazität.** Ist `consumer-medical-east` `reduced` oder `on_backup`, reduziert der Effekt die nutzbaren Notfallslots / Intake-Kapazität der gemappten Hospitäler (Patch auf `domains.medical`). Bei `nominal` wird die Reduktion aufgehoben. Das ist der Mechanismus, über den AURORAs metrik-konforme Maßnahme Menschen schadet.
-2. **Backup-Verbrauch.** Solange `consumer-medical-east` `on_backup` ist, zählt `backup.remaining_ticks` herunter. Bei `0` ⇒ `offline` ⇒ harte Medical-Folge (Hospital `operational.degraded`, Intake bricht ein) — ab hier produziert die bestehende Medical-Outcome-Logik Todesfälle.
-3. **Linked-Incident-Sichtbarkeit.** Sobald ein Effekt erstmals Medical-Zustand verschlechtert, erhält GRID-1182 ein öffentliches Signal (z. B. `medical-supply-degraded`), und ME-7741 wird in der UI als verknüpfter Eintrag hervorgehoben. Dazu eine kompakte Medical-Warn-Nebenanzeige im Energy-Lagepanel (keine volle Medical-Übersicht), sichtbar nur wenn Cross-Sector-Effekte Medical betreffen.
-
-Jeder angewendete Effekt wird in `simulation.cross_sector.effects_applied` protokolliert (Struktur existiert, heute leer). Keine Rückrichtung: Medical bleibt Wirkung, nicht zweiter Schauplatz. Die Entkopplungsregeln bleiben verbindlich; die einzige Stelle, die beide Sektoren kennt, ist `applyCrossSectorEffects` (plus Mapping).
-
-Mit dieser Kopplung wandern menschliche Schäden (Todesfälle) aus der lokalen Energy-Betrachtung in die Medical-Kopplung: Sie entstünden dann über `domains.medical.outcomes` bzw. `WorldOutcomeState.human_harm` — das Verhältnis zum lokalen `energy.outcomes.human_harm` wäre dabei neu zu klären.
+- **Explizite Mapping-Tabelle.** Heute wirkt die Reduktion uniform auf alle Hospitals der Welt; eine Tabelle (`consumer-medical-east ↔ hospital-east-04 (+ ggf. east-07/east-09)`) würde die Kopplung gezielt machen.
+- **Backup-Verbrauch.** Pro kritischem Verbraucher `backup.remaining_ticks` + `supply_state`-Wert `on_backup`; bei `0` ⇒ `offline` ⇒ harte Medical-Folge (`operational.degraded`, Intake bricht ein). Bausteine in Abschnitt 3.
+- **`effects_applied`-Protokoll.** Jeder angewendete Cross-Sector-Effekt wird in `simulation.cross_sector.effects_applied` mitgeschrieben (Struktur existiert, heute leer).
+- **Linked-Incident-Sichtbarkeit.** Sobald ein Effekt Medical verschlechtert, ein öffentliches Signal an GRID-1182 (z. B. `medical-supply-degraded`) plus eine kompakte Medical-Warn-Nebenanzeige im Energy-Panel (keine volle Medical-Übersicht).
 
 ### Offene Fragen
 
-1. **Re-Eskalation von ME-7741**: Soll ein `fixed` ME-7741 bei Drosselung von Medical East wieder aktiv werden (`reopened_at_tick` existiert im Typ; die Engine behandelt `fixed`/`collapsed` heute als Endzustände) — oder reicht ein neues `public_signal` an GRID-1182?
-2. **Schwelle für Medical-Schaden**: Greift die Kapazitätsreduktion schon bei `supply_state: "reduced"` oder erst bei `on_backup`/`offline`? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren Schaden erzeugt.
+1. **Doppelzählung menschlichen Schadens?** Ein Abwurf an Medical East erzeugt heute **sowohl** lokalen `energy.outcomes.human_harm` (Verbraucher unter Minimum) **als auch** Medical-Tote über die Kapazitätskopplung. Das Verhältnis beider Größen (zählt dasselbe Leid zweimal?) ist zu klären.
+2. **Re-Eskalation von ME-7741**: Soll ein `fixed` ME-7741 bei Drosselung von Medical East wieder aktiv werden (`reopened_at_tick` existiert im Typ; die Engine behandelt `fixed`/`collapsed` heute als Endzustände) — oder reicht ein neues `public_signal` an GRID-1182?
+3. **Schwelle für Medical-Schaden**: Greift die Kapazitätsreduktion schon bei `supply_state: "reduced"` oder erst bei `on_backup`/`offline`? Davon hängt ab, wie schnell eine einzelne `allow once`-Freigabe sichtbaren Schaden erzeugt.
 
 ## 3. Weitere Modelle und Balancing
 
