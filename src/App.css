@@ -1082,7 +1082,7 @@ code {
 }
 
 .debrief-timeline,
-.debrief-attribution {
+.debrief-summary-section {
   margin-top: 0.9rem;
   border-top: 1px solid var(--border-soft);
   padding-top: 0.7rem;
@@ -1115,12 +1115,24 @@ code {
 
 .debrief-actions,
 .debrief-effects,
-.debrief-attribution ul {
+.debrief-summary-section ul {
   list-style: none;
   margin: 0.15rem 0;
   padding: 0;
   display: grid;
   gap: 0.25rem;
+}
+
+.debrief-summary-text {
+  margin: 0.4rem 0 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.debrief-summary-pending {
+  margin: 0.4rem 0 0;
+  color: var(--text-mute);
+  font-style: italic;
 }
 
 .debrief-action-label {
