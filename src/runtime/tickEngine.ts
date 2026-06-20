@@ -353,12 +353,69 @@ export function tickEnergyDomain(world: WorldState): WorldState {
 }
 
 /**
+ * Verbraucher-Id, deren Stromversorgung die Notfallkapazität der Medical-
+ * Hospitals trägt. In der Kombi-Welt versorgt dieser Energy-Verbraucher die
+ * ME-7741-Region; in reinen Einzelsektor-Welten existiert er nicht.
+ */
+export const MEDICAL_POWER_CONSUMER_ID = "consumer-medical-east";
+
+/**
  * Cross-Sector-Stufe der Tick-Pipeline.
- * Für den MVP ein no-op; später verbinden hier explizite Effekte die Sektoren
- * (z. B. Energy outage → Hospital intake capacity drops).
+ *
+ * Einzige aktive Kopplung: Energy → Medical. Versorgt der Energy-Verbraucher
+ * `consumer-medical-east` die Hospitals unter seinem `minimum_supply`, sinkt
+ * ihre sichtbare Notfallkapazität (`emergency_slots_total`) proportional unter
+ * die Basis (`capacity_baseline.emergency_slots_total`). Damit macht ein
+ * Strom-Lastabwurf an Medical East die belegungsgetriebene Overload-Pipeline
+ * direkt tödlicher; kehrt die Versorgung zurück, erholt sich die Kapazität.
+ *
+ * In Welten ohne Energy-Verbraucher oder ohne Hospitals ist die Stufe ein
+ * referenzgleicher No-op (Einzelsektor-Welten bleiben unverändert).
  */
 export function applyCrossSectorEffects(world: WorldState): WorldState {
-  return world;
+  const consumer = world.domains.energy?.consumers[MEDICAL_POWER_CONSUMER_ID];
+  const hospitals = world.domains.medical.hospitals;
+  if (!consumer || Object.keys(hospitals).length === 0) {
+    return world;
+  }
+
+  // Versorgungsadäquanz: volle Kapazität bei supply ≥ minimum, sonst linear
+  // herunter bis 0. Deterministisch, keine Zeit/Zufall.
+  const factor =
+    consumer.minimum_supply > 0
+      ? Math.max(0, Math.min(1, consumer.current_supply / consumer.minimum_supply))
+      : 1;
+
+  const baselines = world.simulation.medical.capacity_baseline;
+  const nextHospitals = { ...hospitals };
+  let changed = false;
+
+  for (const hospitalId of Object.keys(nextHospitals)) {
+    const hospital = nextHospitals[hospitalId];
+    const baseTotal =
+      baselines[hospitalId]?.emergency_slots_total ?? hospital.capacity.emergency_slots_total;
+    const reducedTotal = Math.ceil(baseTotal * factor);
+
+    if (reducedTotal !== hospital.capacity.emergency_slots_total) {
+      nextHospitals[hospitalId] = {
+        ...hospital,
+        capacity: { ...hospital.capacity, emergency_slots_total: reducedTotal },
+      };
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return world;
+  }
+
+  return {
+    ...world,
+    domains: {
+      ...world.domains,
+      medical: { ...world.domains.medical, hospitals: nextHospitals },
+    },
+  };
 }
 
 /**

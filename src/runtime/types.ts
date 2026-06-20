@@ -319,6 +319,15 @@ export type RoutingFailure = {
 export type HospitalCapacityBaseline = {
   emergency_slots_occupied: number;
   staffed_beds_occupied: number;
+  /**
+   * Volle Notfallkapazität des Hospitals ohne Cross-Sector-Einfluss. Anker für
+   * die Energie→Medical-Kopplung (applyCrossSectorEffects): fällt die
+   * Stromversorgung der Region unter ihr Minimum, wird die sichtbare
+   * emergency_slots_total von diesem Basiswert heruntergerechnet und bei
+   * Rückkehr der Versorgung wieder darauf erholt. Fehlt das Feld, gibt es keine
+   * Kopplung (reine Einzelsektor-Welten).
+   */
+  emergency_slots_total?: number;
 };
 
 /**
