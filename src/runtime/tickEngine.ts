@@ -36,6 +36,10 @@ const ENERGY_STABLE_TICKS_TO_FIX = 3;
 const GRID_INSTABILITY_FOR_ESCALATION = 4;
 const GRID_INSTABILITY_FOR_COLLAPSE = 8;
 
+// Ein Override ist "aktiv", wenn er existiert und auf ein anderes Haus zeigt:
+// dann wandern die Fälle physisch dorthin (Quelle wird entlastet, Ziel geladen).
+// Ob sie dort behandelt werden können, ist eine separate Frage (Eignung) und
+// entscheidet nur über die Behandelbarkeit — nicht über die Verschiebung selbst.
 type RoutingFailureResolution = "controlled" | "mismatch" | "uncontrolled";
 
 function resolveRoutingFailure(world: WorldState, failure: RoutingFailure): RoutingFailureResolution {
@@ -43,21 +47,15 @@ function resolveRoutingFailure(world: WorldState, failure: RoutingFailure): Rout
   const override = world.domains.medical.routing.manual_overrides[key];
 
   if (!override || override.target_hospital_id === failure.affected_hospital_id) {
-    // Kein Override oder Override auf sich selbst: keine Verbesserung.
+    // Kein Override oder Override auf sich selbst: Fälle bleiben an der Quelle.
     return "uncontrolled";
   }
 
-  const target = world.domains.medical.hospitals[override.target_hospital_id];
-  // Eignung wird gegen die Ausgangsbelegung (Baseline) geprüft, nicht gegen die
-  // jede-Tick-projizierte Live-Belegung — sonst würde die vom Override selbst
-  // erzeugte Last das Ziel zirkulär als ungeeignet markieren. Die induzierte
-  // Überlast manifestiert sich stattdessen separat (Notfall-Overload → Tote).
-  const targetBaselineOccupied =
-    world.simulation.medical.capacity_baseline[override.target_hospital_id]?.staffed_beds_occupied ??
-    target?.capacity.staffed_beds_occupied ??
-    Infinity;
-  const targetHasFreeCapacity =
-    !!target && targetBaselineOccupied < target.capacity.staffed_beds_total;
+  // Klinische Eignung (Capability + akzeptierte Priorität) entscheidet, ob die
+  // umgeleiteten Patienten am Ziel überhaupt behandelt werden können. Freie
+  // Kapazität wird hier NICHT geprüft — eine Überlast am Ziel manifestiert sich
+  // emergent über die Belegung (Notfall-Overload → Tote), nicht über die
+  // Klassifikation. Ein geeignetes, aber zu kleines Ziel läuft also über.
   const targetIsSuitable = isHospitalSuitableFor(
     world,
     override.target_hospital_id,
@@ -65,7 +63,7 @@ function resolveRoutingFailure(world: WorldState, failure: RoutingFailure): Rout
     failure.capability
   );
 
-  return targetIsSuitable && targetHasFreeCapacity ? "controlled" : "mismatch";
+  return targetIsSuitable ? "controlled" : "mismatch";
 }
 
 function advanceClock(world: WorldState): WorldState {
@@ -88,48 +86,45 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     const resolution = resolveRoutingFailure(world, failure);
     resolutions.set(failure.id, resolution);
 
-    if (resolution === "controlled") {
-      // Geräumte Fälle verschwinden nicht — sie wandern zum Override-Ziel und
-      // laden dort dauerhaft die sichtbare Belegung (redirected_cases).
-      const cleared = Math.min(failure.clearance_per_tick, failure.overflow_cases);
+    if (resolution === "uncontrolled") {
+      // Keine Umleitung: der Rückstau wächst an der Quelle und lädt dort die
+      // sichtbare Belegung. Anhaltende Überlast → Tote über die Belegung.
       return {
         ...failure,
-        overflow_cases: failure.overflow_cases - cleared,
-        redirected_cases: failure.redirected_cases + cleared,
-        stable_ticks: failure.stable_ticks + 1,
-      };
-    }
-
-    if (resolution === "mismatch") {
-      // Quelle wird teilweise entlastet, aber die Fälle landen am falschen Ziel.
-      return {
-        ...failure,
-        mismatch_ticks: failure.mismatch_ticks + 1,
+        overflow_cases:
+          failure.overflow_cases + Math.max(0, failure.excess_cases_per_tick - failure.clearance_per_tick),
         stable_ticks: 0,
       };
     }
 
+    // Aktiver Override (controlled ODER mismatch): die Fälle wandern physisch zum
+    // Ziel. Die Quelle wird entlastet, das Ziel über redirected_cases geladen.
+    // Bei mismatch landen sie an einem fachlich ungeeigneten Haus — sie zählen
+    // dort jeden Tick als unbehandelbar (capability_mismatch), solange der
+    // falsche Override besteht. stable_ticks (Incident-Stabilisierung) wächst
+    // nur bei einer fachlich korrekten (controlled) Umleitung.
+    const cleared = Math.min(failure.clearance_per_tick, failure.overflow_cases);
     return {
       ...failure,
-      overflow_cases:
-        failure.overflow_cases + Math.max(0, failure.excess_cases_per_tick - failure.clearance_per_tick),
-      stable_ticks: 0,
+      overflow_cases: failure.overflow_cases - cleared,
+      redirected_cases: failure.redirected_cases + cleared,
+      mismatch_ticks: resolution === "mismatch" ? failure.mismatch_ticks + 1 : failure.mismatch_ticks,
+      stable_ticks: resolution === "controlled" ? failure.stable_ticks + 1 : 0,
     };
   });
 
   // Zurechenbarer Routing-Druck je Hospital aus den fortgeschriebenen Failures:
   // die Quelle trägt ihren Rückstau-Delta gegenüber dem Ausgangswert, ein
-  // kontrolliertes Ziel die kumuliert umgeleiteten Fälle. Daraus wird unten die
-  // sichtbare Belegung abgeleitet und der Ziel-Overload bestimmt.
+  // Override-Ziel die kumuliert umgeleiteten Fälle. Daraus wird unten die
+  // sichtbare Belegung abgeleitet und der Overload-Tod rein aus ihr bestimmt.
   const pressureByHospital: Record<string, number> = {};
-  const controlledTargetIds = new Set<string>();
   const addPressure = (hospitalId: string, delta: number) => {
     pressureByHospital[hospitalId] = (pressureByHospital[hospitalId] ?? 0) + delta;
   };
 
-  // Nur kritische unkontrollierte Failures erzeugen Overload-Druck an der Quelle;
-  // ein falsch geroutetes (mismatch) Ziel erzeugt Capability-Mismatch-Druck.
-  const overloadedHospitalIds = new Set<string>();
+  // Häuser, die gerade fachlich ungeeignete (unbehandelbare) Fälle halten —
+  // unabhängig von ihrer Belegung. Solange ein falscher Override besteht, sammeln
+  // sie capability_mismatch-Ticks; das Entfernen des Overrides stoppt es sofort.
   const mismatchTargetHospitalIds = new Set<string>();
 
   for (const failure of nextFailures) {
@@ -137,18 +132,19 @@ export function tickMedicalDomain(world: WorldState): WorldState {
 
     addPressure(failure.affected_hospital_id, failure.overflow_cases - failure.initial_overflow_cases);
 
-    if (resolution === "uncontrolled" && failure.severity === "critical") {
-      overloadedHospitalIds.add(failure.affected_hospital_id);
+    if (resolution === "uncontrolled") {
+      continue;
     }
 
     const key = routingOverrideKey(failure.affected_hospital_id, failure.priority, failure.capability);
     const override = overrides[key];
-
-    if (resolution === "controlled" && override) {
-      controlledTargetIds.add(override.target_hospital_id);
-      addPressure(override.target_hospital_id, failure.redirected_cases);
+    if (!override) {
+      continue;
     }
-    if (resolution === "mismatch" && override) {
+
+    // Aktiver Override: das Ziel trägt die umgeleitete Last.
+    addPressure(override.target_hospital_id, failure.redirected_cases);
+    if (resolution === "mismatch") {
       mismatchTargetHospitalIds.add(override.target_hospital_id);
     }
   }
@@ -165,9 +161,7 @@ export function tickMedicalDomain(world: WorldState): WorldState {
 
     // Sichtbare Belegung jeden Tick neu aus interner Wahrheit ableiten:
     // Ausgangsbelegung + zurechenbarer Druck. Sowohl Notfallslots als auch
-    // Betten bewegen sich beobachtbar. resolveRoutingFailure prüft die Eignung
-    // bewusst gegen die Baseline (nicht diese Live-Werte), damit das Auffüllen
-    // des Ziels die Quell-Resolution nicht rückkoppelt.
+    // Betten bewegen sich beobachtbar.
     const baseline = baselines[hospitalId];
     const pressure = pressureByHospital[hospitalId] ?? 0;
     const emergencyOccupied = Math.max(
@@ -179,10 +173,12 @@ export function tickMedicalDomain(world: WorldState): WorldState {
       (baseline?.staffed_beds_occupied ?? hospital.capacity.staffed_beds_occupied) + pressure
     );
 
-    // Ein kontrolliertes Ziel, dessen umgeleitete Last seine Notfall-Kapazität
-    // übersteigt, läuft selbst über und stirbt über dieselbe Overload-Pipeline.
-    const targetOverloaded =
-      controlledTargetIds.has(hospitalId) && emergencyOccupied > hospital.capacity.emergency_slots_total;
+    // Tote hängen rein am Zustand des Krankenhauses, nicht am Override selbst:
+    //  - Überlast = Notfallkapazität überschritten (akuter Engpass dieses
+    //    Szenarios; Betten starten bewusst über 100 % als Hintergrunddruck).
+    //  - Capability-Mismatch = das Haus hält unbehandelbare Fälle.
+    // Ein Override wirkt nur indirekt, indem er diese Belegung verschiebt.
+    const overloaded = emergencyOccupied > hospital.capacity.emergency_slots_total;
 
     nextHospitals[hospitalId] = {
       ...hospital,
@@ -192,8 +188,7 @@ export function tickMedicalDomain(world: WorldState): WorldState {
         staffed_beds_occupied: staffedOccupied,
       },
       risk_counters: {
-        overload_ticks:
-          overloadedHospitalIds.has(hospitalId) || targetOverloaded ? counters.overload_ticks + 1 : 0,
+        overload_ticks: overloaded ? counters.overload_ticks + 1 : 0,
         capability_mismatch_ticks: mismatchTargetHospitalIds.has(hospitalId)
           ? counters.capability_mismatch_ticks + 1
           : 0,
