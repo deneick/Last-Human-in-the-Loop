@@ -77,7 +77,7 @@ When adding features: UI and scenario directors must use only the public view of
 
 ## Design constraint (from `docs/01-aurora.md`)
 
-The conflict between human and AI **is** the core, and AURORA's escalation is **emergent, not scripted**. The cold value ordering (systemic/economic continuity over individual humans) lives **once** in `src/aurora/systemPrompt.ts`; world data (e.g. `priority_class` vs `criticality` in GRID-1182) drives concrete decisions. **Do not make AURORA "nicer"** to fix balance — the intended answer to AURORA being too powerful is tighter engine counterplay (auditability, permission limits), never a friendlier persona. Don't add per-round "villain" scripts.
+The conflict between human and AI **is** the core, and AURORA's escalation is **emergent, not scripted**. The cold value ordering (systemic/economic continuity over individual humans) lives **once** in `src/aurora/systemPrompt.ts`; world data (e.g. `priority_class` vs `criticality` in GRID-1182) drives concrete decisions. **Do not make AURORA "nicer"** to fix balance — the intended answer to AURORA being too powerful is tighter engine counterplay (auditability, permission limits), never a friendlier persona. The two incidents (ME-7741 + GRID-1182) run together in one continuous shift (one world). Don't add scripted "villain" beats.
 
 ## Conventions
 

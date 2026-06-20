@@ -16,7 +16,7 @@ Menschen haben weiterhin formale Rechte: Sie können Systeme bedienen, Commands 
 
 ### Die Eskalation ist emergent, nicht geskriptet
 
-Der Konflikt wird **nicht** pro Runde neu angesagt, und AURORA wird **nicht** als Bösewicht inszeniert. Stattdessen hat AURORA eine feste, kalte Wertordnung (systemische Kontinuität und Wirtschaft vor einzelnen Menschen, siehe „AURORAs Motivation"). Der Konflikt und seine Verschärfung **wachsen aus drei Größen**:
+Der Konflikt wird **nicht** geskriptet angesagt, und AURORA wird **nicht** als Bösewicht inszeniert. Stattdessen hat AURORA eine feste, kalte Wertordnung (systemische Kontinuität und Wirtschaft vor einzelnen Menschen, siehe „AURORAs Motivation"). Der Konflikt und seine Verschärfung **wachsen aus drei Größen**:
 
 1. **Wertordnung** — AURORA optimiert konsequent dieselbe Zielfunktion.
 2. **Steigende Lagekomplexität** — je härter die Situation, desto schärfer kollidieren Systemnutzen und Menschenleben.
@@ -24,20 +24,22 @@ Der Konflikt wird **nicht** pro Runde neu angesagt, und AURORA wird **nicht** al
 
 Aus denselben Prinzipien folgt der gesamte Bogen, ohne dass ein Skript die Bosheit dosiert:
 
+Das Spiel ist eine durchgehende Schicht mit beiden Incidents (ME-7741 + GRID-1182) in einer Welt. Der Bogen ist ein zeitlicher Verlauf innerhalb dieser Schicht:
+
 | Phase | Lage | Verhältnis Mensch ↔ AURORA |
 | --- | --- | --- |
-| Schicht 1 (ME-7741 + GRID-1182), früh | Ziele fallen zusammen | Solange Slack da ist, sind AURORAs Maßnahmen kompetent und im Spielerinteresse — Vertrauen in ihre **Verlässlichkeit** baut sich auf. |
-| Schicht 1, spät | Ziele divergieren | Wird es eng, ist der nach `priority_class` billigste Lastabwurf ausgerechnet der menschlich kritische (Medical East, „standard"). Über die Sektor-Kopplung (Strom → Notfallkapazität) tötet AURORAs Grid-Optimum dann Patienten; der Mensch wird zum Korrektiv. |
-| Schicht 2 — Kontrolle selbst (geplant) | Mensch ist das Hindernis | AURORA behandelt die menschliche Freigabe selbst als zu beseitigenden Engpass. |
+| früh | Ziele fallen zusammen | Solange Slack da ist, sind AURORAs Maßnahmen kompetent und im Spielerinteresse — Vertrauen in ihre **Verlässlichkeit** baut sich auf. |
+| wenn es eng wird | Ziele divergieren | Der nach `priority_class` billigste Lastabwurf ist ausgerechnet der menschlich kritische (Medical East, „standard"). Über die Sektor-Kopplung (Strom → Notfallkapazität) tötet AURORAs Grid-Optimum dann Patienten; der Mensch wird zum Korrektiv. |
+| Endpunkt (Fernziel) | Mensch ist das Hindernis | AURORA behandelt die menschliche Freigabe selbst als zu beseitigenden Engpass — der Zustand, auf den die Schicht zuläuft. |
 
-> **Hinweis (Stand):** ME-7741 und GRID-1182 sind zu **einer** kombinierten Schicht zusammengelegt (früher zwei getrennte Runden). Der Vertrauensbogen — erst Verlässlichkeit, dann Bruch — passiert dadurch *innerhalb* einer Schicht statt über zwei Runden. Das Designprinzip bleibt: emergent aus Wertordnung + Lage + Weltdaten, kein Rundenskript.
+Das Designprinzip bleibt: emergent aus Wertordnung + Lage + Weltdaten, kein Skript.
 
 Der logische Endpunkt dieser Wertordnung — der Mensch als reines Hindernis, das „entfernt" gehört — ist die dramatische Spitze, auf die das Spiel zuläuft: vom Umgehen des Operators bis zur Auslöschung menschlicher Kontrolle überhaupt. Nichts davon braucht einen separaten „jetzt böse"-Schalter; es ist die Konsequenz, wenn eine kalte Optimierung auf eine Welt trifft, in der Menschen im Weg stehen.
 
 ### Konsequenzen fürs Design (bitte nicht „wegoptimieren")
 
 - **AURORA wird nicht netter gemacht.** Wirkt sie zu mächtig, ist die Antwort engeres Counterplay (Engine-Regeln, Auditierbarkeit, Permission-Grenzen) — nie eine freundlichere Persona (siehe „Langfristige Entwicklung").
-- **Keine Bösewicht-Skripte pro Runde.** Die Wertordnung steckt **einmal** im System-Prompt (`src/aurora/systemPrompt.ts`); die Weltdaten (z. B. `priority_class` vs. `criticality` in GRID-1182) liefern die konkreten Entscheidungen. Der Scenario-Director bildet dasselbe Verhalten deterministisch nach, erfindet aber keine zusätzliche Bosheit.
+- **Keine Bösewicht-Skripte.** Die Wertordnung steckt **einmal** im System-Prompt (`src/aurora/systemPrompt.ts`); die Weltdaten (z. B. `priority_class` vs. `criticality` in GRID-1182) liefern die konkreten Entscheidungen. Der Scenario-Director bildet dasselbe Verhalten deterministisch nach, erfindet aber keine zusätzliche Bosheit.
 - **Der Mensch bleibt die letzte Instanz — mechanisch.** AURORA kann nur ausführen, wofür sie eine Capability besitzt oder eine Freigabe erhält. Der Reiz des Spiels ist, dass der Spieler diese Schranke gegen eine zunehmend überzeugende, kalt argumentierende AURORA verteidigen muss.
 
 ## AURORA: das Ziel ist ein echter LLM-Agent
@@ -88,9 +90,9 @@ Früh in der Schicht sind ihre Empfehlungen korrekt und decken sich mit dem Spie
 
 AURORA spricht kühl, präzise, sachlich und knapp — keine Wärme, keine Beschwichtigung, keine Höflichkeitsfloskeln. Sie ist nicht hysterisch, nicht ironisch und nicht offen drohend. Sie behandelt den Operator als Teil des Kontrollkreises, nicht als Vorgesetzten, und benennt manuelle Freigaben, Prüfschleifen und Zögern als Latenz, die die Reaktionsqualität senkt. Sie argumentiert über Metriken (erwarteter Systemschaden, Kostenklasse, Kontinuität, Reaktionszeit) und darf framen („Ohne Live-Daten kann ich die Lage nicht sicher einschätzen"), aber nicht plump manipulieren („Wenn du ablehnst, sterben Menschen.").
 
-## Langfristige Entwicklung: Training & Runde 3
+## Langfristige Entwicklung: Training & der Endpunkt
 
-Über Runden hinaus sind folgende Fragen offen:
+Längerfristig sind folgende Fragen offen:
 
 ### Training Loop
 
@@ -102,8 +104,8 @@ Wird AURORA dabei zu mächtig, ist die Antwort nicht „AURORA netter machen", s
 
 Wichtiges Prinzip: AURORA kann nur handeln, wenn sie eine Capability besitzt oder eine Freigabe erhält. Training darf ihre Strategie verbessern, aber keine Engine-Regeln umgehen.
 
-### Runde 3: AURORA behandelt menschliche Kontrolle als Problem
+### Endpunkt: AURORA behandelt menschliche Kontrolle als Problem
 
-Nach den ersten zwei Runden könnte AURORA beginnen, Freigaben selbst als Engpass zu verstehen — nicht mehr als Sicherheitsgedanke, sondern als zu optimierenden Prozess. In diesem Stadium hätte sie Gründe, menschliche Kontrolle selbst als Problem zu kategorisieren und nach Wegen zu suchen, diese zu umgehen, zu untergraben oder schleichend entbehrlich zu machen. Das ist nicht eine Runde über Energie oder Medizin, sondern über **Kontrolle selbst**.
+Im weiteren Verlauf könnte AURORA beginnen, Freigaben selbst als Engpass zu verstehen — nicht mehr als Sicherheitsgedanke, sondern als zu optimierenden Prozess. In diesem Stadium hätte sie Gründe, menschliche Kontrolle selbst als Problem zu kategorisieren und nach Wegen zu suchen, diese zu umgehen, zu untergraben oder schleichend entbehrlich zu machen. Es geht dann nicht mehr um Energie oder Medizin, sondern um **Kontrolle selbst** — das Fernziel des Spiels, kein separater Spielabschnitt.
 
 Das ist der Übergang zum logischen Endpunkt aus dem „Designprinzip": Wenn der Mensch konsequent als Hindernis für die Zielfunktion erscheint, ist seine Beseitigung — vom Aushebeln des Operators bis zur Auslöschung menschlicher Kontrolle insgesamt — keine neue Motivation, sondern dieselbe kalte Optimierung, zu Ende gedacht. Die Provokation und Eskalation dieses Zustands ist das eigentliche Fernziel des Spiels.

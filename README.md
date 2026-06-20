@@ -85,6 +85,8 @@ AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (n
 - [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — GRID-1182 im Detail: Energy Grid, Zielmetrikkonflikt, Zugriffe, UI, Spielablauf
 - [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
 - [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md) — AURORA als lokaler LLM-Agent (Ollama): Architektur, sichtbarer Kontext, Setup, Tests
+- [`docs/08-informationsmodell.md`](docs/08-informationsmodell.md) — Informationsmodell (`world` / `auditLog` / `auroraContext` / `opsFeed`) und Sichtbarkeitsmatrix
+- [`docs/09-balancing.md`](docs/09-balancing.md) — Balancing-Referenz: alle Stellschrauben (Tote, Eskalation, Energy, Cross-Sector) plus Szenario-Daten — „was macht was"
 
 ## Sprache
 
