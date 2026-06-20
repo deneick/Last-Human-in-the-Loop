@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Last Human in the Loop** is a browser-based operator/terminal game (React + Vite + TypeScript) about human control over AI in a critical-infrastructure world. The player is the last human approval authority; **AURORA** is a cold, optimizing AI that needs the player's permission for any action beyond its base rights. There are two playable rounds: **ME-7741** (medical routing) and **GRID-1182** (energy grid). Read `docs/` for the full design — start with `README.md`, then `docs/03-runtime-architecture.md` (engine) and `docs/07-aurora-llm.md` (LLM agent).
+**Last Human in the Loop** is a browser-based operator/terminal game (React + Vite + TypeScript) about human control over AI in a critical-infrastructure world. The player is the last human approval authority; **AURORA** is a cold, optimizing AI that needs the player's permission for any action beyond its base rights. The two incidents — **ME-7741** (medical routing) and **GRID-1182** (energy grid) — now run together in one **combined shift** (single WorldState, both panels, both incidents); the energy supply `consumer-medical-east` is coupled to the hospitals' emergency capacity via `applyCrossSectorEffects`. Read `docs/` for the full design — start with `README.md`, then `docs/03-runtime-architecture.md` (engine) and `docs/07-aurora-llm.md` (LLM agent).
 
 ## Commands
 
@@ -49,7 +49,7 @@ Key rule: situation signals reach AURORA **only** as `system_event` via the opsF
 
 ### Tick pipeline (`src/runtime/tickEngine.ts`, `outcomeEngine.ts`)
 
-`tickWorld` = `advanceClock → tickMedicalDomain → tickEnergyDomain → applyCrossSectorEffects (no-op) → evaluateIncidents`. Each domain stage is a no-op when its domain is absent.
+`tickWorld` = `advanceClock → tickMedicalDomain → tickEnergyDomain → applyCrossSectorEffects → evaluateIncidents`. Each domain stage is a no-op when its domain is absent. `applyCrossSectorEffects` couples energy→medical (medical-east power shortfall shrinks hospital `emergency_slots_total`); it is a reference-equal no-op in single-sector worlds.
 
 `evaluateOutcomes` is **not** part of `tickWorld` — the caller chains `advanceScenario(evaluateOutcomes(advanceTick(state)))` so consequences are computed before the director reacts. Everything is deterministic: no randomness, no real time. Time only advances via `Tick +1` / `Tick +5` in the UI.
 

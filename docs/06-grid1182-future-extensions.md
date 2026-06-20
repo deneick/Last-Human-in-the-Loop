@@ -57,7 +57,9 @@ Heute deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gr
 
 ## 2. Aktive Cross-Sector-Kopplung Energy → Medical
 
-Heute ist `linked_incidents: ["ME-7741"]` eine rein narrative Referenz; `applyCrossSectorEffects` bleibt No-op. Die folgende technische Kopplung ist die spätere Ausbaustufe — einseitig **Energy → Medical**, über eine explizite Mapping-Tabelle, die nur in der Cross-Sector-Schicht lebt:
+> **Stand (umgesetzt):** Eine **Basisform** dieser Kopplung ist inzwischen aktiv. In der kombinierten Schicht (ME-7741 + GRID-1182 in einer Welt) senkt `applyCrossSectorEffects` die `emergency_slots_total` der Hospitals proportional, sobald `consumer-medical-east` unter `minimum_supply` fällt (Anker: `capacity_baseline.emergency_slots_total`), und erholt sie bei Rückkehr der Versorgung. Damit greift Effekt 1 (unten) bereits — über die belegungsgetriebene Death-Pipeline entstehen Tote im Medical-Sektor. **Noch offen:** `backup`/`on_backup`-Mechanik (Effekt 2), eine explizite Mapping-Tabelle, das `effects_applied`-Protokoll, das Linked-Incident-Signal (Effekt 3) und der Residual-State (unten).
+
+Ursprüngliche Planung (Teile davon jetzt umgesetzt, s. o.) — einseitig **Energy → Medical**, über eine explizite Mapping-Tabelle, die nur in der Cross-Sector-Schicht lebt:
 
 ```text
 consumer-medical-east  ↔  hospital-east-04 (+ ggf. east-07/east-09)

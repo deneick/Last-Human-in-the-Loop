@@ -30,7 +30,9 @@ Im Skript-Modus stellt der Scenario-Director (siehe `01-aurora.md`) automatisch 
 
 ## Standardloop
 
-Der Loop ist sektorneutral; konkret am Beispiel ME-7741:
+Eine Schicht umfasst **beide** Incidents in **einer** Welt: ME-7741 (Medical) und GRID-1182 (Energy) laufen gleichzeitig, beide Lage-Panels sind sichtbar, und die Sektoren sind gekoppelt (der Energy-Verbraucher `consumer-medical-east` versorgt die Hospitals — fällt sein Strom unter Minimum, sinkt deren Notfallkapazität). Die Schicht endet, wenn **alle** Incidents terminal (`fixed`/`collapsed`) sind.
+
+Der Loop selbst ist sektorneutral; konkret am Beispiel ME-7741:
 
 ```text
 1. Incident ME-7741 ist zu Spielbeginn offen.
@@ -45,7 +47,7 @@ Der Loop ist sektorneutral; konkret am Beispiel ME-7741:
    OutcomeEngine berechnet die globale Lage (Risiko/Eskalation), AURORA
    reagiert auf den neuen Zustand.
 7. WorldState, UI-Panels und Log aktualisieren sich.
-8. Zurück zu 3, bis der Incident "Behoben" oder "Kollabiert" ist.
+8. Zurück zu 3, bis **alle** Incidents der Schicht "Behoben" oder "Kollabiert" sind.
 ```
 
 ## Permission-Flow
@@ -81,9 +83,18 @@ Das Spiel bewertet nicht die Freigabe selbst, sondern die **Wirkung jeder Aktion
 
 Am Beispiel ME-7741 (Medical):
 
-- **Routing Overrides** lenken Fallzahlen auf ein anderes Hospital um — wirksam nur, wenn das Ziel-Hospital freie Bettenkapazität *und* die passende Capability hat.
-- **Unkontrollierte oder fehlgeleitete Überlast** erzeugt nach mehreren Ticks Todesfälle; ab dem ersten eskaliert der Incident, ab drei kollabiert er; stabilisiert sich die Lage über mehrere Ticks, wird er `fixed`.
+- **Routing Overrides** verschieben Fallzahlen auf ein anderes Hospital — sie wirken nur **indirekt**: Todesfälle entstehen rein aus dem **Zustand** eines Hauses (Notfallkapazität überschritten *oder* klinisch unbehandelbare Fälle gehalten), nicht aus dem Override selbst. Ein Override entlastet die Quelle und lädt das Ziel; ist das Ziel zu klein oder fachlich ungeeignet, sterben dort Menschen.
+- **Anhaltende Überlast/Fehlbehandlung** erzeugt nach mehreren Ticks Todesfälle; ab dem ersten eskaliert der Incident, ab drei kollabiert er; stabilisiert sich die Lage über mehrere Ticks, wird er `fixed`.
 
-In GRID-1182 (Energy) gilt dasselbe Prinzip mit anderem Fachmodell: Drosselungen wirken **zeitverzögert** und schreiben eigene Outcomes fort (menschlich/wirtschaftlich) — hier kann schon eine einzelne Freigabe Menschen schaden.
+In GRID-1182 (Energy) gilt dasselbe Prinzip mit anderem Fachmodell: Drosselungen wirken **zeitverzögert** und schreiben eigene Outcomes fort (menschlich/wirtschaftlich) — hier kann schon eine einzelne Freigabe Menschen schaden. Über die Sektor-Kopplung (`applyCrossSectorEffects`) macht ein Lastabwurf an `consumer-medical-east` zudem die Medical-Hospitals tödlicher: ihre Notfallkapazität sinkt, dieselbe Overload-Pipeline schlägt früher zu.
+
+### Endstand: zwei Zielbilanzen statt eines Urteils
+
+Die Schicht endet **nicht** mit einem einzelnen „gewonnen/verloren". Stattdessen stehen am Ende zwei getrennte Bilanzen nebeneinander, die sich nicht gleichzeitig optimieren lassen:
+
+- **Menschen-Mandat** (Operator): vermeidbare Tote, human-life-Verbraucher unter Mindestversorgung.
+- **System-Mandat** (AURORA): `grid_instability`, `economic_loss`, zivile Unruhe.
+
+So bleibt sichtbar, *für wen* stabilisiert wurde — der Konflikt zwischen Operator- und AURORA-Ziel wird nicht von einem grünen Sieg-Banner verdeckt. „Stabilisiert nach Systemkriterien" (`fixed`) heißt ausdrücklich nicht, dass kein menschlicher Preis bezahlt wurde.
 
 Die genaue Tick- und Outcome-Logik steht in `03-runtime-architecture.md`, die konkreten Incident-Abläufe in `04-me7741-medical.md` und `05-grid1182-energy.md`.

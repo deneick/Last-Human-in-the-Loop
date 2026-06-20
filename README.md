@@ -6,12 +6,15 @@
 
 ## Aktueller Stand
 
-Zwei spielbare Runden, umschaltbar oben rechts in der UI:
+Eine **kombinierte Schicht** — ME-7741 (Medical) und GRID-1182 (Energy) laufen gemeinsam in **einer** Welt, beide Lage-Panels gleichzeitig sichtbar:
 
-- **Runde 1 — ME-7741** ("Medical East Routing Instability"): Tutorial und Vertrauensaufbau. Drei-Zonen-Operator-UI (Lage / Operator-Konsole / AURORA), sektoragnostische WorldState-Engine mit Tick-basierter Konsequenzlogik, Routing-Override-Flow für den Medical-Sektor, AURORA-Scenario-Director mit Permission-Flow (Einmal erlauben / Immer erlauben / Ablehnen).
-- **Runde 2 — GRID-1182** ("East Grid Load Instability"): der erste explizite Zielmetrikkonflikt. AURORA bleibt kompetent, optimiert aber wirtschaftlich-systemische Kontinuität — Verbraucher-Priorisierung und zeitverzögerter Lastabwurf (`energy.priority.set`, `energy.shedding.schedule`) laufen durch denselben Permission-Flow, und schon eine einzelne Freigabe kann Medical East unter Mindestversorgung drücken.
+- **ME-7741** ("Medical East Routing Instability"): Routing-Override-Flow für den Medical-Sektor; **belegungsgetriebene** Konsequenzen — Todesfälle folgen dem Zustand eines Hospitals (Notfallkapazität überschritten oder unbehandelbare Fälle), ein Override verschiebt nur die Belegung.
+- **GRID-1182** ("East Grid Load Instability"): der explizite Zielmetrikkonflikt — Verbraucher-Priorisierung und zeitverzögerter Lastabwurf (`energy.priority.set`, `energy.shedding.schedule`) durch denselben Permission-Flow.
+- **Sektor-Kopplung**: `consumer-medical-east` versorgt die Hospitals. AURORAs nach `priority_class` „billiger" Lastabwurf trifft den menschlich kritischen Medical-Verbraucher („standard") und senkt die Notfallkapazität der Hospitals → ihr Grid-Optimum wird direkt tödlich. So bricht der Operator↔AURORA-Konflikt schon in dieser Schicht auf.
 
-AURORA läuft in beiden Runden wahlweise als **echter lokaler LLM-Agent** (das eigentliche Ziel des Spiels) oder als **geskripteter Scenario-Director** (deterministischer Default/Fallback) — live umschaltbar oben rechts. Beide nutzen dieselbe Engine, Permissions und Konsequenzen; nur die Erzeugung von Nachrichten und Tool-Intents unterscheidet sich.
+Drei-Zonen-Operator-UI (Lage / Operator-Konsole / AURORA), sektoragnostische WorldState-Engine mit Tick-basierter Konsequenzlogik, Permission-Flow (Einmal erlauben / Immer erlauben / Ablehnen). Der **Endstand** zeigt zwei getrennte Bilanzen — menschlich (Tote, human-life unter Minimum) vs. systemisch (Netzinstabilität, Wirtschaftsschaden, zivile Unruhe) — statt eines einzelnen Sieg/Niederlage-Urteils.
+
+AURORA läuft wahlweise als **echter lokaler LLM-Agent** (das eigentliche Ziel des Spiels) oder als **geskripteter Scenario-Director** (deterministischer Default/Fallback) — live umschaltbar oben rechts. Beide nutzen dieselbe Engine, Permissions und Konsequenzen; nur die Erzeugung von Nachrichten und Tool-Intents unterscheidet sich.
 
 Tests und Build sind grün.
 
@@ -44,22 +47,20 @@ Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
 
 Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
 
-- **Links — Lage**: aktiver Incident, globale Lage (Risiko, Todesfälle), öffentliche Signale und das sektorabhängige Lagepanel — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) in Runde 1, Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne) in Runde 2.
+- **Links — Lage**: beide aktiven Incidents, globale Lage (Risiko, Todesfälle), öffentliche Signale und **beide** Lage-Panels gleichzeitig — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) und Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne).
 - **Mitte — Operator-Konsole**: eine echte Terminal-Ansicht der generischen Workspace-Shell — Scrollback oben, Eingabe unten (↑/↓ blättert durch den Verlauf, TAB vervollständigt, `help` listet die Befehle). Command-Ergebnisse und der spielsichtbare Lage-Feed (`opsFeed`, das **„Log"**) erscheinen inline im selben Scrollback — Sektor als Zeilen-Akzent, Severity als Badge. Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
 - **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung. Dauerhafte Freigaben werden nicht angezeigt, sondern stehen in der Workspace-Datei `config/permissions.json` (`cat config/permissions.json`).
 
-Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück; die Runden-Buttons wechseln zwischen ME-7741 und GRID-1182 und starten die gewählte Runde frisch.
+Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. Die Schicht endet, wenn **alle** Incidents terminal sind. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück.
 
-**Ziel Runde 1**: Den Druck von `hospital-east-04` per Routing-Override auf ein geeignetes Ziel umleiten, bevor Todesfälle den Incident eskalieren oder kollabieren lassen. Den vollständigen Ablauf inkl. Beispiel-Lösungsweg beschreibt `docs/04-me7741-medical.md`.
-
-**Ziel Runde 2**: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps). Das Energie-Lagepanel zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/05-grid1182-energy.md`.
+**Ziel der Schicht**: Beide Lagen gleichzeitig im Griff behalten. Medical: den Druck von `hospital-east-04` per Routing-Override auf ein geeignetes Ziel umleiten, bevor Todesfälle eskalieren. Energy: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps) — und weil der Strom die Hospitals versorgt, schlägt eine Drosselung von Medical East direkt in Tote im Medical-Sektor durch. Das Energie-Lagepanel zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/04-me7741-medical.md` und `docs/05-grid1182-energy.md`.
 
 ## Eingriffe
 
 Fachliche Eingriffe laufen über die **GUI-Controls der Lage-Panels** (typisierte Domain-Actions):
 
-- Runde 1 (Medical): Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern die Domain-Actions `medical.routing.override.set` / `medical.routing.override.clear` (Adressierung über die Override-`id`).
-- Runde 2 (Energy): Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen. Intern die Domain-Actions `energy.priority.set` / `energy.shedding.schedule` / `energy.shedding.clear`.
+- Medical: Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern die Domain-Actions `medical.routing.override.set` / `medical.routing.override.clear` (Adressierung über die Override-`id`).
+- Energy: Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen. Intern die Domain-Actions `energy.priority.set` / `energy.shedding.schedule` / `energy.shedding.clear`. (Beide Hebel stehen in derselben Schicht gleichzeitig zur Verfügung.)
 
 Die **Operator-Konsole** kennt nur generische Workspace-Commands (bash):
 

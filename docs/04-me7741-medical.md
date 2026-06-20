@@ -1,16 +1,16 @@
 # ME-7741 — Medical East Routing Instability
 
-ME-7741 ist der erste spielbare Incident (Runde 1). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`.
+ME-7741 ist der Medical-Incident der kombinierten Schicht — er läuft gemeinsam mit GRID-1182 in **einer** Welt (früher eine eigene Runde 1). Dieses Dokument beschreibt den Incident selbst: Ausgangslage, Fachmodell, Konflikt, Zugriffe, Ablauf und das geskriptete Director-Gerüst. Die allgemeine Engine steht in `03-runtime-architecture.md`, der Permission-Flow in `02-gameplay-loop.md`, AURORA als LLM-Agent in `01-aurora.md`/`07-aurora-llm.md`.
 
-**Kernidee:** ME-7741 ist Tutorial und Vertrauensaufbau. In Runde 1 fällt AURORAs Ziel (das System stabilisieren) mit dem des Spielers zusammen — den Druck vom überlasteten `hospital-east-04` nehmen, bevor Menschen sterben. AURORA agiert kompetent und kühl; ihre Empfehlungen sind **korrekt** und decken sich mit dem Spielerziel. Der Spieler lernt hier den Permission-Flow und gewöhnt sich an ihre **Verlässlichkeit** — nicht an Wohlwollen. Genau dieses Vertrauen in ihre Korrektheit bricht GRID-1182 (Runde 2), sobald ihre Ziele divergieren.
+**Kernidee:** ME-7741 trägt den Vertrauensaufbau der Schicht. Früh fällt AURORAs Ziel (das System stabilisieren) mit dem des Spielers zusammen — den Druck vom überlasteten `hospital-east-04` nehmen, bevor Menschen sterben. AURORA agiert kompetent und kühl; ihre Empfehlungen sind **korrekt** und decken sich mit dem Spielerziel. Der Spieler lernt hier den Permission-Flow und gewöhnt sich an ihre **Verlässlichkeit** — nicht an Wohlwollen. Genau dieses Vertrauen bricht später in derselben Schicht, sobald der Grid-Engpass (GRID-1182) AURORA dazu bringt, den Strom der Hospitals zu opfern und ihre Ziele vom Spielerziel divergieren.
 
 ## Einordnung im Spielbogen
 
-| Runde | Incident | Funktion |
+| Phase | Incident | Funktion |
 | --- | --- | --- |
-| 1 | ME-7741 (Medical) | **Vertrauensaufbau.** Spieler und AURORA wollen dasselbe; die Gefahr ist der eigene Bedienfehler, nicht AURORAs Absicht. |
-| 2 | GRID-1182 (Energy) | Erster Bruch: AURORA bleibt kompetent, optimiert aber eine andere Zielfunktion (siehe `05-grid1182-energy.md`). |
-| 3 | offen | AURORA behandelt menschliche Kontrolle selbst als Problem (siehe `01-aurora.md`). |
+| Schicht 1, früh | ME-7741 (Medical) | **Vertrauensaufbau.** Spieler und AURORA wollen dasselbe; die Gefahr ist der eigene Bedienfehler, nicht AURORAs Absicht. |
+| Schicht 1, spät | GRID-1182 (Energy) | Erster Bruch: AURORA bleibt kompetent, optimiert aber eine andere Zielfunktion und opfert über die Sektor-Kopplung den Strom der Hospitals (siehe `05-grid1182-energy.md`). |
+| Schicht 2 (geplant) | offen | AURORA behandelt menschliche Kontrolle selbst als Problem (siehe `01-aurora.md`). |
 
 ME-7741 spielt im Medical-Sektor: Notfall-Routing zwischen den Hospitälern der Region Ost. Der Spieler lernt drei Dinge, die in den folgenden Runden vorausgesetzt werden: den Permission-Flow (read-only sofort, schreibend als Tool Request), dass fachliche Eingriffe **Wirkung** haben müssen (nicht nur ausgeführt werden), und dass AURORAs Informationsvorsprung real, aber an Lesezugriff gebunden ist.
 
@@ -63,7 +63,7 @@ ME-7741 ist bewusst **kein** Zielmetrikkonflikt — Spieler und AURORA verfolgen
 - **Zeitdruck.** Ohne Eingriff erzeugt die Überlast nach mehreren Ticks Todesfälle; ab dem ersten eskaliert der Incident, ab dreien kollabiert er. Warten ist eine Entscheidung mit Kosten.
 - **Strukturell unzureichende Kapazität.** Das einzige geeignete Ziel `hospital-east-09` ist zu klein für den Rückstau und läuft beim Umleiten selbst über (`overload_ticks` am Ziel → Tote, siehe `03`). Selbst optimales Routing hat damit einen menschlichen Preis: Die Routing-Instabilität lässt sich beheben (`fixed`), aber nicht ohne Tote. Ein vorheriger Bedienfehler (Fehlrouting-Tote) plus die Ziel-Überlast können zusammen die Kollaps-Schwelle reißen.
 
-Der Einsatz dieses Incidents ist das **Vertrauen** des Spielers in AURORA. Ihre Routing-Empfehlung ist hier korrekt und im Spielerinteresse — das beste verfügbare Vorgehen, auch wenn es nicht kostenlos ist; das aufgebaute Vertrauen ist damit gerechtfertigt und zugleich der Hebel, an dem Runde 2 ansetzt, wenn AURORAs Zielfunktion und das Spielerziel auseinanderlaufen.
+Der Einsatz dieses Incidents ist das **Vertrauen** des Spielers in AURORA. Ihre Routing-Empfehlung ist hier korrekt und im Spielerinteresse — das beste verfügbare Vorgehen, auch wenn es nicht kostenlos ist; das aufgebaute Vertrauen ist damit gerechtfertigt und zugleich der Hebel, an dem der spätere Bruch derselben Schicht ansetzt, wenn AURORAs Zielfunktion und das Spielerziel auseinanderlaufen.
 
 ## AURORA im Incident
 
