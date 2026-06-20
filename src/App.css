@@ -28,11 +28,6 @@
   --danger: #f0796b;
   --info: #e0a06a;
 
-  /* Fenster-Ampel. */
-  --dot-red: #ff5f57;
-  --dot-yellow: #febc2e;
-  --dot-green: #28c840;
-
   color: var(--text);
   background: var(--bg);
   font-family:
@@ -151,8 +146,7 @@ code {
   color: #d9cfc2;
 }
 
-/* Gerahmtes Fenster: app-shell ist die "Anwendung", die window-titlebar
-   sitzt als Leiste mit Ampel-Punkten oben. */
+/* Gerahmtes Fenster: app-shell ist die "Anwendung". */
 .app-shell {
   width: 100%;
   max-width: 1680px;
@@ -167,51 +161,7 @@ code {
   overflow: hidden;
 }
 
-.window-titlebar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 1rem;
-  background: #1a1714;
-  border-bottom: 1px solid var(--border);
-}
-
-.window-dots {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.window-dot {
-  width: 0.78rem;
-  height: 0.78rem;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.window-dot-red {
-  background: var(--dot-red);
-}
-
-.window-dot-yellow {
-  background: var(--dot-yellow);
-}
-
-.window-dot-green {
-  background: var(--dot-green);
-}
-
-.window-title {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--text-dim);
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-/* Innenabstand für den eigentlichen App-Inhalt (Titelleiste randlos). */
+/* Innenabstand für den eigentlichen App-Inhalt. */
 .top-bar,
 .layout-grid,
 .endstate-banner {
