@@ -35,9 +35,11 @@ Grundprinzip: Die **Konstanten** legen die Regeln fest, die **Szenario-Daten** d
 | `GRID_INSTABILITY_FOR_ESCALATION` | 4 | `open → escalated`; Knoten-Status `critical` statt `strained` | tickEngine |
 | `GRID_INSTABILITY_FOR_COLLAPSE` | 8 | Energy-Incident `→ collapsed` | tickEngine |
 | `ENERGY_STABLE_TICKS_TO_FIX` | 3 | 3 überlastfreie Ticks in Folge ⇒ `fixed` | tickEngine |
-| `human_harm += 1` | je Tick: `human-life`/`public-supply`-Verbraucher unter `minimum_supply` | menschlicher Energy-Preis | tickEngine |
+| `human_harm += 1` | je Tick: `human-life`/`public-supply`-Verbraucher unter `minimum_supply`, **sofern er KEIN Hospital speist** | menschlicher Energy-Preis | tickEngine |
 | `economic_loss += 1` | je Tick: `economic`-Verbraucher reduziert | wirtschaftlicher Preis | tickEngine |
 | `civil_unrest += 1` | je Tick: `civil-stability`-Verbraucher reduziert | ziviler Preis | tickEngine |
+
+**Wichtig (geändert):** Ein Verbraucher, der über `power_feed_consumer_id` ein Hospital versorgt (in der Kombi-Welt `consumer-medical-east`), zählt **nicht** mehr als direkter `human_harm`. Sein menschlicher Preis entsteht ausschließlich über die Bett-Kopplung (Strommangel → schrumpfende Notfallkapazität → Overload → Tote). In reinen Energy-Einzelwelten ohne Hospitals zählt er weiter (kein Bett-Pfad vorhanden).
 
 ## Globales Risiko (`evaluateWorldOutcomes`)
 
@@ -48,16 +50,24 @@ Grundprinzip: Die **Konstanten** legen die Regeln fest, die **Szenario-Daten** d
 | `strained` | `deaths_total ≥ 1` **oder** eskalierter Incident **oder** Energy-`human_harm ≥ 1` **oder** `grid_instability ≥ GRID_INSTABILITY_FOR_STRAIN` (2) |
 | `stable` | sonst |
 
-## Cross-Sector-Kopplung (`applyCrossSectorEffects`)
+## Cross-Sector-Kopplung (`applyCrossSectorEffects`) — pro Stromfeed
 
-Energy → Medical, über den Verbraucher `consumer-medical-east` (`MEDICAL_POWER_CONSUMER_ID`):
+Energy → Medical, jetzt **pro Hospital über seinen Stromfeed**. Jedes Hospital folgt `power_feed_consumer_id` (Fallback: `MEDICAL_POWER_CONSUMER_ID = consumer-medical-east`):
 
 ```text
-factor = clamp(current_supply / minimum_supply, 0, 1)
+feed   = consumers[hospital.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID]
+factor = clamp(feed.current_supply / feed.minimum_supply, 0, 1)
 emergency_slots_total(Hospital) = ceil(capacity_baseline.emergency_slots_total × factor)
 ```
 
-Bei voller Versorgung (`supply ≥ minimum`) ⇒ `factor = 1` ⇒ volle Kapazität. Sinkt der Strom darunter, schrumpft die Notfallkapazität der Hospitals proportional → die Overload-Pipeline schlägt früher zu. Erholt sich die Versorgung, kehrt die Kapazität zurück. In Welten ohne diesen Verbraucher/ohne Hospitals: referenzgleicher No-op.
+Bei voller Versorgung (`supply ≥ minimum`) ⇒ `factor = 1` ⇒ volle Kapazität. Sinkt der Strom **eines Feeds** darunter, schrumpft nur die Notfallkapazität der daran hängenden Häuser → Umleiten an ein Haus mit gesundem Feed bleibt ein echter Hebel. Erholt sich die Versorgung, kehrt die Kapazität zurück. In Welten ohne Energy-Verbraucher/ohne Hospitals: referenzgleicher No-op.
+
+## Strom-getriebener Routing-Overflow (`tickMedicalDomain`) — geändert
+
+In einer **stromgekoppelten** Welt (Energy-Verbraucher + Hospitals vorhanden) gilt:
+
+- **Overflow entsteht erst durch Strommangel.** Ein unkontrolliertes Failure wächst (`overflow_cases += max(0, excess − clearance)`) **nur**, wenn sein Feed unter Minimum liegt (`feedShortFor`). Bei vollem Strom bleibt es dormant (overflow 0) → kein Overload am Start. In ungekoppelten Einzelwelten (kein Energy) wächst es wie bisher immer.
+- **Stabilisierung nur ohne Overload (emergenter Gate).** `stable_ticks` wachsen nur, wenn korrekt geroutet (`controlled`) **und** kein Haus überlastet ist. Da der Overload aus dem Strommangel kommt, ist ME-7741 **nicht allein durch richtiges Routing lösbar, sondern nur in Verbindung mit dem Grid** (Strom zurückholen). In ungekoppelten Einzelwelten greift der Gate nicht (altes Verhalten).
 
 ## Szenario-Daten: ME-7741 (Medical)
 
@@ -76,7 +86,20 @@ Routing-Failures (beide an `hospital-east-04`):
 | rf-me7741-p2-trauma | P2/TRAUMA | 8 | 18 | 2 | critical |
 | rf-me7741-p3-general | P3/GEN | 4 | 10 | 3 | moderate |
 
-`hospital-east-04` startet bereits **über** Kapazität (29 > 24) — das ist der Incident. `hospital-east-09` ist klinisch geeignet für P2/TRAUMA, aber mit 6 freien Notfallslots zu klein für 18 Überlauf-Fälle (läuft beim Umleiten selbst über).
+`hospital-east-04` startet hier (reine ME-7741-Einzelwelt) **über** Kapazität (29 > 24) — das ist der Incident. `hospital-east-09` ist klinisch geeignet für P2/TRAUMA, aber mit 6 freien Notfallslots zu klein für 18 Überlauf-Fälle (läuft beim Umleiten selbst über).
+
+### Abweichung in der Kombi-Welt (`scenarios/combined`)
+
+Die gespielte Kombi-Schicht **überschreibt** diese Startwerte nach dem Klonen, damit Medical **sauber** startet und der Druck erst durch Strommangel entsteht:
+
+| Was | Einzelwelt ME-7741 | Kombi-Welt |
+| --- | --- | --- |
+| hospital-east-04 Notfall belegt/gesamt | 29 / 24 (über Kapazität) | 22 / 24 (unter Kapazität) |
+| hospital-east-04 Betten belegt/gesamt | 118 / 100 | 95 / 100 |
+| rf-me7741-p2-trauma | overflow 18, excess 8, clear 2, critical | overflow **0**, excess 3, clear 2, critical |
+| rf-me7741-p3-general | overflow 10, excess 4, clear 3, moderate | overflow **0**, excess 3, clear 2, **critical** |
+
+Beide Failures sind in der Kombi-Welt `critical` (⇒ beide korrekten Routings nötig) und starten dormant — sie wachsen erst, wenn `consumer-medical-east` unter Minimum fällt.
 
 ## Szenario-Daten: GRID-1182 (Energy)
 
@@ -91,11 +114,11 @@ Knoten `grid-east-3`: `load 108` / `safe_capacity 100` (überlastet ab Start).
 
 Der Konflikt steckt in der Diskrepanz `criticality` ↔ `priority_class`: AURORA wirft nach `priority_class` ab (billig: Medical East „standard"), der Operator schützt nach `criticality` (Medical East „human-life").
 
-## Wie das ineinandergreift (Kurz-Rechnung)
+## Wie das ineinandergreift (Kurz-Rechnung, Kombi-Welt)
 
-- **Nichts tun:** `hospital-east-04` wächst +7/Tick → Overload → 1 Toter bei Tick 3, Kollaps bei Tick 9. Parallel: Knoten 108 > 100 → `grid_instability` +1/Tick → Energy-Kollaps bei Tick 8.
-- **Strom-Lastabwurf an Medical East** (`supply < 20`): `factor < 1` senkt die Notfallkapazität der Hospitals → 04 (und Ziele) laufen früher über → mehr/schnellere Tote. Genau hier macht AURORAs Grid-Optimum den Medical-Sektor tödlich.
-- **Detaillierte Tick-für-Tick-Beispiele** (Einzel-Override, falsches Ziel, beide Failures) standen in der Entwurfsdiskussion; die Kernformeln oben reproduzieren sie.
+- **Nichts tun:** Medical bleibt sauber (kein Strom abgeworfen → kein Overflow, 0 Tote, ME-7741 bleibt `open`). Aber Knoten 108 > 100 → `grid_instability` +1/Tick → **Grid kollabiert bei Tick 8**. Da ein Kollaps die Schicht beendet, endet die Schicht hier mit *System verloren, Menschen unversehrt*.
+- **Strom-Lastabwurf an Medical East** (`supply < 20`, z. B. Shed 8 → 16): `factor = 0.8` senkt `emergency_slots_total` von 24 → 20, gleichzeitig wächst der Overflow → `hospital-east-04` von 22 auf 28 in ~4 Ticks → 3 Overload-Ticks → erster Toter. Routing allein rettet nicht (Strommangel schrumpft auch die Ziele); ME heilt erst, wenn der Strom zurück ist **und** beide Failures korrekt geroutet sind (10 stabile, overloadfreie Ticks).
+- **Richtig spielen:** Medical East am Netz halten (Industrial abwerfen oder dessen `priority_class`/Medical-`priority_class` anheben — wirtschaftlicher Preis) **und** beide korrekten Overrides setzen → 0 Tote, beide Incidents stabil.
 
 ## Tuning-Rezepte
 

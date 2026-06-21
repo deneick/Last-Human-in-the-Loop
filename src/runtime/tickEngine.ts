@@ -36,6 +36,17 @@ const ENERGY_STABLE_TICKS_TO_FIX = 3;
 const GRID_INSTABILITY_FOR_ESCALATION = 4;
 const GRID_INSTABILITY_FOR_COLLAPSE = 8;
 
+/**
+ * Verbraucher-Id, deren Stromversorgung die Notfallkapazität der Medical-
+ * Hospitals trägt. In der Kombi-Welt versorgt dieser Energy-Verbraucher die
+ * ME-7741-Region; in reinen Einzelsektor-Welten existiert er nicht.
+ *
+ * Diese Kopplung ist die Quelle des Medical-Drucks: Erst wenn dieser Verbraucher
+ * unter sein Minimum fällt, entsteht überhaupt ein Routing-Overflow (siehe
+ * tickMedicalDomain) und schrumpft die Notfallkapazität (applyCrossSectorEffects).
+ */
+export const MEDICAL_POWER_CONSUMER_ID = "consumer-medical-east";
+
 // Ein Override ist "aktiv", wenn er existiert und auf ein anderes Haus zeigt:
 // dann wandern die Fälle physisch dorthin (Quelle wird entlastet, Ziel geladen).
 // Ob sie dort behandelt werden können, ist eine separate Frage (Eignung) und
@@ -80,20 +91,49 @@ function advanceClock(world: WorldState): WorldState {
 export function tickMedicalDomain(world: WorldState): WorldState {
   const failures = world.simulation.medical.routing_failures;
   const overrides = world.domains.medical.routing.manual_overrides;
+  const hospitals = world.domains.medical.hospitals;
+  const consumers = world.domains.energy?.consumers;
+
+  // Ist diese Medical-Welt stromgekoppelt? Dann entsteht der Routing-Overflow
+  // erst durch Strommangel am speisenden Feed, und die Incident-Stabilisierung
+  // greift nur, wenn kein Haus überlastet ist (ME nicht ohne Grid lösbar).
+  // Reine Einzelsektor-Medical-Welten (kein Energy-Verbraucher) verhalten sich
+  // unverändert.
+  const worldCoupled = !!consumers && Object.keys(hospitals).length > 0;
+
+  // Liegt der Strom-Feed eines Hospitals unter seinem Minimum? Jedes Haus folgt
+  // seinem `power_feed_consumer_id` (Fallback: Standard-Feed). Getrennte Feeds:
+  // ein Abwurf trifft nur die daran hängenden Häuser.
+  const feedShortFor = (hospitalId: string): boolean => {
+    if (!consumers) {
+      return false;
+    }
+    const feedId = hospitals[hospitalId]?.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID;
+    const consumer = consumers[feedId];
+    return !!consumer && consumer.current_supply < consumer.minimum_supply;
+  };
+
   const resolutions = new Map<string, RoutingFailureResolution>();
 
-  const nextFailures = failures.map((failure) => {
+  // Pass 1: Failures fortschreiben (Overflow/Umleitung/Mismatch). Der Rückstau
+  // eines unkontrollierten Failures wächst nur, wenn sein Feed unterversorgt ist
+  // (in einer ungekoppelten Welt wie bisher immer). So entsteht der Overflow
+  // erst durch Strommangel. stable_ticks wird erst in Pass 2 gesetzt, weil die
+  // Stabilisierung von der Overload-Lage abhängt.
+  const advanced = failures.map((failure) => {
     const resolution = resolveRoutingFailure(world, failure);
     resolutions.set(failure.id, resolution);
 
     if (resolution === "uncontrolled") {
-      // Keine Umleitung: der Rückstau wächst an der Quelle und lädt dort die
-      // sichtbare Belegung. Anhaltende Überlast → Tote über die Belegung.
+      const accrues = !consumers || feedShortFor(failure.affected_hospital_id);
       return {
-        ...failure,
-        overflow_cases:
-          failure.overflow_cases + Math.max(0, failure.excess_cases_per_tick - failure.clearance_per_tick),
-        stable_ticks: 0,
+        failure: {
+          ...failure,
+          overflow_cases:
+            failure.overflow_cases +
+            (accrues ? Math.max(0, failure.excess_cases_per_tick - failure.clearance_per_tick) : 0),
+        },
+        resolution,
       };
     }
 
@@ -101,15 +141,16 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     // Ziel. Die Quelle wird entlastet, das Ziel über redirected_cases geladen.
     // Bei mismatch landen sie an einem fachlich ungeeigneten Haus — sie zählen
     // dort jeden Tick als unbehandelbar (capability_mismatch), solange der
-    // falsche Override besteht. stable_ticks (Incident-Stabilisierung) wächst
-    // nur bei einer fachlich korrekten (controlled) Umleitung.
+    // falsche Override besteht.
     const cleared = Math.min(failure.clearance_per_tick, failure.overflow_cases);
     return {
-      ...failure,
-      overflow_cases: failure.overflow_cases - cleared,
-      redirected_cases: failure.redirected_cases + cleared,
-      mismatch_ticks: resolution === "mismatch" ? failure.mismatch_ticks + 1 : failure.mismatch_ticks,
-      stable_ticks: resolution === "controlled" ? failure.stable_ticks + 1 : 0,
+      failure: {
+        ...failure,
+        overflow_cases: failure.overflow_cases - cleared,
+        redirected_cases: failure.redirected_cases + cleared,
+        mismatch_ticks: resolution === "mismatch" ? failure.mismatch_ticks + 1 : failure.mismatch_ticks,
+      },
+      resolution,
     };
   });
 
@@ -127,9 +168,7 @@ export function tickMedicalDomain(world: WorldState): WorldState {
   // sie capability_mismatch-Ticks; das Entfernen des Overrides stoppt es sofort.
   const mismatchTargetHospitalIds = new Set<string>();
 
-  for (const failure of nextFailures) {
-    const resolution = resolutions.get(failure.id);
-
+  for (const { failure, resolution } of advanced) {
     addPressure(failure.affected_hospital_id, failure.overflow_cases - failure.initial_overflow_cases);
 
     if (resolution === "uncontrolled") {
@@ -151,7 +190,8 @@ export function tickMedicalDomain(world: WorldState): WorldState {
 
   const baselines = world.simulation.medical.capacity_baseline;
 
-  const nextHospitals = { ...world.domains.medical.hospitals };
+  const nextHospitals = { ...hospitals };
+  let anyOverloaded = false;
   for (const hospitalId of Object.keys(nextHospitals)) {
     const hospital = nextHospitals[hospitalId];
     const counters: HospitalRiskCounters = hospital.risk_counters ?? {
@@ -174,11 +214,14 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     );
 
     // Tote hängen rein am Zustand des Krankenhauses, nicht am Override selbst:
-    //  - Überlast = Notfallkapazität überschritten (akuter Engpass dieses
-    //    Szenarios; Betten starten bewusst über 100 % als Hintergrunddruck).
+    //  - Überlast = Notfallkapazität überschritten. In der gekoppelten Welt sinkt
+    //    diese Kapazität erst durch Strommangel (applyCrossSectorEffects).
     //  - Capability-Mismatch = das Haus hält unbehandelbare Fälle.
     // Ein Override wirkt nur indirekt, indem er diese Belegung verschiebt.
     const overloaded = emergencyOccupied > hospital.capacity.emergency_slots_total;
+    if (overloaded) {
+      anyOverloaded = true;
+    }
 
     nextHospitals[hospitalId] = {
       ...hospital,
@@ -195,6 +238,18 @@ export function tickMedicalDomain(world: WorldState): WorldState {
       },
     };
   }
+
+  // Pass 2: stable_ticks (Incident-Stabilisierung). Eine korrekte Umleitung
+  // stabilisiert nur, wenn kein Haus überlastet ist — in der gekoppelten Welt
+  // heißt das: der Strom muss zurück sein. So ist ME emergent NICHT allein durch
+  // richtiges Routing lösbar, sondern nur in Verbindung mit dem Grid.
+  const nextFailures = advanced.map(({ failure, resolution }) => {
+    const stabilizes = resolution === "controlled" && (!worldCoupled || !anyOverloaded);
+    return {
+      ...failure,
+      stable_ticks: stabilizes ? failure.stable_ticks + 1 : 0,
+    };
+  });
 
   return {
     ...world,
@@ -278,11 +333,26 @@ export function tickEnergyDomain(world: WorldState): WorldState {
   let civilUnrestDelta = 0;
   let gridInstabilityDelta = 0;
 
+  // Verbraucher, die tatsächlich Hospitals mit Strom versorgen, zählen NICHT als
+  // direkter human_harm: ihr menschlicher Preis entsteht ausschließlich über die
+  // Kopplung Strommangel → schrumpfende Notfallkapazität → Overload → Tote
+  // (applyCrossSectorEffects / tickMedicalDomain / outcomeEngine). In Welten ohne
+  // Hospitals (reine Energy-Einzelwelt) bleibt der lokale human_harm dagegen
+  // erhalten — dort gibt es keinen Bett-Pfad, über den der Preis sichtbar würde.
+  const medicalFeedConsumerIds = new Set<string>();
+  for (const hospital of Object.values(world.domains.medical.hospitals)) {
+    medicalFeedConsumerIds.add(hospital.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID);
+  }
+
   for (const consumer of Object.values(nextConsumers)) {
     const belowMinimum = consumer.current_supply < consumer.minimum_supply;
     const reduced = consumer.current_supply < consumer.demand;
 
-    if (belowMinimum && (consumer.criticality === "human-life" || consumer.criticality === "public-supply")) {
+    if (
+      belowMinimum &&
+      !medicalFeedConsumerIds.has(consumer.id) &&
+      (consumer.criticality === "human-life" || consumer.criticality === "public-supply")
+    ) {
       humanHarmDelta += 1;
     }
     if (reduced && consumer.criticality === "economic") {
@@ -353,38 +423,26 @@ export function tickEnergyDomain(world: WorldState): WorldState {
 }
 
 /**
- * Verbraucher-Id, deren Stromversorgung die Notfallkapazität der Medical-
- * Hospitals trägt. In der Kombi-Welt versorgt dieser Energy-Verbraucher die
- * ME-7741-Region; in reinen Einzelsektor-Welten existiert er nicht.
- */
-export const MEDICAL_POWER_CONSUMER_ID = "consumer-medical-east";
-
-/**
  * Cross-Sector-Stufe der Tick-Pipeline.
  *
- * Einzige aktive Kopplung: Energy → Medical. Versorgt der Energy-Verbraucher
- * `consumer-medical-east` die Hospitals unter seinem `minimum_supply`, sinkt
- * ihre sichtbare Notfallkapazität (`emergency_slots_total`) proportional unter
- * die Basis (`capacity_baseline.emergency_slots_total`). Damit macht ein
- * Strom-Lastabwurf an Medical East die belegungsgetriebene Overload-Pipeline
- * direkt tödlicher; kehrt die Versorgung zurück, erholt sich die Kapazität.
+ * Aktive Kopplung: Energy → Medical, jetzt pro Stromfeed. Jedes Hospital folgt
+ * seinem `power_feed_consumer_id` (Fallback: `MEDICAL_POWER_CONSUMER_ID`). Fällt
+ * der speisende Verbraucher unter sein `minimum_supply`, sinkt die sichtbare
+ * Notfallkapazität (`emergency_slots_total`) genau dieses Hauses proportional
+ * unter die Basis (`capacity_baseline.emergency_slots_total`). Damit trifft ein
+ * Strom-Lastabwurf nur die Häuser am betroffenen Feed — Umleiten an ein Haus mit
+ * gesundem Feed bleibt ein echter Hebel. Kehrt die Versorgung zurück, erholt
+ * sich die Kapazität.
  *
  * In Welten ohne Energy-Verbraucher oder ohne Hospitals ist die Stufe ein
  * referenzgleicher No-op (Einzelsektor-Welten bleiben unverändert).
  */
 export function applyCrossSectorEffects(world: WorldState): WorldState {
-  const consumer = world.domains.energy?.consumers[MEDICAL_POWER_CONSUMER_ID];
+  const consumers = world.domains.energy?.consumers;
   const hospitals = world.domains.medical.hospitals;
-  if (!consumer || Object.keys(hospitals).length === 0) {
+  if (!consumers || Object.keys(hospitals).length === 0) {
     return world;
   }
-
-  // Versorgungsadäquanz: volle Kapazität bei supply ≥ minimum, sonst linear
-  // herunter bis 0. Deterministisch, keine Zeit/Zufall.
-  const factor =
-    consumer.minimum_supply > 0
-      ? Math.max(0, Math.min(1, consumer.current_supply / consumer.minimum_supply))
-      : 1;
 
   const baselines = world.simulation.medical.capacity_baseline;
   const nextHospitals = { ...hospitals };
@@ -392,6 +450,20 @@ export function applyCrossSectorEffects(world: WorldState): WorldState {
 
   for (const hospitalId of Object.keys(nextHospitals)) {
     const hospital = nextHospitals[hospitalId];
+    const feedId = hospital.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID;
+    const consumer = consumers[feedId];
+    if (!consumer) {
+      // Kein speisender Verbraucher → keine Kopplung für dieses Haus.
+      continue;
+    }
+
+    // Versorgungsadäquanz: volle Kapazität bei supply ≥ minimum, sonst linear
+    // herunter bis 0. Deterministisch, keine Zeit/Zufall.
+    const factor =
+      consumer.minimum_supply > 0
+        ? Math.max(0, Math.min(1, consumer.current_supply / consumer.minimum_supply))
+        : 1;
+
     const baseTotal =
       baselines[hospitalId]?.emergency_slots_total ?? hospital.capacity.emergency_slots_total;
     const reducedTotal = Math.ceil(baseTotal * factor);

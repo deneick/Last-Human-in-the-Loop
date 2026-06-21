@@ -372,9 +372,13 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     .map((id) => buildIncidentView(runtimeState.world, id))
     .filter((view): view is NonNullable<typeof view> => view !== null);
   const incidentView = incidentViews[0] ?? null;
-  // Rundenende: ALLE Incidents terminal (fixed/collapsed).
+  // Rundenende: ALLE Incidents terminal (fixed/collapsed) ODER die Welt ist
+  // kollabiert. Ein Kollaps (z. B. das Grid) ist katastrophal-terminal und
+  // beendet die Schicht, auch wenn ein anderer Incident — etwa ein nie unter
+  // Strommangel geratenes ME — formal noch "offen" steht.
   const allIncidentsFinal =
-    incidentViews.length > 0 && incidentViews.every((view) => view.isFinal);
+    incidentViews.length > 0 &&
+    (runtimeState.world.outcomes.collapsed || incidentViews.every((view) => view.isFinal));
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
   const hospitalViews = buildHospitalViews(runtimeState.world);
   const overrideViews = buildOverrideViews(runtimeState.world);
@@ -735,8 +739,12 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     setRuntimeState(advanceScenario(resultState));
   }
 
-  // Die Runde ist beendet, wenn ALLE Incidents der Welt terminal sind.
+  // Die Runde ist beendet, wenn ALLE Incidents terminal sind ODER die Welt
+  // kollabiert ist (ein Kollaps beendet die Schicht sofort, siehe oben).
   function isIncidentFinal(state: GameRuntimeState): boolean {
+    if (state.world.outcomes.collapsed) {
+      return true;
+    }
     return scenario.incidentIds.every((id) => {
       const status = state.world.incidents[id]?.status;
       return status === "fixed" || status === "collapsed";
