@@ -78,7 +78,7 @@ type MedicalDomainState = {
 };
 ```
 
-- **`hospitals`**: jedes `HospitalState` enthält `capacity` (Betten/Notfallslots/Triage), `intake_policy` (akzeptierte Prioritäten/Capabilities, `diversion_mode`), `clinical_capabilities`, `current_case_mix` (waiting/active cases, capability load), `operational`-Flags, `routing` (Gewichtung/Raten) und optional `risk_counters` (`overload_ticks`, `capability_mismatch_ticks`).
+- **`hospitals`**: jedes `HospitalState` enthält `capacity` (Betten/Notfallslots/Triage), `intake_policy` (akzeptierte Prioritäten/Capabilities, `diversion_mode`), `clinical_capabilities`, `current_case_mix` (waiting/active cases, capability load), `operational`-Flags, `routing` (Gewichtung/Raten) und optional `risk_counters` (`overload_ticks`, `capability_mismatch_ticks`). Optionale Cross-Sector-Feeds (in der Kombi-Welt gesetzt): `power_feed_consumer_id` (Strom → Notfallkapazität), `water_feed_consumer_id` (Wasser → Clearance) und `civil_feed_consumer_id` (Residential → Transport/Krankenfälle).
 - **`routing.manual_overrides`**: Record von `ManualRoutingOverride`, Key (der "Slot") = `` `${source_hospital_id}:${priority}:${capability}` `` (z. B. `"hospital-east-04:P2:TRAUMA"`). Ein Override sagt: Fälle mit dieser Priorität/Capability, die eigentlich an `source_hospital_id` gehen, werden Richtung `target_hospital_id` umgeleitet. `created_by` ist `"player"` oder `"aurora"`. Jeder Override trägt zusätzlich eine stabile `id` (`"override-<n>"`, vergeben aus `routing.next_override_id`). Ein neuer `override.set` auf denselben Slot ersetzt den bisherigen Eintrag, vergibt aber eine neue `id` — `medical.routing.override.clear` adressiert Overrides ausschließlich über diese `id`, nicht über den Slot.
 - **`outcomes`** (`PatientOutcomeState`): `deaths_total`, `deaths_by_cause` (`overload`/`capability_mismatch`/`transport_delay`), `deaths_by_hospital`, `preventable_deaths`.
 
@@ -178,7 +178,7 @@ Die folgende Tabelle beschreibt die typisierten **Medical-Domain-Actions**. Sie 
 
 | MCP-Tool | Domain-Action | Access | Beschreibung |
 | --- | --- | --- | --- |
-| `capacity_list` | `medical.capacity.list` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Alias `east` → `medical-east`. |
+| `capacity_list` | `medical.capacity.list` | `read` | Hospitäler einer Region mit `capacity`, `intake_policy`, `clinical_capabilities`. Region-Aliase `east`/`north`/`west`/`south` → `medical-<region>` (in der Kombi-Welt; die Einzelwelt kennt nur `east`). |
 | `node_inspect` | `medical.node.inspect` | `read` | Vollständige beobachtbare Sicht auf ein Hospital (inkl. `current_case_mix`, `operational`). |
 | `incident_status` | `medical.incident.status` | `read` | Incident-Stammdaten (Status, betroffene Entitäten, verknüpfte Incidents). |
 | `routing_override_list` | `medical.routing.override.list` | `read` | Aktive `manual_overrides`, optional gefiltert nach Quelle (`source`). |
@@ -233,11 +233,13 @@ advanceClock              tick += 1, elapsed_minutes += 10
 → tickMedicalDomain        wertet routing_failures aus, aktualisiert risk_counters
 → tickEnergyDomain         aktiviert Shedding-Pläne zeitverzögert, leitet Versorgung,
                             Verbraucher-/Knotenstatus ab, schreibt lokale Energy-Outcomes fort
-→ applyCrossSectorEffects  Energy → Medical: fällt consumer-medical-east unter sein
-                            minimum_supply, sinkt die emergency_slots_total der Hospitals
-                            proportional (Anker: capacity_baseline.emergency_slots_total),
-                            und erholt sich bei Rückkehr der Versorgung. Referenzgleicher
-                            No-op in Einzelsektor-Welten (kein Verbraucher/keine Hospitals)
+→ applyCrossSectorEffects  Energy → Medical (Strom): fällt der Stromfeed eines Hospitals
+                            (power_feed_consumer_id, Fallback consumer-medical-east) unter sein
+                            minimum_supply, sinkt dessen emergency_slots_total proportional
+                            (Anker: capacity_baseline.emergency_slots_total), und erholt sich
+                            bei Rückkehr der Versorgung. Pro Feed → getrennte Regionen.
+                            Referenzgleicher No-op in Einzelsektor-Welten (kein Verbraucher/
+                            keine Hospitals)
 → evaluateIncidents        leitet Incident-Status sektorweise ab (Medical aus
                             risk_counters/routing_failures, Energy aus grid_instability/stable_ticks)
 ```
@@ -262,6 +264,8 @@ Für jeden `RoutingFailure` wird über `resolveRoutingFailure` ermittelt, ob der
 
 Sowohl `controlled` als auch `mismatch` sind also „aktiv" und verschieben Belegung; nur die klinische Eignung unterscheidet sie.
 
+**Strom-Gating & Nicht-Strom-Rückkopplungen (gekoppelte Welt).** In einer stromgekoppelten Welt (Energy-Verbraucher + Hospitals) wächst ein `uncontrolled`-Failure **nur**, wenn sein Stromfeed unter Minimum liegt (sonst dormant). Zusätzlich modulieren die regionalen Wasser-/Wohn-Feeds des Hauses (`water_feed_consumer_id` / `civil_feed_consumer_id`) die Auswertung, jeweils nur bei Unterversorgung: Wasser kurz und Residential kurz senken je die effektive `clearance` (langsamerer Durchsatz bzw. längere Transportwege), Residential kurz lädt zusätzlich Krankenfälle in den `overflow` (unabhängig vom Strom). Konstanten/Stärken: `09-balancing.md`. Ungekoppelte Einzelwelten (kein Energy) verhalten sich wie bisher.
+
 **Kapazitätsprojektion.** Aus den fortgeschriebenen Failures wird ein zurechenbarer Druck je Hospital gebildet: die Quelle trägt ihren Rückstau-Delta (`overflow_cases − initial_overflow_cases`), ein Override-Ziel (`controlled` **oder** `mismatch`) die kumulierten `redirected_cases`. Die sichtbare `capacity.emergency_slots_occupied` **und** `capacity.staffed_beds_occupied` werden daraus jeden Tick als `capacity_baseline + Druck` neu abgeleitet — so wirkt sich jeder Tick beobachtbar auf die Welt aus.
 
 `risk_counters` folgen jetzt **rein dem Zustand** jedes Hospitals, nicht der Failure-Klassifikation: `overload_ticks` zählt hoch, solange die projizierte `emergency_slots_occupied` eines Hospitals seine `emergency_slots_total` übersteigt (absolut: belegt > total — egal ob Quelle oder Ziel); `capability_mismatch_ticks` zählt hoch, solange ein Haus klinisch unbehandelbare (falsch geroutete) Fälle hält. Beide Zähler werden auf `0` zurückgesetzt, sobald die Bedingung nicht mehr zutrifft. Ein Override wirkt damit nur **indirekt** auf Tote: er verschiebt Belegung zwischen Häusern, und allein die Belegung (bzw. die Behandelbarkeit) speist die Death-Pipeline (siehe OutcomeEngine). Über `applyCrossSectorEffects` kann zusätzlich ein Energy-Lastabwurf die `emergency_slots_total` senken und so denselben Overload-Pfad tödlicher machen.
@@ -272,7 +276,7 @@ Sowohl `controlled` als auch `mismatch` sind also „aktiv" und verschieben Bele
 
 - **Shedding-Plan-Status** folgt allein aus `created_at_tick + delay` / `duration`: `scheduled` → `active` → `completed` (ein `cancelled`-Plan bleibt `cancelled`). Ein abgebrochener Plan verliert seine Wirkung damit zum nächsten Tick.
 - **Versorgung und Verbraucher-Status** werden vollständig aus den gerade `active` Plänen neu berechnet (`current_supply = demand - Summe aktiver Drosselungen`; `nominal`/`reduced`/`offline`), ebenso die **Knotenlast** und der Node-Status (`nominal`/`strained`/`critical`).
-- **Lokale Energy-Outcomes** werden hier — und nur hier, nicht in der OutcomeEngine — pro Tick fortgeschrieben: `human_harm` (kritischer Verbraucher unter Mindestversorgung), `economic_loss`, `civil_unrest` (jeweils nach `criticality` des gedrosselten Verbrauchers) und `grid_instability` (überlasteter Knoten).
+- **Lokale Energy-Outcomes** werden hier — und nur hier, nicht in der OutcomeEngine — pro Tick fortgeschrieben: `human_harm` (kritischer Verbraucher unter Mindestversorgung), `economic_loss`, `civil_unrest` (jeweils nach `criticality` des gedrosselten Verbrauchers) und `grid_instability` (+1, solange **irgendein** Knoten überlastet ist — node-ZAHL-unabhängig, damit eine 4-Regionen-Karte nicht schneller kollabiert als eine Region).
 - Der interne `simulation.energy.stable_ticks`-Zähler steigt pro überlastfreiem Tick und wird bei Überlast auf `0` gesetzt (tabu für UI/Read-only/Director).
 
 ### evaluateIncidents

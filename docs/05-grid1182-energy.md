@@ -64,9 +64,9 @@ Es gibt bewusst **kein** `objective`-Feld: Der Zielmetrikkonflikt läuft über d
 
 ### Regions und Nodes
 
-`EnergyRegionState` gruppiert Nodes und Verbraucher. Es gibt genau eine Region `energy-region-east` („East Grid"), parallel zur Medical-Region Ost (ME-7741).
+`EnergyRegionState` gruppiert Nodes und Verbraucher. In der **GRID-1182-Einzelwelt** gibt es genau eine Region `energy-region-east` („East Grid"), parallel zur Medical-Region Ost (ME-7741). Die **gespielte Kombi-Welt** erweitert das auf vier Regionen (East/North/West/South, je ein Node + vier Verbraucher; `scenarios/combined/regions.ts`) — Aufbau und Daten in `09-balancing.md`.
 
-`GridNodeState` liefert den physikalischen Druck, ist aber **nicht** das Spielfeld: `id`, `region_id`, `label`, `load`, `safe_capacity`, `status: "nominal" | "strained" | "critical" | "offline"`. Es gibt einen Knoten `grid-east-3`, an dem alle vier Verbraucher hängen — die Knappheit, die den Zielkonflikt erzwingt (Start: `load: 108` bei `safe_capacity: 100`, `status: "strained"`).
+`GridNodeState` liefert den physikalischen Druck, ist aber **nicht** das Spielfeld: `id`, `region_id`, `label`, `load`, `safe_capacity`, `status: "nominal" | "strained" | "critical" | "offline"`. In der Einzelwelt gibt es den Knoten `grid-east-3`, an dem alle vier Verbraucher hängen — die Knappheit, die den Zielkonflikt erzwingt (Start: `load: 108` bei `safe_capacity: 100`, `status: "strained"`). Die Kombi-Welt hat einen solchen überlasteten Knoten **je Region** (`grid-east-3`, `grid-north-1`, `grid-west-1`, `grid-south-1`).
 
 ### Critical Consumers — zwei getrennte Bewertungsdimensionen
 
@@ -88,7 +88,7 @@ Die Startbelegung **ist** der Konflikt:
 | `consumer-water-east` | `public-supply` | `civil-priority` | zweiter menschlich relevanter Verbraucher, verhindert eine reine 1:1-Abwägung |
 | `consumer-residential-east` | `civil-stability` | `standard` | drosselbar mit sichtbaren, aber begrenzten Folgekosten (Unruhe-Risiko) |
 
-`consumer-medical-east` ist ein **Energy-Objekt** mit eigener Id. Es referenziert keine Hospital-Ids und importiert keine Medical-Typen; eine technische Zuordnung zu `hospital-east-04` existiert nicht.
+`consumer-medical-east` ist ein **Energy-Objekt** mit eigener Id. Es referenziert keine Hospital-Ids und importiert keine Medical-Typen — die Kopplung läuft in umgekehrter Richtung: in der Kombi-Welt verweisen die Hospitäler über `power_feed_consumer_id` / `water_feed_consumer_id` / `civil_feed_consumer_id` auf die regionalen Verbraucher (Strom → Notfallkapazität, Wasser → Clearance, Residential → Transport/Krankenfälle; siehe `03`/`09`). In der reinen GRID-1182-Einzelwelt existiert keine solche Zuordnung.
 
 ### Shedding Plans — der zentrale harte Hebel
 

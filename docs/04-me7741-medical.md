@@ -46,6 +46,8 @@ Jedes `HospitalState` trägt `capacity` (Betten/Notfallslots/Triage), `intake_po
 
 Genauso entscheidend: `hospital-east-09` ist das **einzige** geeignete Ziel, aber mit 16 Notfallslots zu klein für den umgeleiteten P2/TRAUMA-Rückstau. Die sichtbare Notfall-Belegung wird jeden Tick aus der internen Simulation projiziert (siehe `03`); leitet man den Rückstau dorthin um, füllt sich `hospital-east-09` beobachtbar, läuft über seine Kapazität und fordert selbst Todesfälle. Die regionale Trauma-Kapazität reicht strukturell **nicht** für den Rückstau — einige Tote sind daher unvermeidbar, selbst bei optimalem Routing.
 
+> **In der Kombi-Welt** spannt ME-7741 über vier Regionen (East/North/West/South): Neben den beiden East-Failures gibt es je einen **dormanten** Failure in North (P2/NEURO), West (P2/PED) und South (P3/GEN), alle am Incident `ME-7741`. Sie wachsen erst, wenn der `medical`-Stromfeed ihrer Region fällt — dann wird Reroute zum regionsübergreifenden „wandernden sicheren Ziel"-Puzzle (Fähigkeit + Strom + Kapazität). Karte und Daten: `09-balancing.md`. Die hier beschriebene ME-7741-Einzelwelt bleibt einregionig.
+
 ### Routing-Overrides
 
 Ein `ManualRoutingOverride` leitet Fälle einer bestimmten Priorität/Capability von einem Quell- auf ein Zielhospital um. Der „Slot"-Key ist `source:priority:capability` (z. B. `hospital-east-04:P2:TRAUMA`); jeder Override trägt zusätzlich eine stabile `id` (`override-<n>`). Ein neuer `override.set` auf denselben Slot ersetzt den bisherigen Eintrag und vergibt eine **neue** `id`; `override.clear` adressiert ausschließlich über diese `id`. Ein Override wirkt nur, wenn das Ziel geeignet ist — sonst bleibt er wirkungslos (`uncontrolled`) oder schädlich (`mismatch`). Die genaue Resolutions-/Tick-Logik steht in `03`.
