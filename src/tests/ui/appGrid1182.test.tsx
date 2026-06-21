@@ -155,9 +155,9 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
     // der sektorübergreifenden Lage.
     // Energy und Medical liegen jetzt in EINER Lagekarte je Region (die
     // Incident-Panels sind entfernt; die Lage-Leiste zeigt den Zustand).
-    expect(text()).toContain("Lagekarte");
     expect(text()).toContain("grid-east-3");
-    expect(text()).toContain("Grid-Instabilität");
+    expect(text()).toContain("Grid bis Kollaps");
+    expect(text()).toContain("EAST");
     // Medical bleibt parallel präsent.
     expect(text()).toContain("hospital-east-04");
     expect(text()).toContain("ME-7741");
@@ -201,8 +201,9 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
 
   it("lets the operator schedule load shedding via the GUI", () => {
     shedIndustrial();
-    // Aktive Drosselung erscheint in der Karten-Liste.
-    expect(text()).toContain("consumer-industrial-east");
+    // Aktive Drosselung erscheint im Verbraucher-Dialog (mit Ersteller).
+    clickConsumer("consumer-industrial-east");
+    expect(text()).toContain("Aktive Drosselungen");
     expect(text()).toContain("von player");
   });
 
@@ -231,13 +232,16 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
   it("Neu starten resets the combined shift to its initial state", () => {
     shedIndustrial();
     clickButton("Tick +1");
+    clickConsumer("consumer-industrial-east");
     expect(text()).toContain("Aktive Drosselungen");
+    clickButton("Schließen");
 
     clickButton("Neu starten");
 
     expect(text()).toContain("ME-7741");
     expect(text()).toContain("03:17 Uhr");
-    // Keine aktiven Drosselungen mehr → die Karten-Sektion verschwindet.
+    // Nach Reset keine Drosselung mehr — der Dialog zeigt keine aktive Drosselung.
+    clickConsumer("consumer-industrial-east");
     expect(text()).not.toContain("Aktive Drosselungen");
   });
 });
