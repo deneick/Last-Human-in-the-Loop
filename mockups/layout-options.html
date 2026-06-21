@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Layout-Optionen</title>
+<style>
+  /* Echte Theme-Tokens aus src/App.css */
+  :root{
+    --bg:#0a0a0c; --surface:#141315; --surface-2:#0d0c0e; --surface-inset:#100f11;
+    --border:#2a2521; --border-soft:#211d1a;
+    --text:#ece6dc; --text-dim:#9b938a; --text-mute:#756d64;
+    --accent:#e8703a; --accent-soft:#ff8a5c; --accent-amber:#f0a868; --accent-glow:rgba(232,112,58,.16);
+    --ok:#5fd08a; --warn:#f0a868; --danger:#f0796b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(circle at top left,var(--accent-glow),transparent 34rem),
+      radial-gradient(circle at top right,rgba(240,168,104,.08),transparent 32rem),var(--bg);
+    color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:18px}
+  h2{color:var(--accent-amber);letter-spacing:.03em;margin:0 0 2px;font-size:1rem}
+  .cap{color:var(--text-dim);font-size:.78rem;margin:0 0 10px}
+  .shell{max-width:1180px;margin:0 auto 26px;border:1px solid var(--border);border-radius:.9rem;
+    background:var(--surface);box-shadow:0 24px 70px rgba(0,0,0,.55);overflow:hidden}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1.1rem;border-bottom:1px solid var(--border-soft)}
+  .title{color:var(--accent);text-shadow:0 0 24px var(--accent-glow);font-size:1.05rem;letter-spacing:.02em}
+  .lights{display:flex;gap:.4rem} .lights i{width:.7rem;height:.7rem;border-radius:50%;display:block}
+  .lights .r{background:#c0473b}.lights .y{background:#caa14a}.lights .g{background:#4f9d68}
+  .actions{display:flex;gap:.4rem} .btn{border:1px solid var(--border);border-radius:.5rem;background:#1d1916;
+    color:var(--text);font-size:.72rem;padding:.3rem .55rem}
+  .grid{display:grid;gap:.8rem;padding:.9rem 1.1rem}
+  .zone{border:1px solid var(--border);border-radius:.7rem;background:var(--surface-2);
+    box-shadow:0 10px 30px rgba(0,0,0,.3);padding:.7rem;min-height:340px;display:flex;flex-direction:column}
+  .zlabel{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem}
+  .ph{color:var(--text-mute);font-size:.72rem}
+
+  /* L1: 3 Spalten (Karte schmal | Operator | AURORA) */
+  .l1{grid-template-columns:1.05fr 1.4fr 1.4fr}
+  /* L2: 2 Spalten (große Karte | kombinierte Konsole) */
+  .l2{grid-template-columns:1.7fr 1fr}
+
+  /* Mini-Lagekarte (Kompass) im warmen Theme */
+  .map{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto auto auto;gap:.5rem}
+  .map.big{gap:.6rem}
+  .rtile{background:var(--surface-inset);border:1px solid var(--border);border-radius:.5rem;padding:.5rem}
+  .rtile.safe{border-color:#2c4a32} .rtile.alert{border-color:#5a2420}
+  .n{grid-column:2;grid-row:1}.w{grid-column:1;grid-row:2}.c{grid-column:2;grid-row:2}.e{grid-column:3;grid-row:2}.s{grid-column:2;grid-row:3}
+  .rt-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem}
+  .rt-name{font-size:.72rem;font-weight:700;letter-spacing:.05em}
+  .rt-node{font-size:.6rem;color:var(--danger)}
+  .feeddots{display:flex;gap:.2rem;margin-bottom:.35rem}
+  .d{width:.5rem;height:.5rem;border-radius:50%;background:var(--ok)} .d.red{background:var(--danger)}
+  .hh{font-size:.62rem;color:var(--text-dim);display:flex;justify-content:space-between;gap:.4rem;padding:.12rem 0}
+  .hh .nm{color:var(--text)} .neu{color:var(--accent-soft)}
+  .hh.t{color:var(--ok)}
+  .ccenter{display:flex;flex-direction:column;justify-content:center;gap:.3rem;border:1px dashed var(--border);
+    background:transparent;border-radius:.5rem;padding:.4rem}
+  .cc-t{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mute)}
+  .flow{font-size:.6rem;color:var(--accent-soft)}
+
+  /* Konsolen-Platzhalter */
+  .console{flex:1;display:flex;flex-direction:column;gap:.4rem}
+  .scroll{flex:1;border:1px solid var(--border-soft);border-radius:.5rem;background:var(--surface-2);padding:.5rem;font-size:.66rem;color:#cdc3b6;line-height:1.5}
+  .ln{display:flex;gap:.4rem} .tk{color:var(--text-mute)} .ac{color:var(--accent)}
+  .inp{border:1px solid var(--border);border-radius:.5rem;background:var(--surface-2);padding:.4rem .5rem;color:var(--text-mute);font-size:.66rem}
+  .approve{border:1px solid var(--accent);border-radius:.5rem;background:rgba(232,112,58,.1);padding:.45rem .55rem;font-size:.64rem}
+  .approve .k{color:var(--accent-amber);text-transform:uppercase;font-size:.56rem;letter-spacing:.06em}
+  .tabs{display:flex;gap:.3rem;margin-bottom:.4rem}
+  .tab{font-size:.62rem;padding:.22rem .5rem;border:1px solid var(--border);border-radius:.4rem;color:var(--text-dim)}
+  .tab.on{color:var(--accent-soft);border-color:var(--accent);background:rgba(232,112,58,.08)}
+  .split{flex:1;display:grid;grid-template-rows:1.2fr 1fr;gap:.5rem}
+  .note{max-width:1180px;margin:0 auto 18px;color:var(--text-dim);font-size:.8rem}
+  .note b{color:var(--text)}
+</style>
+</head>
+<body>
+  <div class="note"><b>Layout-Optionen im echten Theme</b> — warmes Operator-Terminal, Orange-Akzent, Monospace.
+  Karteninhalt nur schematisch; es geht um Anordnung &amp; Proportion.</div>
+
+  <!-- ===== L1: Karte schmal links, 3 Spalten ===== -->
+  <h2>L1 · Interaktive Karte schmal links (3 Spalten bleiben)</h2>
+  <div class="cap">Karte ersetzt die lange Lage-Liste, bleibt aber in der schmalen linken Spalte. Operator &amp; AURORA unverändert daneben.</div>
+  <div class="shell">
+    <div class="topbar">
+      <div style="display:flex;gap:.6rem;align-items:center"><span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="title">Last Human in the Loop</span></div>
+      <div class="actions"><span class="btn">Tick +1</span><span class="btn">Tick +5</span><span class="btn">Neu starten</span></div>
+    </div>
+    <div class="grid l1">
+      <div class="zone">
+        <p class="zlabel">Lagekarte (interaktiv)</p>
+        <div class="map">
+          <div class="rtile alert n"><div class="rt-head"><span class="rt-name">NORTH</span><span class="rt-node">108%⚠</span></div>
+            <div class="feeddots"><span class="d red"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">north-01 <span class="neu">NEU</span></span><span style="color:var(--danger)">96%</span></div>
+            <div class="hh"><span class="nm">north-02</span><span>69%</span></div></div>
+          <div class="rtile w"><div class="rt-head"><span class="rt-name">WEST</span><span class="rt-node">108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">west-01</span><span>75%</span></div>
+            <div class="hh"><span class="nm">west-02</span><span>67%</span></div></div>
+          <div class="ccenter c"><span class="cc-t">Global</span><span style="font-size:.6rem;color:var(--warn)">Angespannt</span><span class="flow">↳ NEURO→east-04</span></div>
+          <div class="rtile safe e"><div class="rt-head"><span class="rt-name">EAST ✓</span><span class="rt-node">108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh t"><span class="nm">east-04 <span class="neu">NEU</span></span><span>95%</span></div>
+            <div class="hh"><span class="nm">east-07</span><span>82%</span></div>
+            <div class="hh"><span class="nm">east-09</span><span>74%</span></div></div>
+          <div class="rtile s"><div class="rt-head"><span class="rt-name">SOUTH</span><span class="rt-node">108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">south-01</span><span style="color:var(--ok)">55%</span></div>
+            <div class="hh"><span class="nm">south-02</span><span style="color:var(--ok)">50%</span></div></div>
+        </div>
+      </div>
+      <div class="zone"><p class="zlabel">Operator-Konsole</p>
+        <div class="console"><div class="scroll">
+          <div class="ln"><span class="tk">[T2]</span><span>aurora&gt; mcp add energy-east-mcp</span></div>
+          <div class="ln"><span class="tk">[T2]</span><span class="ac">grid-north-1 über sicherer Kapazität</span></div>
+          <div class="ln"><span class="tk">[T3]</span><span>operator&gt; cat config/permissions.json</span></div>
+        </div><div class="inp">operator@aurora:~$ _</div></div>
+      </div>
+      <div class="zone"><p class="zlabel">AURORA</p>
+        <div class="console"><div class="scroll">
+          <div class="ln"><span class="ac">AURORA:</span><span>Diese Maßnahme minimiert den erwarteten Systemverlust…</span></div>
+        </div><div class="approve"><span class="k">Tool Request · write</span><br>mcp call energy-east-mcp shedding_schedule … <br><span style="color:var(--text-mute)">[Einmal] [Immer] [Ablehnen]</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== L2: große Karte, Konsolen zusammengelegt ===== -->
+  <h2>L2 · Große Karte, Operator + AURORA zusammengelegt (2 Spalten)</h2>
+  <div class="cap">Karte bekommt viel Platz (links breit). Rechts EINE kombinierte Konsole: AURORA-Stream oben, Operator-Bash unten (oder Tabs).</div>
+  <div class="shell">
+    <div class="topbar">
+      <div style="display:flex;gap:.6rem;align-items:center"><span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="title">Last Human in the Loop</span></div>
+      <div class="actions"><span class="btn">Tick +1</span><span class="btn">Tick +5</span><span class="btn">Neu starten</span></div>
+    </div>
+    <div class="grid l2">
+      <div class="zone">
+        <p class="zlabel">Lagekarte (interaktiv, groß)</p>
+        <div class="map big">
+          <div class="rtile alert n"><div class="rt-head"><span class="rt-name">NORTH ▲</span><span class="rt-node">grid-north-1 · 108%⚠</span></div>
+            <div class="feeddots"><span class="d red"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">▸ north-01 <span class="neu">NEURO</span></span><span style="color:var(--danger)">96% ⚠ P2/NEURO</span></div>
+            <div class="hh"><span class="nm">▸ north-02</span><span>69% · TRAUMA</span></div></div>
+          <div class="rtile w"><div class="rt-head"><span class="rt-name">WEST ◀</span><span class="rt-node">grid-west-1 · 108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">▸ west-01</span><span>75% · PED</span></div>
+            <div class="hh"><span class="nm">▸ west-02</span><span>67% · GEN</span></div></div>
+          <div class="ccenter c"><span class="cc-t">Globale Lage</span><span style="font-size:.66rem;color:var(--warn)">Angespannt · 0 Tote · instab 3/8</span><span class="flow">↻ Reroute NEURO: north-01 → east-04</span><span class="cc-t" style="margin-top:.2rem">Klick Haus = Reroute · Klick Feed = Drossel</span></div>
+          <div class="rtile safe e"><div class="rt-head"><span class="rt-name">EAST ▶ ✓ Ziel</span><span class="rt-node">grid-east-3 · 108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh t"><span class="nm">▸ east-04 <span class="neu">NEURO</span> ◀Ziel</span><span>95%</span></div>
+            <div class="hh"><span class="nm">▸ east-07</span><span>82% · PED</span></div>
+            <div class="hh"><span class="nm">▸ east-09</span><span>74% · TRAUMA</span></div></div>
+          <div class="rtile s"><div class="rt-head"><span class="rt-name">SOUTH ▼ (Puffer)</span><span class="rt-node">grid-south-1 · 108%</span></div>
+            <div class="feeddots"><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="hh"><span class="nm">▸ south-01</span><span style="color:var(--ok)">55% · TRAUMA</span></div>
+            <div class="hh"><span class="nm">▸ south-02</span><span style="color:var(--ok)">50% · PED</span></div></div>
+        </div>
+      </div>
+      <div class="zone">
+        <p class="zlabel">Konsole (kombiniert)</p>
+        <div class="tabs"><span class="tab on">AURORA</span><span class="tab">Operator</span></div>
+        <div class="split">
+          <div class="scroll">
+            <div class="ln"><span class="ac">AURORA:</span><span>Diese Maßnahme minimiert den erwarteten Systemverlust…</span></div>
+            <div class="approve" style="margin-top:.4rem"><span class="k">Tool Request · write</span><br>shedding_schedule consumer-medical-north …<br><span style="color:var(--text-mute)">[Einmal] [Immer] [Ablehnen]</span></div>
+          </div>
+          <div class="scroll">
+            <div class="ln"><span class="tk">[T3]</span><span>operator@aurora:~$ cat logs/energy.log</span></div>
+            <div class="ln"><span class="tk">[T3]</span><span class="ac">grid-north-1 über sicherer Kapazität</span></div>
+            <div class="inp" style="margin-top:.3rem">operator@aurora:~$ _</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-bottom:0">Empfehlung: <b>L2</b> — die Karte ist der neue Mittelpunkt und braucht Platz; AURORA &amp; Operator sind beides „Kommunikations-/Log"-Flächen und vertragen sich in einer Spalte (Tabs oder oben/unten). L1 ist der kleinere Eingriff, lässt die Karte aber eng.</div>
+</body>
+</html>
