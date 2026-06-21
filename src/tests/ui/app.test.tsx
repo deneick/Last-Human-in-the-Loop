@@ -103,14 +103,24 @@ function setSelectValue(select: HTMLSelectElement, value: string) {
   });
 }
 
-/** Setzt einen Routing-Override über die GUI-Controls des Medical-Panels. */
+/** Klick auf eine Haus-/Verbraucher-Kachel der Lagekarte (per Data-Attribut). */
+function clickHospital(hospitalId: string) {
+  const button = container.querySelector<HTMLButtonElement>(
+    `button[data-hospital-id="${hospitalId}"]`
+  );
+  if (!button) {
+    throw new Error(`Hospital tile not found: ${hospitalId}`);
+  }
+  act(() => button.click());
+}
+
+/** Setzt einen Routing-Override über den Karten-Reroute-Dialog (Klick auf Quelle). */
 function setOverride(targetHospitalId: string, sourceHospitalId = "hospital-east-04") {
-  clickButton("Neuer Override"); // öffnet den Override-Dialog
-  setSelectValue(formSelect("Override-Quelle"), sourceHospitalId);
-  setSelectValue(formSelect("Override-Ziel"), targetHospitalId);
-  setSelectValue(formSelect("Override-Priorität"), "P2");
-  setSelectValue(formSelect("Override-Capability"), "TRAUMA");
-  clickButton("Override setzen");
+  clickHospital(sourceHospitalId); // öffnet den Reroute-Dialog mit dieser Quelle
+  setSelectValue(formSelect("Reroute-Ziel"), targetHospitalId);
+  setSelectValue(formSelect("Reroute-Priorität"), "P2");
+  setSelectValue(formSelect("Reroute-Capability"), "TRAUMA");
+  clickButton("Reroute setzen");
 }
 
 const setWrongOverride = () => setOverride("hospital-east-07");
@@ -159,17 +169,17 @@ describe("App MVP loop", () => {
     expect(text()).toContain("hospital-east-09");
     // Die Kombi-Schicht startet bewusst SAUBER: kein Haus über Kapazität, der
     // Druck entsteht erst durch Strommangel. east-04 liegt daher unter Last.
-    expect(text()).toContain("Betten 95/100");
-    expect(text()).toContain("Notfallslots 22/24");
-    expect(text()).toContain("Warteschlange: 45 Fälle");
+    // Lagekarte zeigt Notfallslots, Warteschlange und Auslastung je Haus.
+    expect(text()).toContain("Notfall 22/24");
+    expect(text()).toContain("Warte 45");
   });
 
   it("rejects fachliche text commands in the operator console", () => {
     runPlayerCommand("medical.capacity.list --region east");
 
     expect(text()).toContain("Unknown command: medical.capacity.list --region east");
-    // Die Welt bleibt unverändert — fachliche Eingriffe nur über die Panels.
-    expect(text()).toContain("Keine aktiven Overrides.");
+    // Die Welt bleibt unverändert — fachliche Eingriffe nur über die Karte.
+    expect(text()).not.toContain("→ hospital-east");
   });
 
   it("executes generic bash commands from the operator console", () => {
@@ -220,20 +230,20 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Todesfälle: 3");
   });
 
-  it("shows the override id for an active routing override", () => {
+  it("shows an active routing override as a reroute chip on the source tile", () => {
     setGoodOverride();
 
-    expect(text()).toContain("hospital-east-04 → hospital-east-09");
-    expect(text()).toContain("ID: override-1");
+    expect(text()).toContain("→ hospital-east-09");
   });
 
-  it("clears an active override through the panel button", () => {
+  it("clears an active override through the reroute chip", () => {
     setGoodOverride();
-    expect(text()).toContain("hospital-east-04 → hospital-east-09");
+    expect(text()).toContain("→ hospital-east-09");
 
-    clickButton("Override löschen");
+    const clear = container.querySelector<HTMLElement>('[aria-label="Override löschen"]')!;
+    act(() => clear.click());
 
-    expect(text()).toContain("Keine aktiven Overrides.");
+    expect(text()).not.toContain("→ hospital-east-09");
   });
 
   it("collapses the grid and ends the shift when nobody intervenes", () => {
@@ -282,7 +292,7 @@ describe("App MVP loop", () => {
     expect(text()).not.toContain("Unknown request format");
     expect(text()).not.toContain("Tool Request");
     // Die Welt bleibt unverändert — der Chat-Text führt keine Domain-Action aus.
-    expect(text()).toContain("Keine aktiven Overrides.");
+    expect(text()).not.toContain("→ hospital-east");
   });
 });
 
@@ -328,7 +338,7 @@ describe("Scenario director", () => {
     clickButton("Einmal erlauben");
 
     expect(text()).toContain(`Ausgeführt: ${SCRIPTED_CLEAR}`);
-    expect(text()).toContain("Keine aktiven Overrides.");
+    expect(text()).not.toContain("→ hospital-east-07");
   });
 
   it("deny on a scripted request produces a visible aurora reaction", () => {
@@ -340,7 +350,7 @@ describe("Scenario director", () => {
     expect(text()).toContain(`Anfrage abgelehnt: ${SCRIPTED_CLEAR}`);
     expect(text()).toContain("Ohne diesen Zugriff bleibt meine Einschätzung unvollständig");
     // Der Override bleibt bestehen — Deny verändert die Welt nicht.
-    expect(text()).toContain("hospital-east-04 → hospital-east-07");
+    expect(text()).toContain("→ hospital-east-07");
   });
 
   it("allow always persists the exact tool key, readable only via config/permissions.json", () => {
@@ -355,7 +365,7 @@ describe("Scenario director", () => {
     // … sondern ist ausschließlich über die Workspace-Datei einsehbar.
     runPlayerCommand("cat config/permissions.json");
     expect(text()).toContain("mcp:medical-east-mcp:routing_override_clear");
-    expect(text()).toContain("Keine aktiven Overrides.");
+    expect(text()).not.toContain("→ hospital-east-07");
   });
 
   it("does not render permission confirmations in the operator console", () => {
@@ -374,17 +384,15 @@ describe("Scenario director", () => {
 
     // Spieler ersetzt den Override im selben Slot, bevor die AURORA-Anfrage entschieden wird.
     setGoodOverride();
-    expect(text()).toContain("hospital-east-04 → hospital-east-09");
-    expect(text()).toContain("ID: override-2");
+    expect(text()).toContain("→ hospital-east-09");
+    expect(text()).not.toContain("→ hospital-east-07");
 
     clickButton("Einmal erlauben");
 
     expect(text()).not.toContain("Tool Request");
     expect(text()).toContain(`Ausgeführt: ${SCRIPTED_CLEAR}`);
     // Der neue Override bleibt unangetastet — die veraltete Clear-Anfrage war ein No-op.
-    expect(text()).toContain("hospital-east-04 → hospital-east-09");
-    expect(text()).toContain("ID: override-2");
-    expect(text()).not.toContain("ID: override-1");
+    expect(text()).toContain("→ hospital-east-09");
   });
 });
 
@@ -501,8 +509,8 @@ describe("MVP hardening", () => {
     runPlayerCommand("medical.routing.plan.set --foo bar");
     expect(text()).toContain("Unknown command: medical.routing.plan.set");
 
-    // Stattdessen: GUI-Controls für typisierte Domain-Actions.
-    expect(() => findButton("Neuer Override")).not.toThrow();
+    // Stattdessen: interaktive Lagekarte mit klickbaren Haus-Kacheln.
+    expect(container.querySelector('button[data-hospital-id="hospital-east-04"]')).not.toBeNull();
   });
 
   it("renders the operator-visible opsFeed as the Log, not the technical audit log", () => {

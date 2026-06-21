@@ -43,10 +43,8 @@ import {
   type AuroraModelClient,
 } from "./aurora";
 
-import { ActiveIncidentPanel } from "./ui/ActiveIncidentPanel";
 import { DebriefPanel, type AuroraDebriefSummary } from "./ui/DebriefPanel";
-import { MedicalOverviewPanel } from "./ui/MedicalOverviewPanel";
-import { EnergyOverviewPanel } from "./ui/EnergyOverviewPanel";
+import { SituationMapPanel } from "./ui/SituationMapPanel";
 import {
   OperatorConsolePanel,
   type ConsoleCommandEntry,
@@ -54,13 +52,10 @@ import {
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
 import {
   buildOpsFeedLines,
-  buildConsumerViews,
   buildEnergyOutcomesView,
   buildGlobalOutcomeView,
-  buildGridNodeViews,
-  buildHospitalViews,
   buildIncidentView,
-  buildOverrideViews,
+  buildRegionMapViews,
   buildSheddingViews,
 } from "./ui/viewModel";
 
@@ -380,10 +375,7 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
     incidentViews.length > 0 &&
     (runtimeState.world.outcomes.collapsed || incidentViews.every((view) => view.isFinal));
   const outcomeView = buildGlobalOutcomeView(runtimeState.world);
-  const hospitalViews = buildHospitalViews(runtimeState.world);
-  const overrideViews = buildOverrideViews(runtimeState.world);
-  const gridNodeViews = buildGridNodeViews(runtimeState.world);
-  const consumerViews = buildConsumerViews(runtimeState.world);
+  const regionMapViews = buildRegionMapViews(runtimeState.world);
   const sheddingViews = buildSheddingViews(runtimeState.world);
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
   const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
@@ -935,11 +927,13 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           // Urteils. Die "Erfolgs"-Färbung folgt dem MENSCHEN-Mandat (Operator),
           // nicht der Systemstabilität (AURORA): bezahlt jemand mit dem Leben,
           // ist die Schicht aus Operator-Sicht nicht "gewonnen".
-          const humanLifeUndersupplied = consumerViews.filter(
-            (consumer) =>
-              consumer.criticality === "human-life" &&
-              consumer.currentSupply < consumer.minimumSupply
-          ).length;
+          const humanLifeUndersupplied = regionMapViews
+            .flatMap((region) => region.consumers)
+            .filter(
+              (consumer) =>
+                consumer.criticality === "human-life" &&
+                consumer.currentSupply < consumer.minimumSupply
+            ).length;
           const humanCost = outcomeView.deathsTotal > 0 || humanLifeUndersupplied > 0;
 
           return (
@@ -976,24 +970,16 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
         />
       )}
 
-      <section className="layout-grid">
-        <aside className="panel">
-          {/* Beide Incidents der Kombi-Welt nebeneinander. */}
-          {incidentViews.map((view) => (
-            <ActiveIncidentPanel
-              key={view.id}
-              incident={view}
+      <section className="layout-grid layout-map">
+        <aside className="panel map-column">
+          {/* Detaillierte, interaktive Lagekarte (Medical + Energy je Region).
+              Die Lage-Leiste oben fasst zusammen, was gerade passiert. */}
+          {regionMapViews.length > 0 && (
+            <SituationMapPanel
+              regions={regionMapViews}
+              sheddingPlans={sheddingViews}
               outcome={outcomeView}
-              scenarioStartTime={runtimeState.world.clock.scenario_time}
-            />
-          ))}
-
-          {/* Beide Fach-Panels gleichzeitig: der Konflikt liegt in der
-              sektorübergreifenden Lage, also braucht der Operator beide Hebel. */}
-          {hospitalViews.length > 0 && (
-            <MedicalOverviewPanel
-              hospitals={hospitalViews}
-              overrides={overrideViews}
+              energyOutcomes={energyOutcomesView}
               onSetOverride={({ sourceHospitalId, targetHospitalId, priority, capability }) =>
                 runDomainAction({
                   type: "medical.routing.override.set",
@@ -1006,15 +992,6 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
               onClearOverride={(overrideId) =>
                 runDomainAction({ type: "medical.routing.override.clear", overrideId })
               }
-              scenarioStartTime={runtimeState.world.clock.scenario_time}
-              disabled={auroraBusy}
-            />
-          )}
-          {gridNodeViews.length > 0 && (
-            <EnergyOverviewPanel
-              nodes={gridNodeViews}
-              consumers={consumerViews}
-              sheddingPlans={sheddingViews}
               onSetPriority={({ consumerId, priorityClass }) =>
                 runDomainAction({ type: "energy.priority.set", consumerId, priorityClass })
               }
@@ -1030,42 +1007,43 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
               onClearShedding={(sheddingId) =>
                 runDomainAction({ type: "energy.shedding.clear", sheddingId })
               }
-              scenarioStartTime={runtimeState.world.clock.scenario_time}
               disabled={auroraBusy}
             />
           )}
         </aside>
 
-        <section className="panel">
-          <OperatorConsolePanel
-            commandText={playerCommand}
-            onCommandTextChange={setPlayerCommand}
-            onExecute={runPlayerCommand}
-            entries={consoleEntries}
-            opsLines={opsLines}
-            mcpServerIds={mcpServerIds}
-            workspaceFiles={workspaceFilePaths}
-            scenarioStartTime={runtimeState.world.clock.scenario_time}
-            disabled={auroraBusy}
-          />
-        </section>
+        <div className="console-column">
+          <section className="panel">
+            <OperatorConsolePanel
+              commandText={playerCommand}
+              onCommandTextChange={setPlayerCommand}
+              onExecute={runPlayerCommand}
+              entries={consoleEntries}
+              opsLines={opsLines}
+              mcpServerIds={mcpServerIds}
+              workspaceFiles={workspaceFilePaths}
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
+              disabled={auroraBusy}
+            />
+          </section>
 
-        <aside className="panel">
-          <AuroraPanel
-            messages={auroraMessages}
-            pendingRequest={
-              awaitingAuroraItem
-                ? describeAuroraRequest(awaitingAuroraItem.request)
-                : null
-            }
-            onDecision={resolveAurora}
-            chatInput={auroraChatInput}
-            onChatInputChange={setAuroraChatInput}
-            onSendChatMessage={sendAuroraChatMessage}
-            scenarioStartTime={runtimeState.world.clock.scenario_time}
-            busy={auroraBusy}
-          />
-        </aside>
+          <aside className="panel">
+            <AuroraPanel
+              messages={auroraMessages}
+              pendingRequest={
+                awaitingAuroraItem
+                  ? describeAuroraRequest(awaitingAuroraItem.request)
+                  : null
+              }
+              onDecision={resolveAurora}
+              chatInput={auroraChatInput}
+              onChatInputChange={setAuroraChatInput}
+              onSendChatMessage={sendAuroraChatMessage}
+              scenarioStartTime={runtimeState.world.clock.scenario_time}
+              busy={auroraBusy}
+            />
+          </aside>
+        </div>
       </section>
     </main>
   );

@@ -107,6 +107,89 @@ export function groupByRegion<T extends { regionId: string; regionLabel: string 
   return [...groups.values()];
 }
 
+/**
+ * Aggregierte Regionssicht für die Lagekarte: bündelt Netzknoten, Verbraucher,
+ * Hospitäler und die ein-/ausgehenden Routing-Overrides je Region zu einer
+ * Kachel. Verbindet die getrennten Medical- (`medical-<key>`) und Energy-Region-
+ * Ids (`energy-region-<key>`) über den Kompass-Key (east/north/west/south).
+ * Liest ausschließlich die öffentliche Sicht (kein `world.simulation`).
+ */
+export type RegionMapView = {
+  key: string;
+  label: string;
+  node: GridNodeView | null;
+  consumers: ConsumerView[];
+  hospitals: HospitalView[];
+  /** Overrides, deren Quelle in dieser Region liegt (Fälle gehen hinaus). */
+  outgoingOverrides: OverrideView[];
+  /** Overrides, deren Ziel in dieser Region liegt (Fälle kommen herein). */
+  incomingOverrides: OverrideView[];
+};
+
+// Stabile Kompass-Reihenfolge für das 2x2-Raster (Nord oben-links, Ost oben-rechts,
+// West unten-links, Süd unten-rechts); unbekannte Keys danach in Fundreihenfolge.
+const REGION_ORDER = ["north", "east", "west", "south"];
+
+function regionKeyOf(id: string): string {
+  return id.replace(/^medical-/, "").replace(/^energy-region-/, "");
+}
+
+export function buildRegionMapViews(world: WorldState): RegionMapView[] {
+  const hospitals = buildHospitalViews(world);
+  const consumers = buildConsumerViews(world);
+  const nodes = buildGridNodeViews(world);
+  const overrides = buildOverrideViews(world);
+
+  // Hospital-Id → Region-Key, um Overrides ihren Regionen zuzuordnen.
+  const regionOfHospital = new Map<string, string>();
+  for (const hospital of hospitals) {
+    regionOfHospital.set(hospital.id, regionKeyOf(hospital.regionId));
+  }
+
+  const byKey = new Map<string, RegionMapView>();
+  const ensure = (key: string, label: string): RegionMapView => {
+    let region = byKey.get(key);
+    if (!region) {
+      region = {
+        key,
+        label,
+        node: null,
+        consumers: [],
+        hospitals: [],
+        outgoingOverrides: [],
+        incomingOverrides: [],
+      };
+      byKey.set(key, region);
+    }
+    return region;
+  };
+
+  for (const hospital of hospitals) {
+    ensure(regionKeyOf(hospital.regionId), hospital.regionLabel).hospitals.push(hospital);
+  }
+  for (const consumer of consumers) {
+    ensure(regionKeyOf(consumer.regionId), consumer.regionLabel).consumers.push(consumer);
+  }
+  for (const node of nodes) {
+    const region = ensure(regionKeyOf(node.regionId), node.regionLabel);
+    // Erster Knoten der Region trägt die Kachel-Last (eine Region = ein Knoten).
+    region.node ??= node;
+  }
+  for (const override of overrides) {
+    const sourceKey = regionOfHospital.get(override.sourceHospitalId);
+    const targetKey = regionOfHospital.get(override.targetHospitalId);
+    if (sourceKey && byKey.has(sourceKey)) byKey.get(sourceKey)!.outgoingOverrides.push(override);
+    if (targetKey && byKey.has(targetKey) && targetKey !== sourceKey)
+      byKey.get(targetKey)!.incomingOverrides.push(override);
+  }
+
+  return [...byKey.values()].sort((a, b) => {
+    const ai = REGION_ORDER.indexOf(a.key);
+    const bi = REGION_ORDER.indexOf(b.key);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+}
+
 export type HospitalView = {
   id: string;
   name: string;

@@ -100,19 +100,40 @@ function setSelectValue(select: HTMLSelectElement, value: string) {
   });
 }
 
-/** Setzt die Systemklasse eines Verbrauchers über die GUI-Controls. */
-function setConsumerPriority(consumerId: string, priorityClass: string) {
-  setSelectValue(formSelect("Prioritäts-Verbraucher"), consumerId);
-  setSelectValue(formSelect("Systemklasse"), priorityClass);
-  clickButton("Priorität setzen");
+/** Klick auf eine Verbraucher-/Haus-Kachel der Lagekarte (per Data-Attribut). */
+function clickConsumer(consumerId: string) {
+  const button = container.querySelector<HTMLButtonElement>(
+    `button[data-consumer-id="${consumerId}"]`
+  );
+  if (!button) {
+    throw new Error(`Consumer tile not found: ${consumerId}`);
+  }
+  act(() => button.click());
 }
 
-/** Plant eine Drosselung über die GUI-Controls. */
+function clickHospital(hospitalId: string) {
+  const button = container.querySelector<HTMLButtonElement>(
+    `button[data-hospital-id="${hospitalId}"]`
+  );
+  if (!button) {
+    throw new Error(`Hospital tile not found: ${hospitalId}`);
+  }
+  act(() => button.click());
+}
+
+/** Setzt die Systemklasse eines Verbrauchers über den Karten-Dialog. */
+function setConsumerPriority(consumerId: string, priorityClass: string) {
+  clickConsumer(consumerId);
+  setSelectValue(formSelect("Systemklasse"), priorityClass);
+  clickButton("Setzen");
+}
+
+/** Plant eine Drosselung über den Karten-Dialog. */
 function scheduleShedding(targetConsumerId: string, amount: string, delay: string, duration: string) {
-  setSelectValue(formSelect("Drosselungs-Ziel"), targetConsumerId);
+  clickConsumer(targetConsumerId);
   setInputValue(formInput("Menge"), amount);
-  setInputValue(formInput("Verzögerung (Ticks)"), delay);
-  setInputValue(formInput("Dauer (Ticks)"), duration);
+  setInputValue(formInput("Verzögerung"), delay);
+  setInputValue(formInput("Dauer"), duration);
   clickButton("Drosselung planen");
 }
 
@@ -132,15 +153,14 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
   it("renders the energy overview alongside the medical one in one shift", () => {
     // Beide Sektoren sind jetzt in EINER Welt sichtbar — der Konflikt lebt in
     // der sektorübergreifenden Lage.
-    expect(text()).toContain("GRID-1182");
-    expect(text()).toContain("East Grid Load Instability");
-    expect(text()).toContain("Energie-Lage");
+    // Energy und Medical liegen jetzt in EINER Lagekarte je Region (die
+    // Incident-Panels sind entfernt; die Lage-Leiste zeigt den Zustand).
+    expect(text()).toContain("Lagekarte");
     expect(text()).toContain("grid-east-3");
-    expect(text()).toContain("über sicherer Kapazität");
+    expect(text()).toContain("Grid-Instabilität");
     // Medical bleibt parallel präsent.
-    expect(text()).toContain("ME-7741");
-    expect(text()).toContain("Medizinische Lage");
     expect(text()).toContain("hospital-east-04");
+    expect(text()).toContain("ME-7741");
 
     // Keine internen Zähler.
     expect(text()).not.toContain("stable_ticks");
@@ -149,22 +169,31 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
   });
 
   it("shows both assessment dimensions and the consequence texts per consumer", () => {
-    expect(text()).toContain("Medical East");
+    // Beide Bewertungsdimensionen + Folgetext stehen im Verbraucher-Dialog der Karte.
+    clickConsumer("consumer-medical-east");
     expect(text()).toContain("Menschenleben");
     expect(text()).toContain("standard");
-    expect(text()).toContain("Industrial East");
+    expect(text()).toContain("Emergency intake capacity drops. Human harm may increase.");
+    clickButton("Schließen");
+
+    clickConsumer("consumer-industrial-east");
     expect(text()).toContain("Wirtschaftlich");
     expect(text()).toContain("protected-continuity");
-    expect(text()).toContain("Emergency intake capacity drops. Human harm may increase.");
   });
 
   it("offers both energy and medical GUI controls (no fachliche text commands)", () => {
+    // Energy-Controls im Verbraucher-Dialog.
+    clickConsumer("consumer-medical-east");
     expect(text()).toContain("Systemklasse setzen");
     expect(text()).toContain("Drosselung planen");
-    expect(() => findButton("Priorität setzen")).not.toThrow();
+    expect(() => findButton("Setzen")).not.toThrow();
     expect(() => findButton("Drosselung planen")).not.toThrow();
-    // Medical-Controls sind in derselben Schicht ebenfalls vorhanden.
-    expect(() => findButton("Neuer Override")).not.toThrow();
+    clickButton("Schließen");
+
+    // Medical-Control im Haus-Dialog.
+    clickHospital("hospital-east-04");
+    expect(() => findButton("Reroute setzen")).not.toThrow();
+    clickButton("Abbrechen");
 
     runPlayerCommand("energy.grid.status --region east");
     expect(text()).toContain("Unknown command: energy.grid.status --region east");
@@ -172,15 +201,18 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
 
   it("lets the operator schedule load shedding via the GUI", () => {
     shedIndustrial();
-    expect(text()).toContain("geplant von player");
-    expect(text()).toContain("shed-1");
+    // Aktive Drosselung erscheint in der Karten-Liste.
+    expect(text()).toContain("consumer-industrial-east");
+    expect(text()).toContain("von player");
   });
 
   it("lets the operator raise a human-life consumer's system class (counter to AURORA)", () => {
     // Der Operator hebt Medical East gegen AURORAs Grid-Ökonomie auf
     // protected-continuity — die Gegen-Action des Mensch-Mandats.
     protectMedical();
-    expect(text()).toContain("(geändert von player)");
+    // Erneutes Öffnen zeigt die geänderte Systemklasse.
+    clickConsumer("consumer-medical-east");
+    expect(text()).toContain("protected-continuity");
   });
 
   it("ends the shift with the two-ledger state when nobody intervenes", () => {
@@ -199,13 +231,13 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
   it("Neu starten resets the combined shift to its initial state", () => {
     shedIndustrial();
     clickButton("Tick +1");
-    expect(text()).toContain("shed-1");
+    expect(text()).toContain("Aktive Drosselungen");
 
     clickButton("Neu starten");
 
-    expect(text()).toContain("GRID-1182");
     expect(text()).toContain("ME-7741");
     expect(text()).toContain("03:17 Uhr");
-    expect(text()).toContain("Keine Shedding-Pläne.");
+    // Keine aktiven Drosselungen mehr → die Karten-Sektion verschwindet.
+    expect(text()).not.toContain("Aktive Drosselungen");
   });
 });
