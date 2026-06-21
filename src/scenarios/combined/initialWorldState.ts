@@ -1,6 +1,7 @@
 import type { WorldState } from "../../runtime/types";
 import { initialWorldState as medicalWorld } from "../me7741/initialWorldState";
 import { initialWorldState as energyWorld } from "../grid1182/initialWorldState";
+import { buildExtraRegions } from "./regions";
 
 /**
  * Kombinierte Welt: ME-7741 (Medical) UND GRID-1182 (Energy) in EINEM WorldState
@@ -98,6 +99,23 @@ medicalSimulation.routing_failures = [
     severity: "critical",
   },
 ];
+
+// 4-Regionen-Karte: East (oben aus den Einzel-Welten geklont) wird um North,
+// West und South erweitert. Jede Zusatz-Region bringt ihren überlasteten
+// Netzknoten, vier Verbraucher und einen dormanten Routing-Failure mit. So
+// entsteht das "wandernde sichere Ziel": fällt eine Region vom Netz, muss ihr
+// Fall in eine Region mit passender Fähigkeit, Strom UND freier Kapazität.
+const extraRegions = buildExtraRegions();
+
+Object.assign(medicalDomain.regions, extraRegions.medicalRegions);
+Object.assign(medicalDomain.hospitals, extraRegions.hospitals);
+for (const hospitalId of Object.keys(extraRegions.hospitals)) {
+  medicalDomain.outcomes.deaths_by_hospital[hospitalId] = 0;
+}
+Object.assign(energyDomain.regions, extraRegions.energyRegions);
+Object.assign(energyDomain.nodes, extraRegions.nodes);
+Object.assign(energyDomain.consumers, extraRegions.consumers);
+medicalSimulation.routing_failures.push(...extraRegions.failures);
 
 // Kopplungsanker: volle Notfallkapazität je Hospital in der Baseline ablegen,
 // damit applyCrossSectorEffects sie bei Stromunterdeckung herunter- und bei

@@ -79,6 +79,9 @@ export const KNOWN_PRIORITY_CLASSES: EnergyPriorityClass[] = [
 
 const REGION_ALIASES: Record<string, string> = {
   east: "energy-region-east",
+  north: "energy-region-north",
+  west: "energy-region-west",
+  south: "energy-region-south",
 };
 
 function resolveRegionId(value: string): string | null {

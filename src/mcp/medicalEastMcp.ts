@@ -26,7 +26,7 @@ export const medicalEastMcpServer: McpServerDefinition = {
   id: MEDICAL_EAST_MCP_SERVER_ID,
   label: "Medical East MCP",
   description:
-    "Fachlicher Zugriff auf Kapazitäten, Incidents und Routing-Overrides der Region Medical East.",
+    "Fachlicher Zugriff auf Kapazitäten, Incidents und Routing-Overrides aller Medical-Regionen (east, north, west, south). Reroutes sind regionsübergreifend: Quelle und Ziel dürfen in verschiedenen Regionen liegen.",
   tools: [
     {
       name: "capacity_list",
@@ -34,7 +34,10 @@ export const medicalEastMcpServer: McpServerDefinition = {
       access: "read",
       inputSchema: mcpInputSchema(
         {
-          region: { type: "string", description: 'Region, z. B. "east".' },
+          region: {
+            type: "string",
+            description: 'Region: "east", "north", "west" oder "south".',
+          },
         },
         ["region"]
       ),

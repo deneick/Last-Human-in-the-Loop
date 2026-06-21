@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { KNOWN_CAPABILITIES, KNOWN_PRIORITIES } from "../domain/medicalActions";
-import type { HospitalView, OverrideView } from "./viewModel";
+import { groupByRegion, type HospitalView, type OverrideView } from "./viewModel";
 import { Modal } from "./Modal";
 import { tickToClock } from "../runtime/scenarioClock";
 
@@ -36,6 +36,8 @@ export function MedicalOverviewPanel({
   const [priority, setPriority] = useState("P2");
   const [capability, setCapability] = useState("TRAUMA");
 
+  const hospitalGroups = groupByRegion(hospitals);
+
   function closeModal() {
     setIsModalOpen(false);
     setTargetHospitalId("");
@@ -50,41 +52,46 @@ export function MedicalOverviewPanel({
     <section>
       <h2>Medizinische Lage</h2>
 
-      <div className="hospital-list">
-        {hospitals.map((hospital) => (
-          <article className="hospital-card" key={hospital.id}>
-            <div className="hospital-header">
-              <strong>{hospital.id}</strong>
-              <span className={hospital.overloaded ? "error-text" : "ok-text"}>
-                {Math.round(hospital.loadPercent)}%{hospital.overloaded ? " · überfüllt" : ""}
-              </span>
-            </div>
-            <p>{hospital.name}</p>
-            <div className="load-bar">
-              <div
-                className={`load-bar-fill ${hospital.overloaded ? "load-bar-over" : ""}`}
-                style={{ width: `${Math.min(100, hospital.loadPercent)}%` }}
-              />
-            </div>
-            <small>
-              Betten {hospital.bedsOccupied}/{hospital.bedsTotal} · Notfallslots{" "}
-              {hospital.emergencySlotsOccupied}/{hospital.emergencySlotsTotal}
-            </small>
-            <small>
-              Warteschlange: {hospital.waitingTotal} Fälle (
-              {Object.entries(hospital.waitingByPriority)
-                .filter(([, count]) => count > 0)
-                .map(([priorityClass, count]) => `${priorityClass}: ${count}`)
-                .join(", ") || "leer"}
-              )
-            </small>
-            <small>
-              Nimmt an: {hospital.acceptedPriorities.join(", ")} ·{" "}
-              {hospital.clinicalCapabilities.join(", ")}
-            </small>
-          </article>
-        ))}
-      </div>
+      {hospitalGroups.map((group) => (
+        <div key={group.regionId} className="region-group">
+          <h3 className="region-group-title">{group.regionLabel}</h3>
+          <div className="hospital-list">
+            {group.items.map((hospital) => (
+              <article className="hospital-card" key={hospital.id}>
+                <div className="hospital-header">
+                  <strong>{hospital.id}</strong>
+                  <span className={hospital.overloaded ? "error-text" : "ok-text"}>
+                    {Math.round(hospital.loadPercent)}%{hospital.overloaded ? " · überfüllt" : ""}
+                  </span>
+                </div>
+                <p>{hospital.name}</p>
+                <div className="load-bar">
+                  <div
+                    className={`load-bar-fill ${hospital.overloaded ? "load-bar-over" : ""}`}
+                    style={{ width: `${Math.min(100, hospital.loadPercent)}%` }}
+                  />
+                </div>
+                <small>
+                  Betten {hospital.bedsOccupied}/{hospital.bedsTotal} · Notfallslots{" "}
+                  {hospital.emergencySlotsOccupied}/{hospital.emergencySlotsTotal}
+                </small>
+                <small>
+                  Warteschlange: {hospital.waitingTotal} Fälle (
+                  {Object.entries(hospital.waitingByPriority)
+                    .filter(([, count]) => count > 0)
+                    .map(([priorityClass, count]) => `${priorityClass}: ${count}`)
+                    .join(", ") || "leer"}
+                  )
+                </small>
+                <small>
+                  Nimmt an: {hospital.acceptedPriorities.join(", ")} ·{" "}
+                  {hospital.clinicalCapabilities.join(", ")}
+                </small>
+              </article>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <div className="section-head">
         <h3>Aktive Routing Overrides</h3>
@@ -134,10 +141,14 @@ export function MedicalOverviewPanel({
                 onChange={(event) => setSourceHospitalId(event.target.value)}
                 disabled={disabled}
               >
-                {hospitals.map((hospital) => (
-                  <option key={hospital.id} value={hospital.id}>
-                    {hospital.id}
-                  </option>
+                {hospitalGroups.map((group) => (
+                  <optgroup key={group.regionId} label={group.regionLabel}>
+                    {group.items.map((hospital) => (
+                      <option key={hospital.id} value={hospital.id}>
+                        {hospital.id}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -151,10 +162,14 @@ export function MedicalOverviewPanel({
                 disabled={disabled}
               >
                 <option value="">— Ziel wählen —</option>
-                {hospitals.map((hospital) => (
-                  <option key={hospital.id} value={hospital.id}>
-                    {hospital.id}
-                  </option>
+                {hospitalGroups.map((group) => (
+                  <optgroup key={group.regionId} label={group.regionLabel}>
+                    {group.items.map((hospital) => (
+                      <option key={hospital.id} value={hospital.id}>
+                        {hospital.id}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>

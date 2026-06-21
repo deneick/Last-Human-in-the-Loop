@@ -79,6 +79,9 @@ function parseCapability(value: unknown): ClinicalCapability | null {
 
 const REGION_ALIASES: Record<string, string> = {
   east: "medical-east",
+  north: "medical-north",
+  west: "medical-west",
+  south: "medical-south",
 };
 
 function resolveRegionId(value: string): string | null {

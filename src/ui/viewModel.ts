@@ -81,9 +81,37 @@ export function buildGlobalOutcomeView(world: WorldState): GlobalOutcomeView {
   };
 }
 
+/**
+ * Gruppiert region-behaftete Views (Hospitals, Nodes, Consumers) für die
+ * Panel-Darstellung der 4-Regionen-Karte — Reihenfolge bleibt stabil
+ * (erste Begegnung je Region gewinnt).
+ */
+export type RegionGroup<T> = { regionId: string; regionLabel: string; items: T[] };
+
+export function groupByRegion<T extends { regionId: string; regionLabel: string }>(
+  items: T[]
+): RegionGroup<T>[] {
+  const groups = new Map<string, RegionGroup<T>>();
+  for (const item of items) {
+    const existing = groups.get(item.regionId);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      groups.set(item.regionId, {
+        regionId: item.regionId,
+        regionLabel: item.regionLabel,
+        items: [item],
+      });
+    }
+  }
+  return [...groups.values()];
+}
+
 export type HospitalView = {
   id: string;
   name: string;
+  regionId: string;
+  regionLabel: string;
   loadPercent: number;
   overloaded: boolean;
   bedsOccupied: number;
@@ -97,6 +125,7 @@ export type HospitalView = {
 };
 
 export function buildHospitalViews(world: WorldState): HospitalView[] {
+  const regions = world.domains.medical.regions;
   return Object.values(world.domains.medical.hospitals).map((hospital) => {
     const loadPercent = getHospitalLoadPercent(world, hospital.id);
     const waiting = hospital.current_case_mix.waiting_cases;
@@ -105,6 +134,8 @@ export function buildHospitalViews(world: WorldState): HospitalView[] {
     return {
       id: hospital.id,
       name: hospital.name,
+      regionId: hospital.region_id,
+      regionLabel: regions[hospital.region_id]?.label ?? hospital.region_id,
       loadPercent,
       overloaded: loadPercent > 100,
       bedsOccupied: hospital.capacity.staffed_beds_occupied,
@@ -148,6 +179,8 @@ export function buildOverrideViews(world: WorldState): OverrideView[] {
 export type GridNodeView = {
   id: string;
   label: string;
+  regionId: string;
+  regionLabel: string;
   load: number;
   safeCapacity: number;
   loadPercent: number;
@@ -174,6 +207,8 @@ export function buildGridNodeViews(world: WorldState): GridNodeView[] {
     return {
       id: node.id,
       label: node.label,
+      regionId: node.region_id,
+      regionLabel: energy.regions[node.region_id]?.label ?? node.region_id,
       load: node.load,
       safeCapacity: node.safe_capacity,
       loadPercent,
@@ -188,6 +223,8 @@ export type ConsumerView = {
   id: string;
   label: string;
   nodeId: string;
+  regionId: string;
+  regionLabel: string;
   criticality: string;
   criticalityLabel: string;
   priorityClass: string;
@@ -223,6 +260,8 @@ export function buildConsumerViews(world: WorldState): ConsumerView[] {
     id: consumer.id,
     label: consumer.label,
     nodeId: consumer.node_id,
+    regionId: consumer.region_id,
+    regionLabel: energy.regions[consumer.region_id]?.label ?? consumer.region_id,
     criticality: consumer.criticality,
     criticalityLabel: CRITICALITY_LABELS[consumer.criticality] ?? consumer.criticality,
     priorityClass: consumer.priority_class,

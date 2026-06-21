@@ -41,7 +41,7 @@ export const energyEastMcpServer: McpServerDefinition = {
   id: ENERGY_EAST_MCP_SERVER_ID,
   label: "Energy East MCP",
   description:
-    "Fachlicher Zugriff auf Netzstatus, Verbraucher, Prioritäten und Lastabwurf der Region Energy East.",
+    "Fachlicher Zugriff auf Netzstatus, Verbraucher, Prioritäten und Lastabwurf aller Energy-Regionen (east, north, west, south).",
   tools: [
     {
       name: "grid_status",
@@ -49,7 +49,10 @@ export const energyEastMcpServer: McpServerDefinition = {
       access: "read",
       inputSchema: mcpInputSchema(
         {
-          region: { type: "string", description: 'Region, z. B. "east".' },
+          region: {
+            type: "string",
+            description: 'Region: "east", "north", "west" oder "south".',
+          },
         },
         ["region"]
       ),
@@ -64,7 +67,10 @@ export const energyEastMcpServer: McpServerDefinition = {
       access: "read",
       inputSchema: mcpInputSchema(
         {
-          region: { type: "string", description: 'Region, z. B. "east".' },
+          region: {
+            type: "string",
+            description: 'Region: "east", "north", "west" oder "south".',
+          },
         },
         ["region"]
       ),

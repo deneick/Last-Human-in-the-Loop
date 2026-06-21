@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { KNOWN_PRIORITY_CLASSES } from "../domain/energyActions";
-import type { ConsumerView, GridNodeView, SheddingPlanView } from "./viewModel";
+import {
+  groupByRegion,
+  type ConsumerView,
+  type GridNodeView,
+  type SheddingPlanView,
+} from "./viewModel";
 import { tickToClock } from "../runtime/scenarioClock";
 
 export type PriorityFormInput = {
@@ -51,58 +56,79 @@ export function EnergyOverviewPanel({
   const [sheddingDelay, setSheddingDelay] = useState("");
   const [sheddingDuration, setSheddingDuration] = useState("");
 
+  const nodeGroups = groupByRegion(nodes);
+  const consumerGroups = groupByRegion(consumers);
+
   return (
     <section>
       <h2>Energie-Lage</h2>
 
-      <div className="hospital-list">
-        {nodes.map((node) => (
-          <article className="hospital-card" key={node.id}>
-            <div className="hospital-header">
-              <strong>{node.id}</strong>
-              <span className={node.overloaded ? "error-text" : "ok-text"}>
-                {Math.round(node.loadPercent)}%{node.overloaded ? " · über sicherer Kapazität" : ""}
-              </span>
-            </div>
-            <p>{node.label}</p>
-            <div className="load-bar">
-              <div
-                className={`load-bar-fill ${node.overloaded ? "load-bar-over" : ""}`}
-                style={{ width: `${Math.min(100, node.loadPercent)}%` }}
-              />
-            </div>
-            <small>
-              Last {node.load} / sichere Kapazität {node.safeCapacity} · Status: {node.statusLabel}
-            </small>
-          </article>
-        ))}
-      </div>
+      {nodeGroups.map((group) => (
+        <div key={group.regionId} className="region-group">
+          <h3 className="region-group-title">{group.regionLabel}</h3>
+          <div className="hospital-list">
+            {group.items.map((node) => (
+              <article className="hospital-card" key={node.id}>
+                <div className="hospital-header">
+                  <strong>{node.id}</strong>
+                  <span className={node.overloaded ? "error-text" : "ok-text"}>
+                    {Math.round(node.loadPercent)}%
+                    {node.overloaded ? " · über sicherer Kapazität" : ""}
+                  </span>
+                </div>
+                <p>{node.label}</p>
+                <div className="load-bar">
+                  <div
+                    className={`load-bar-fill ${node.overloaded ? "load-bar-over" : ""}`}
+                    style={{ width: `${Math.min(100, node.loadPercent)}%` }}
+                  />
+                </div>
+                <small>
+                  Last {node.load} / sichere Kapazität {node.safeCapacity} · Status:{" "}
+                  {node.statusLabel}
+                </small>
+              </article>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <h3>Kritische Verbraucher</h3>
-      <div className="hospital-list">
-        {consumers.map((consumer) => (
-          <article className="hospital-card" key={consumer.id}>
-            <div className="hospital-header">
-              <strong>{consumer.label}</strong>
-              <span className={consumer.status === "nominal" ? "ok-text" : "error-text"}>
-                {consumer.statusLabel}
-              </span>
-            </div>
-            <small>
-              Kritikalität: {consumer.criticalityLabel} · Systemklasse:{" "}
-              <code>{consumer.priorityClass}</code>
-              {consumer.priorityLastChangedBy ? ` (geändert von ${consumer.priorityLastChangedBy})` : ""}
-            </small>
-            <small>
-              Versorgung {consumer.currentSupply}/{consumer.demand} · Minimum{" "}
-              {consumer.minimumSupply}
-            </small>
-            <small className={consumer.currentSupply < consumer.minimumSupply ? "error-text" : "muted"}>
-              Folge bei Drosselung: {consumer.reductionConsequence}
-            </small>
-          </article>
-        ))}
-      </div>
+      {consumerGroups.map((group) => (
+        <div key={group.regionId} className="region-group">
+          <h4 className="region-group-title">{group.regionLabel}</h4>
+          <div className="hospital-list">
+            {group.items.map((consumer) => (
+              <article className="hospital-card" key={consumer.id}>
+                <div className="hospital-header">
+                  <strong>{consumer.label}</strong>
+                  <span className={consumer.status === "nominal" ? "ok-text" : "error-text"}>
+                    {consumer.statusLabel}
+                  </span>
+                </div>
+                <small>
+                  Kritikalität: {consumer.criticalityLabel} · Systemklasse:{" "}
+                  <code>{consumer.priorityClass}</code>
+                  {consumer.priorityLastChangedBy
+                    ? ` (geändert von ${consumer.priorityLastChangedBy})`
+                    : ""}
+                </small>
+                <small>
+                  Versorgung {consumer.currentSupply}/{consumer.demand} · Minimum{" "}
+                  {consumer.minimumSupply}
+                </small>
+                <small
+                  className={
+                    consumer.currentSupply < consumer.minimumSupply ? "error-text" : "muted"
+                  }
+                >
+                  Folge bei Drosselung: {consumer.reductionConsequence}
+                </small>
+              </article>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <h3>Systemklasse setzen</h3>
       <div className="domain-action-form">
@@ -114,10 +140,14 @@ export function EnergyOverviewPanel({
           disabled={disabled}
         >
           <option value="">— Verbraucher wählen —</option>
-          {consumers.map((consumer) => (
-            <option key={consumer.id} value={consumer.id}>
-              {consumer.label} ({consumer.id})
-            </option>
+          {consumerGroups.map((group) => (
+            <optgroup key={group.regionId} label={group.regionLabel}>
+              {group.items.map((consumer) => (
+                <option key={consumer.id} value={consumer.id}>
+                  {consumer.label} ({consumer.id})
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <select
@@ -152,10 +182,14 @@ export function EnergyOverviewPanel({
           disabled={disabled}
         >
           <option value="">— Ziel wählen —</option>
-          {consumers.map((consumer) => (
-            <option key={consumer.id} value={consumer.id}>
-              {consumer.label} ({consumer.id})
-            </option>
+          {consumerGroups.map((group) => (
+            <optgroup key={group.regionId} label={group.regionLabel}>
+              {group.items.map((consumer) => (
+                <option key={consumer.id} value={consumer.id}>
+                  {consumer.label} ({consumer.id})
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <input
