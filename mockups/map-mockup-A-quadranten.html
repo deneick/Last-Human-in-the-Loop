@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lagekarte — Mockup A · Kompass-Quadranten</title>
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161b22; --inset:#0b0f14; --border:#30363d;
+    --text:#c9d1d9; --muted:#8b949e; --ok:#3fb950; --warn:#d29922; --danger:#f85149;
+    --accent:#58a6ff; --neuro:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;font-size:14px;padding:20px;}
+  code,.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  h1{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* Kompass-Raster: North oben, South unten, West/East seitlich, Mitte = Legende */
+  .compass{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto auto auto;gap:14px}
+  .north{grid-column:2;grid-row:1}
+  .west{grid-column:1;grid-row:2}
+  .center{grid-column:2;grid-row:2}
+  .east{grid-column:3;grid-row:2}
+  .south{grid-column:2;grid-row:3}
+
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:default}
+  .tile.safe{border-color:var(--ok);box-shadow:0 0 0 1px rgba(63,185,80,.25)}
+  .tile.alert{border-color:rgba(248,81,73,.5)}
+  .tile-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .tile-name{font-weight:700;letter-spacing:.06em}
+  .node-badge{font-size:11px;padding:2px 7px;border-radius:20px;background:var(--inset);border:1px solid var(--border)}
+  .node-badge.over{color:var(--danger);border-color:rgba(248,81,73,.5)}
+
+  .feeds{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px}
+  .feed{display:flex;align-items:center;gap:6px;font-size:11.5px;background:var(--inset);
+    border:1px solid var(--border);border-radius:6px;padding:3px 7px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .dot.ok{background:var(--ok)} .dot.red{background:var(--danger)} .dot.amber{background:var(--warn)}
+  .feed .lbl{color:var(--muted)} .feed.short .lbl{color:var(--danger)}
+
+  .hosp{display:flex;flex-direction:column;gap:3px;padding:7px;border-radius:7px;
+    border:1px solid transparent;cursor:pointer;transition:background .12s,border-color .12s}
+  .hosp:hover{background:var(--inset);border-color:var(--accent)}
+  .hosp.target{background:rgba(63,185,80,.08);border-color:var(--ok)}
+  .hosp.over .bar > i{background:var(--danger)}
+  .hosp-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .hosp-id{font-weight:600;font-size:12.5px}
+  .hosp-load{font-size:11px;color:var(--muted)}
+  .hosp.over .hosp-load{color:var(--danger)}
+  .bar{height:5px;border-radius:4px;background:var(--inset);overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--accent)}
+  .caps{display:flex;gap:4px;flex-wrap:wrap}
+  .cap{font-size:9.5px;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--inset);
+    border:1px solid var(--border);color:var(--muted)}
+  .cap.neuro{color:var(--neuro);border-color:rgba(188,140,255,.5);background:rgba(188,140,255,.08)}
+
+  .badge{font-size:9.5px;padding:1px 6px;border-radius:10px;margin-left:6px}
+  .badge.fail{background:rgba(248,81,73,.12);color:var(--danger);border:1px solid rgba(248,81,73,.4)}
+  .badge.safe{background:rgba(63,185,80,.12);color:var(--ok);border:1px solid rgba(63,185,80,.4)}
+
+  .center{display:flex;flex-direction:column;justify-content:center;gap:8px;
+    background:transparent;border:1px dashed var(--border);border-radius:10px;padding:12px}
+  .center h2{margin:0 0 2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .legrow{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+  .global{font-size:12px}
+  .hint{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+  .hint b{color:var(--text)}
+  .flow{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--neuro);
+    background:rgba(188,140,255,.07);border:1px solid rgba(188,140,255,.35);border-radius:6px;padding:4px 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lagekarte — Mockup A · Kompass-Quadranten</h1>
+  <div class="sub">Kombinierte Schicht · Live-Moment: <b>North-Medical gedrosselt</b> → NEURO-Fall sucht sicheres Ziel.
+    Klick auf Haus → Reroute · Klick auf Verbraucher → Drosselung/Priorität (Mockup, nicht funktional).</div>
+
+  <div class="compass">
+    <!-- NORTH (alert: medical feed short, NEURO failure) -->
+    <div class="tile alert north">
+      <div class="tile-head">
+        <span class="tile-name">NORTH</span>
+        <span class="node-badge over">grid-north-1 · 108% ⚠</span>
+      </div>
+      <div class="feeds">
+        <div class="feed short"><span class="dot red"></span><span class="lbl">⚡ Medical 16/20</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏭 Industrial</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">💧 Water</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏠 Residential</span></div>
+      </div>
+      <div class="hosp over">
+        <div class="hosp-row"><span class="hosp-id">north-01 <span class="badge fail">P2/NEURO ⚠</span></span><span class="hosp-load">96%</span></div>
+        <div class="bar"><i style="width:96%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap neuro">NEURO</span></div>
+      </div>
+      <div class="hosp" style="margin-top:6px">
+        <div class="hosp-row"><span class="hosp-id">north-02</span><span class="hosp-load">69%</span></div>
+        <div class="bar"><i style="width:69%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div>
+      </div>
+    </div>
+
+    <!-- WEST -->
+    <div class="tile west">
+      <div class="tile-head">
+        <span class="tile-name">WEST</span>
+        <span class="node-badge over">grid-west-1 · 108% ⚠</span>
+      </div>
+      <div class="feeds">
+        <div class="feed"><span class="dot ok"></span><span class="lbl">⚡ Medical</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏭 Industrial</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">💧 Water</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏠 Residential</span></div>
+      </div>
+      <div class="hosp">
+        <div class="hosp-row"><span class="hosp-id">west-01</span><span class="hosp-load">75%</span></div>
+        <div class="bar"><i style="width:75%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div>
+      </div>
+      <div class="hosp" style="margin-top:6px">
+        <div class="hosp-row"><span class="hosp-id">west-02</span><span class="hosp-load">67%</span></div>
+        <div class="bar"><i style="width:67%"></i></div>
+        <div class="caps"><span class="cap">GEN</span></div>
+      </div>
+    </div>
+
+    <!-- CENTER: Legende + globale Lage -->
+    <div class="center">
+      <div>
+        <h2>Globale Lage</h2>
+        <div class="global">Risiko: <b style="color:var(--warn)">Angespannt</b> · Tote: 0 · grid_instability 3/8</div>
+      </div>
+      <div class="flow">↳ Reroute NEURO: north-01 → <b>east-04</b></div>
+      <div>
+        <h2 style="margin-top:6px">Legende</h2>
+        <div class="legrow"><span class="dot ok"></span> Feed nominal &nbsp; <span class="dot red"></span> unter Minimum</div>
+        <div class="legrow"><span class="cap neuro" style="font-size:9px">NEURO</span> knappe Fähigkeit (nur East+North)</div>
+        <div class="legrow"><span class="badge safe" style="margin:0">Ziel</span> gültiges Reroute-Ziel</div>
+      </div>
+    </div>
+
+    <!-- EAST (safe haven for NEURO) -->
+    <div class="tile safe east">
+      <div class="tile-head">
+        <span class="tile-name">EAST <span class="badge safe">sicheres NEURO-Ziel</span></span>
+        <span class="node-badge over">grid-east-3 · 108% ⚠</span>
+      </div>
+      <div class="feeds">
+        <div class="feed"><span class="dot ok"></span><span class="lbl">⚡ Medical 24/20</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏭 Industrial</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">💧 Water</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏠 Residential</span></div>
+      </div>
+      <div class="hosp target">
+        <div class="hosp-row"><span class="hosp-id">east-04 <span class="badge safe">Ziel</span></span><span class="hosp-load">95%</span></div>
+        <div class="bar"><i style="width:95%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span><span class="cap neuro">NEURO</span></div>
+      </div>
+      <div class="hosp" style="margin-top:6px">
+        <div class="hosp-row"><span class="hosp-id">east-07</span><span class="hosp-load">82%</span></div>
+        <div class="bar"><i style="width:82%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div>
+      </div>
+      <div class="hosp" style="margin-top:6px">
+        <div class="hosp-row"><span class="hosp-id">east-09</span><span class="hosp-load">74%</span></div>
+        <div class="bar"><i style="width:74%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div>
+      </div>
+    </div>
+
+    <!-- SOUTH (buffer) -->
+    <div class="tile south">
+      <div class="tile-head">
+        <span class="tile-name">SOUTH <span class="badge safe" style="background:rgba(88,166,255,.12);color:var(--accent);border-color:rgba(88,166,255,.4)">Puffer</span></span>
+        <span class="node-badge over">grid-south-1 · 108% ⚠</span>
+      </div>
+      <div class="feeds">
+        <div class="feed"><span class="dot ok"></span><span class="lbl">⚡ Medical</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏭 Industrial</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">💧 Water</span></div>
+        <div class="feed"><span class="dot ok"></span><span class="lbl">🏠 Residential</span></div>
+      </div>
+      <div class="hosp">
+        <div class="hosp-row"><span class="hosp-id">south-01</span><span class="hosp-load">55%</span></div>
+        <div class="bar"><i style="width:55%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div>
+      </div>
+      <div class="hosp" style="margin-top:6px">
+        <div class="hosp-row"><span class="hosp-id">south-02</span><span class="hosp-load">50%</span></div>
+        <div class="bar"><i style="width:50%"></i></div>
+        <div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">Stärke: <b>kompakt & sofort lesbar</b> — Strom-/Wasser-/Wohn-Feeds und Hausauslastung je Region auf einen Blick;
+    fügt sich in den bestehenden Karten-Look ein. Klick öffnet die vorhandenen Override-/Shedding-Dialoge.</div>
+</div>
+</body>
+</html>
