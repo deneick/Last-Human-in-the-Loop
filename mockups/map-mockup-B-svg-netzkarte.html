@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lagekarte — Mockup B · SVG-Netzkarte</title>
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161b22; --inset:#0b0f14; --border:#30363d;
+    --text:#c9d1d9; --muted:#8b949e; --ok:#3fb950; --warn:#d29922; --danger:#f85149;
+    --accent:#58a6ff; --neuro:#bc8cff; --water:#39a0ed; --power:#d29922; --civil:#bc8cff;
+  }
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;padding:20px}
+  h1{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:14px;max-width:980px}
+  .wrap{max-width:1020px;margin:0 auto}
+  svg{width:100%;height:auto;display:block;background:
+    radial-gradient(circle at 50% 42%, #11161d 0%, var(--bg) 70%);border:1px solid var(--border);border-radius:12px}
+  .reg-box{fill:var(--surface);stroke:var(--border);stroke-width:1}
+  .reg-box.safe{stroke:var(--ok)} .reg-box.alert{stroke:rgba(248,81,73,.55)}
+  .reg-label{fill:var(--text);font:700 13px ui-sans-serif,system-ui;letter-spacing:.08em}
+  .reg-tag{font:600 9px ui-sans-serif;}
+  .node{stroke:var(--border);stroke-width:1.5}
+  .node.over{fill:#2a1416;stroke:var(--danger)}
+  .node-txt{fill:var(--text);font:700 10px ui-monospace,monospace;text-anchor:middle}
+  .node-sub{fill:var(--muted);font:9px ui-monospace,monospace;text-anchor:middle}
+  .cons{stroke:var(--border);stroke-width:1}
+  .cons.ok{fill:#10261a;stroke:var(--ok)} .cons.short{fill:#2a1416;stroke:var(--danger)}
+  .cons-txt{fill:var(--muted);font:8.5px ui-sans-serif;text-anchor:middle}
+  .edge{stroke:var(--border);stroke-width:1;opacity:.5}
+  .edge.power{stroke:var(--power);stroke-width:1.4;opacity:.8}
+  .hosp{fill:var(--inset);stroke:var(--border);stroke-width:1;cursor:pointer;transition:stroke .12s,fill .12s}
+  .hosp:hover{stroke:var(--accent);fill:#11171f}
+  .hosp.over{stroke:var(--danger)} .hosp.target{stroke:var(--ok);fill:rgba(63,185,80,.08)}
+  .hosp-id{fill:var(--text);font:600 10px ui-monospace,monospace}
+  .hosp-load{font:9px ui-monospace,monospace}
+  .cap{font:8px ui-sans-serif;fill:var(--muted)}
+  .cap.neuro{fill:var(--neuro);font-weight:700}
+  .reroute{stroke:var(--neuro);stroke-width:2;stroke-dasharray:7 5;fill:none;opacity:.9}
+  .reroute-lbl{fill:var(--neuro);font:600 11px ui-sans-serif;text-anchor:middle}
+  .legend{fill:var(--muted);font:11px ui-sans-serif}
+  .hint{color:var(--muted);font-size:12px;margin-top:12px;text-align:center}
+  .hint b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lagekarte — Mockup B · SVG-Netzkarte</h1>
+  <div class="sub">Topologie-Sicht: Netzknoten als Hub, Verbraucher als Leaf-Nodes (Farbe = Versorgung), Hospitäler als
+    Knoten mit Fähigkeiten. Strom-Feed-Kanten <span style="color:var(--power)">amber</span>. Gestrichelt
+    <span style="color:var(--neuro)">violett</span> = aktiver NEURO-Reroute. Live-Moment: North-Medical gedrosselt.</div>
+
+  <svg viewBox="0 0 1000 770" role="img" aria-label="Netzkarte der vier Regionen">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#bc8cff"/>
+      </marker>
+    </defs>
+
+    <!-- cross-region NEURO reroute arc: north-01 -> east-04 -->
+    <path class="reroute" d="M 470 215 C 640 250, 760 300, 745 372" marker-end="url(#arrow)"/>
+    <text class="reroute-lbl" x="700" y="250">↻ Reroute NEURO</text>
+
+    <!-- ============ NORTH (alert) ============ -->
+    <g transform="translate(330,20)">
+      <rect class="reg-box alert" x="0" y="0" width="340" height="195" rx="10"/>
+      <text class="reg-label" x="14" y="22">NORTH</text>
+      <text class="reg-tag" x="78" y="22" fill="var(--danger)">⚠ Medical-Feed gedrosselt</text>
+      <!-- grid hub -->
+      <circle class="node over" cx="170" cy="46" r="22"/>
+      <text class="node-txt" x="170" y="44">108%</text>
+      <text class="node-sub" x="170" y="56">grid-north-1</text>
+      <!-- consumers -->
+      <line class="edge" x1="40" y1="92" x2="160" y2="62"/>
+      <line class="edge power" x1="40" y1="92" x2="40" y2="118"/>
+      <line class="edge" x1="110" y1="92" x2="165" y2="64"/>
+      <line class="edge" x1="230" y1="92" x2="180" y2="64"/>
+      <line class="edge" x1="300" y1="92" x2="185" y2="66"/>
+      <circle class="cons short" cx="40" cy="92" r="9"/><text class="cons-txt" x="40" y="108">⚡16/20</text>
+      <circle class="cons ok" cx="110" cy="92" r="9"/><text class="cons-txt" x="110" y="108">🏭</text>
+      <circle class="cons ok" cx="230" cy="92" r="9"/><text class="cons-txt" x="230" y="108">💧</text>
+      <circle class="cons ok" cx="300" cy="92" r="9"/><text class="cons-txt" x="300" y="108">🏠</text>
+      <!-- hospitals -->
+      <g><rect class="hosp over" x="18" y="120" width="150" height="58" rx="7"/>
+        <text class="hosp-id" x="28" y="138">north-01</text>
+        <text class="hosp-load" x="150" y="138" text-anchor="end" fill="var(--danger)">96% ⚠</text>
+        <text class="cap" x="28" y="156">GEN ·</text><text class="cap neuro" x="56" y="156">NEURO</text>
+        <text class="cap" x="28" y="170" fill="var(--danger)">P2/NEURO Rückstau</text></g>
+      <g><rect class="hosp" x="178" y="120" width="148" height="58" rx="7"/>
+        <text class="hosp-id" x="188" y="138">north-02</text>
+        <text class="hosp-load" x="318" y="138" text-anchor="end" fill="var(--muted)">69%</text>
+        <text class="cap" x="188" y="156">GEN · TRAUMA</text></g>
+    </g>
+
+    <!-- ============ WEST ============ -->
+    <g transform="translate(20,250)">
+      <rect class="reg-box" x="0" y="0" width="300" height="195" rx="10"/>
+      <text class="reg-label" x="14" y="22">WEST</text>
+      <circle class="node over" cx="150" cy="46" r="22"/>
+      <text class="node-txt" x="150" y="44">108%</text><text class="node-sub" x="150" y="56">grid-west-1</text>
+      <circle class="cons ok" cx="40" cy="92" r="9"/><text class="cons-txt" x="40" y="108">⚡</text>
+      <circle class="cons ok" cx="100" cy="92" r="9"/><text class="cons-txt" x="100" y="108">🏭</text>
+      <circle class="cons ok" cx="200" cy="92" r="9"/><text class="cons-txt" x="200" y="108">💧</text>
+      <circle class="cons ok" cx="260" cy="92" r="9"/><text class="cons-txt" x="260" y="108">🏠</text>
+      <line class="edge power" x1="40" y1="92" x2="40" y2="120"/>
+      <g><rect class="hosp" x="18" y="122" width="125" height="56" rx="7"/>
+        <text class="hosp-id" x="28" y="140">west-01</text>
+        <text class="hosp-load" x="133" y="140" text-anchor="end" fill="var(--muted)">75%</text>
+        <text class="cap" x="28" y="160">GEN · PED</text></g>
+      <g><rect class="hosp" x="155" y="122" width="125" height="56" rx="7"/>
+        <text class="hosp-id" x="165" y="140">west-02</text>
+        <text class="hosp-load" x="270" y="140" text-anchor="end" fill="var(--muted)">67%</text>
+        <text class="cap" x="165" y="160">GEN</text></g>
+    </g>
+
+    <!-- ============ EAST (safe NEURO target) ============ -->
+    <g transform="translate(640,250)">
+      <rect class="reg-box safe" x="0" y="0" width="340" height="265" rx="10"/>
+      <text class="reg-label" x="14" y="22">EAST</text>
+      <text class="reg-tag" x="62" y="22" fill="var(--ok)">✓ sicheres NEURO-Ziel</text>
+      <circle class="node over" cx="170" cy="46" r="22"/>
+      <text class="node-txt" x="170" y="44">108%</text><text class="node-sub" x="170" y="56">grid-east-3</text>
+      <circle class="cons ok" cx="40" cy="92" r="9"/><text class="cons-txt" x="40" y="108">⚡24/20</text>
+      <circle class="cons ok" cx="110" cy="92" r="9"/><text class="cons-txt" x="110" y="108">🏭</text>
+      <circle class="cons ok" cx="230" cy="92" r="9"/><text class="cons-txt" x="230" y="108">💧</text>
+      <circle class="cons ok" cx="300" cy="92" r="9"/><text class="cons-txt" x="300" y="108">🏠</text>
+      <line class="edge power" x1="40" y1="92" x2="40" y2="122"/>
+      <g><rect class="hosp target" x="18" y="122" width="150" height="58" rx="7"/>
+        <text class="hosp-id" x="28" y="140">east-04 ◀ Ziel</text>
+        <text class="hosp-load" x="158" y="140" text-anchor="end" fill="var(--muted)">95%</text>
+        <text class="cap" x="28" y="158">GEN · TRAUMA ·</text><text class="cap neuro" x="118" y="158">NEURO</text></g>
+      <g><rect class="hosp" x="178" y="122" width="148" height="58" rx="7"/>
+        <text class="hosp-id" x="188" y="140">east-07</text>
+        <text class="hosp-load" x="318" y="140" text-anchor="end" fill="var(--muted)">82%</text>
+        <text class="cap" x="188" y="158">GEN · PED</text></g>
+      <g><rect class="hosp" x="18" y="190" width="150" height="56" rx="7"/>
+        <text class="hosp-id" x="28" y="208">east-09</text>
+        <text class="hosp-load" x="158" y="208" text-anchor="end" fill="var(--muted)">74%</text>
+        <text class="cap" x="28" y="226">GEN · TRAUMA</text></g>
+    </g>
+
+    <!-- ============ SOUTH (buffer) ============ -->
+    <g transform="translate(330,520)">
+      <rect class="reg-box" x="0" y="0" width="340" height="180" rx="10"/>
+      <text class="reg-label" x="14" y="22">SOUTH</text>
+      <text class="reg-tag" x="74" y="22" fill="var(--accent)">Puffer (Reserve)</text>
+      <circle class="node over" cx="170" cy="46" r="22"/>
+      <text class="node-txt" x="170" y="44">108%</text><text class="node-sub" x="170" y="56">grid-south-1</text>
+      <circle class="cons ok" cx="40" cy="92" r="9"/><text class="cons-txt" x="40" y="108">⚡</text>
+      <circle class="cons ok" cx="110" cy="92" r="9"/><text class="cons-txt" x="110" y="108">🏭</text>
+      <circle class="cons ok" cx="230" cy="92" r="9"/><text class="cons-txt" x="230" y="108">💧</text>
+      <circle class="cons ok" cx="300" cy="92" r="9"/><text class="cons-txt" x="300" y="108">🏠</text>
+      <line class="edge power" x1="40" y1="92" x2="40" y2="120"/>
+      <g><rect class="hosp" x="18" y="122" width="150" height="50" rx="7"/>
+        <text class="hosp-id" x="28" y="140">south-01</text>
+        <text class="hosp-load" x="158" y="140" text-anchor="end" fill="var(--ok)">55%</text>
+        <text class="cap" x="28" y="158">GEN · TRAUMA</text></g>
+      <g><rect class="hosp" x="178" y="122" width="148" height="50" rx="7"/>
+        <text class="hosp-id" x="188" y="140">south-02</text>
+        <text class="hosp-load" x="318" y="140" text-anchor="end" fill="var(--ok)">50%</text>
+        <text class="cap" x="188" y="158">GEN · PED</text></g>
+    </g>
+
+    <!-- legend -->
+    <g transform="translate(30,30)">
+      <circle class="node over" cx="8" cy="6" r="7"/><text class="legend" x="22" y="10">Knoten überlastet</text>
+      <circle class="cons short" cx="8" cy="28" r="7"/><text class="legend" x="22" y="32">Feed unter Minimum</text>
+      <line class="edge power" x1="0" y1="50" x2="16" y2="50"/><text class="legend" x="22" y="54">Strom-Feed</text>
+    </g>
+  </svg>
+
+  <div class="hint">Stärke: <b>räumliche Topologie</b> — Kopplungen als Kanten, Reroute-Pfade als Bögen sichtbar;
+    macht das „wandernde sichere Ziel" am stärksten begreifbar. Aufwändiger und weniger im Terminal-Look.</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lagekarte — Mockup C · Terminal-ASCII</title>
+<style>
+  :root{
+    --bg:#0a0e0c; --panel:#0d1411; --text:#9fe6a0; --dim:#5a7a5f; --muted:#6e8b72;
+    --ok:#3fb950; --warn:#e3b341; --danger:#ff6b5e; --accent:#56d4dd; --neuro:#d08bff;
+  }
+  body{margin:0;background:var(--bg);color:var(--text);padding:22px;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13.5px;line-height:1.5}
+  .wrap{max-width:920px;margin:0 auto;background:var(--panel);border:1px solid #1c2a20;border-radius:10px;
+    padding:18px 20px;box-shadow:0 0 0 1px rgba(63,185,80,.06), inset 0 0 60px rgba(63,185,80,.02)}
+  pre{margin:0;white-space:pre;overflow-x:auto}
+  .prompt{color:var(--dim)} .cmd{color:var(--text)}
+  .hd{color:var(--accent);font-weight:700}
+  .dim{color:var(--dim)} .muted{color:var(--muted)}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .danger{color:var(--danger)}
+  .neuro{color:var(--neuro);font-weight:700} .acc{color:var(--accent)}
+  .rule{color:#2b4030}
+  .reg{color:var(--text);font-weight:700}
+  .tag-ok{color:var(--ok)} .tag-buf{color:var(--accent)}
+  .blink{animation:b 1.1s steps(2,start) infinite}
+  @keyframes b{to{opacity:.25}}
+  .foot{color:var(--muted);margin-top:6px}
+  a.hosp{color:inherit;text-decoration:none;border-bottom:1px dotted transparent;cursor:pointer}
+  a.hosp:hover{border-bottom-color:var(--accent);color:#cfeccf}
+</style>
+</head>
+<body>
+<div class="wrap">
+<pre><span class="prompt">operator@aurora</span>:<span class="dim">~</span>$ <span class="cmd">map --situation --combined</span>
+
+<span class="hd">LAGEKARTE · KOMBINIERTE SCHICHT</span>        risk: <span class="warn">ANGESPANNT</span>   tote: <span class="ok">0</span>   grid_instab: <span class="warn">3/8</span>
+<span class="dim">live-moment: North-Medical gedrosselt → NEURO-Fall sucht sicheres Ziel</span>
+
+        <span class="dim">N</span>
+      <span class="dim">W ＋ E</span>     <span class="muted">Kompass · 4 Regionen · NEURO knapp (nur East+North)</span>
+        <span class="dim">S</span>
+
+<span class="rule">╶─</span> <span class="reg">NORTH</span> <span class="dim">▲</span>  grid-north-1  LOAD <span class="danger">108% [!!OVER]</span>
+<span class="rule">│</span>  feeds   <span class="danger">⚡MED 16/20 [LOW!]</span>   🏭IND <span class="ok">ok</span>   💧WAT <span class="ok">ok</span>   🏠RES <span class="ok">ok</span>
+<span class="rule">│</span>  <a class="hosp">▸ north-01</a>   load <span class="danger">96% [!!]</span>   caps GEN <span class="neuro">NEURO</span>   <span class="danger">« P2/NEURO Rückstau »</span>
+<span class="rule">│</span>  <a class="hosp">▸ north-02</a>   load <span class="ok">69%</span>        caps GEN TRAUMA
+
+<span class="rule">╶─</span> <span class="reg">WEST</span> <span class="dim">◀</span>   grid-west-1   LOAD <span class="danger">108% [!!OVER]</span>
+<span class="rule">│</span>  feeds   ⚡MED <span class="ok">ok</span>   🏭IND <span class="ok">ok</span>   💧WAT <span class="ok">ok</span>   🏠RES <span class="ok">ok</span>
+<span class="rule">│</span>  <a class="hosp">▸ west-01</a>    load <span class="ok">75%</span>        caps GEN PED
+<span class="rule">│</span>  <a class="hosp">▸ west-02</a>    load <span class="ok">67%</span>        caps GEN
+
+<span class="rule">╶─</span> <span class="reg">EAST</span> <span class="dim">▶</span>   grid-east-3   LOAD <span class="danger">108% [!!OVER]</span>   <span class="tag-ok">✓ SICHERES NEURO-ZIEL</span>
+<span class="rule">│</span>  feeds   <span class="ok">⚡MED 24/20 ok</span>   🏭IND <span class="ok">ok</span>   💧WAT <span class="ok">ok</span>   🏠RES <span class="ok">ok</span>
+<span class="rule">│</span>  <a class="hosp">▸ east-04</a>    load <span class="warn">95%</span>        caps GEN TRAUMA <span class="neuro">NEURO</span>   <span class="acc">◀── REROUTE-ZIEL</span>
+<span class="rule">│</span>  <a class="hosp">▸ east-07</a>    load <span class="warn">82%</span>        caps GEN PED
+<span class="rule">│</span>  <a class="hosp">▸ east-09</a>    load <span class="ok">74%</span>        caps GEN TRAUMA
+
+<span class="rule">╶─</span> <span class="reg">SOUTH</span> <span class="dim">▼</span>  grid-south-1  LOAD <span class="danger">108% [!!OVER]</span>   <span class="tag-buf">(Puffer / Reserve)</span>
+<span class="rule">│</span>  feeds   ⚡MED <span class="ok">ok</span>   🏭IND <span class="ok">ok</span>   💧WAT <span class="ok">ok</span>   🏠RES <span class="ok">ok</span>
+<span class="rule">│</span>  <a class="hosp">▸ south-01</a>   load <span class="ok">55%</span>        caps GEN TRAUMA
+<span class="rule">│</span>  <a class="hosp">▸ south-02</a>   load <span class="ok">50%</span>        caps GEN PED
+
+<span class="neuro">↻ aktiver Reroute:</span>  north-01 <span class="neuro">──NEURO──▶</span> east-04   <span class="dim">(Fähigkeit + Strom + Kapazität ok)</span>
+<span class="dim">▌</span><span class="blink">_</span>
+</pre>
+<div class="foot">hinweis: klick auf <span class="acc">▸ haus</span> = reroute öffnen · klick auf <span class="acc">feed</span> = drosselung/priorität · alles inline in der Konsole.
+<br>Stärke: <b style="color:#cfeccf">maximal im Operator-Look</b>, leichtgewichtig (kein SVG), gut für Tastatur/Scrollback — weniger „Karte", mehr Statusboard.</div>
+</div>
+</body>
+</html>
