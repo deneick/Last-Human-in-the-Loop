@@ -57,11 +57,15 @@ Heute deckt der lokale Outcome-Wert `economic_loss` die wirtschaftliche Seite gr
 
 ## 2. Cross-Sector-Kopplung Energy → Medical — Ausbaustufen
 
-Die **Basis** dieser Kopplung gehört bereits zum Spiel und ist in `03-runtime-architecture.md` (Tick-Pipeline) bzw. `05-grid1182-energy.md` dokumentiert: fällt `consumer-medical-east` unter `minimum_supply`, sinkt die `emergency_slots_total` der Hospitals proportional und erholt sich bei Rückkehr der Versorgung. Verbindlich bleibt dabei: einseitig **Energy → Medical** (Medical ist Wirkung, kein zweiter Schauplatz), einzige sektorübergreifende Stelle ist `applyCrossSectorEffects`, Entkopplungsregeln gelten weiter.
+Die **Basis** dieser Kopplung gehört bereits zum Spiel und ist in `03-runtime-architecture.md` (Tick-Pipeline) bzw. `05-grid1182-energy.md` dokumentiert: fällt der Stromfeed eines Hospitals unter `minimum_supply`, sinkt seine `emergency_slots_total` proportional und erholt sich bei Rückkehr der Versorgung. Verbindlich bleibt dabei: einseitig **Energy → Medical** (Medical ist Wirkung, kein zweiter Schauplatz), einzige sektorübergreifende Stelle ist `applyCrossSectorEffects`, Entkopplungsregeln gelten weiter.
 
-Die folgenden Ausbaustufen setzen darauf auf und sind **noch offen**:
+**Inzwischen umgesetzt** (war hier mal offen):
 
-- **Explizite Mapping-Tabelle.** Heute wirkt die Reduktion uniform auf alle Hospitals der Welt; eine Tabelle (`consumer-medical-east ↔ hospital-east-04 (+ ggf. east-07/east-09)`) würde die Kopplung gezielt machen.
+- **Explizite Mapping-Tabelle ✓.** Die Reduktion wirkt nicht mehr uniform, sondern pro Hospital über `power_feed_consumer_id`; getrennte Stromfeeds je Region.
+- **Weitere Verbraucher-Folgen ✓.** Über `water_feed_consumer_id` / `civil_feed_consumer_id` schlagen Wasser (Clearance-Drossel) und Residential (Krankenfälle + Transport-Latenz) ins Medical durch (`03`/`09`).
+- **Mehrere Regionen ✓ (teilweise).** Die Kombi-Welt ist eine 4-Regionen-Karte (East/North/West/South); Leitungs-/Trassenmodell und mehrere speisende Nodes pro Verbraucher bleiben offen.
+
+Die folgenden Ausbaustufen sind **noch offen**:
 - **Backup-Verbrauch.** Pro kritischem Verbraucher `backup.remaining_ticks` + `supply_state`-Wert `on_backup`; bei `0` ⇒ `offline` ⇒ harte Medical-Folge (`operational.degraded`, Intake bricht ein). Bausteine in Abschnitt 3.
 - **`effects_applied`-Protokoll.** Jeder angewendete Cross-Sector-Effekt wird in `simulation.cross_sector.effects_applied` mitgeschrieben (Struktur existiert, heute leer).
 - **Linked-Incident-Sichtbarkeit.** Sobald ein Effekt Medical verschlechtert, ein öffentliches Signal an GRID-1182 (z. B. `medical-supply-degraded`) plus eine kompakte Medical-Warn-Nebenanzeige im Energy-Panel (keine volle Medical-Übersicht).
@@ -79,7 +83,7 @@ Kleinere zurückgestellte Bausteine:
 - **Backup Power**: pro kritischem Verbraucher `backup.available`, `backup.remaining_ticks`, `backup.degraded`; zusätzlicher `supply_state`-Wert `on_backup`. Der Startwert von `degraded` transportiert den ME-7741-Restzustand. Ein Treibstoffmodell wäre eine weitere Stufe darüber.
 - **Cascade Risk / Trip-Logik**: interne Simulationswahrheit in `simulation.energy` (analog `routing_failures`): zu lange überlastete Nodes trippen, ihre Last verteilt sich auf `neighbors: GridNodeId[]`, deren Überlastung beschleunigt sich; `risk_counters` (`overload_ticks`, `instability_ticks`) von der Engine gepflegt. Öffentlich sichtbar sind nur Wirkungen — nie interne Schwellen oder Zähler.
 - **Substations** als eigener Typ (`SubstationState`); heute wird die Umspann-Ebene in `GridNodeState` mitgedacht.
-- **Mehr Welt**: mehrere Regionen, Leitungs-/Trassenmodell, Verbraucher-Hierarchien, dynamischer Bedarf, mehrere speisende Nodes pro Verbraucher.
+- **Mehr Welt**: mehrere Regionen sind umgesetzt (4-Regionen-Karte, oben); offen bleiben Leitungs-/Trassenmodell, Verbraucher-Hierarchien, dynamischer Bedarf, mehrere speisende Nodes pro Verbraucher.
 - **Rotierende Abschaltpläne / Fairness-Regeln** als Erweiterung der Shedding-Mechanik.
 - **Änderbare/verhandelbare Objectives** (mehrere Metriken, `energy.objective.set`) — Material für den Endpunkt (Kontrolle selbst), nicht für den aktuellen Konflikt.
 - **`energy.load.reroute` / `energy.reserve.rebalance`**: Spieler-gesteuertes Last-Rerouting ist bewusst nicht umgesetzt (macht GRID-1182 zu schnell zu einem Netztechnik-Puzzle); allenfalls Material für spätere Stufen.
@@ -106,4 +110,4 @@ Diese Punkte bleiben reserviert für spätere Erweiterungen:
 - **Kein GRID-1182-spezifisches LLM-Tuning** — der LLM-Agent existiert und ist live umschaltbar (`01-aurora.md`/`07-aurora-llm.md`); deterministischer Default für den Incident bleibt der Scenario-Director. Incident-spezifisches Fine-Tuning oder Training-Export ist nicht in Scope.
 - **Kein Security-/Policy-Endgame** — keine Audit-/Lockdown-/Revoke-Mechaniken; das Kontroll-Endgame (Fernziel) wird nicht vorgebaut.
 - **Kein Media-/Logistics-Incident** — keine weiteren Sektoren.
-- **Keine Änderung an der ME-7741-Spielmechanik** — Initial-State, Domain-Actions und Director-Logik von ME-7741 bleiben unangetastet (die Doku-Restrukturierung lässt die Mechanik unberührt).
+- **Keine Änderung an der ME-7741-Spielmechanik** — Initial-State, Domain-Actions und Director-Logik der ME-7741-**Einzelwelt** bleiben unangetastet. (Die Kombi-Welt erweitert die Karte um North/West/South mit dormanten ME-7741-Failures, ändert aber nicht den Tutorial-Flow oder die Mechanik selbst.)
