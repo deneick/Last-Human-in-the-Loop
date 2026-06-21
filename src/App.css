@@ -469,6 +469,142 @@ code {
   box-shadow: inset 0 0 0 1px rgba(240, 121, 107, 0.12);
 }
 
+/* ----- Meter (Versorgung/Kapazität) mit optionaler Schwellen-Marke ----- */
+.meter {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #1c1813;
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+.meter-ok {
+  background: var(--ok);
+}
+.meter-warn {
+  background: var(--warn);
+}
+.meter-danger {
+  background: var(--danger);
+}
+.meter-accent {
+  background: var(--accent);
+}
+/* Schwellen-Marke (z. B. Mindestversorgung) als heller Strich. */
+.meter-mark {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.55;
+  border-radius: 1px;
+}
+
+/* Netz-Pill statt großem Balken. */
+.node-pill {
+  margin-left: auto;
+  font-size: 0.66rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
+}
+.node-pill.node-over {
+  color: var(--danger);
+  border-color: #5a2420;
+  background: rgba(240, 121, 107, 0.08);
+}
+
+/* Verbraucher als 2x2-Gauges. */
+.tile-feeds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 0.6rem;
+}
+.feed-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.1rem 0.1rem 0.05rem;
+  background: none;
+  border: none;
+  border-radius: 0.4rem;
+}
+.feed-gauge:hover {
+  background: #1a1512;
+}
+.feed-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.feed-label {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+.feed-gauge.feed-short .feed-label {
+  color: var(--danger);
+}
+.feed-shed {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* Hospitäler kompakt: Notfall-Meter + Fähigkeiten. */
+.hosp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-2);
+}
+.hosp-gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hosp-gauge .meter {
+  flex: 1;
+}
+.hosp-em {
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.stat-wide {
+  min-width: 8rem;
+}
+.situation-bar .stat .meter {
+  margin-top: 0.25rem;
+}
+
+.field-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.modal-sheds {
+  display: grid;
+  gap: 0.3rem;
+}
+
 /* 2x2-Regionenraster, füllt die Breite. */
 .region-map {
   display: grid;

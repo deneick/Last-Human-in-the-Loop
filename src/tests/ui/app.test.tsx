@@ -169,9 +169,8 @@ describe("App MVP loop", () => {
     expect(text()).toContain("hospital-east-09");
     // Die Kombi-Schicht startet bewusst SAUBER: kein Haus über Kapazität, der
     // Druck entsteht erst durch Strommangel. east-04 liegt daher unter Last.
-    // Lagekarte zeigt Notfallslots, Warteschlange und Auslastung je Haus.
-    expect(text()).toContain("Notfall 22/24");
-    expect(text()).toContain("Warte 45");
+    // Lagekarte zeigt je Haus ein Notfall-Meter (belegt/gesamt).
+    expect(text()).toContain("22/24");
   });
 
   it("rejects fachliche text commands in the operator console", () => {
