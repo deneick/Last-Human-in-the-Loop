@@ -96,6 +96,20 @@ export type HospitalState = {
    * MEDICAL_POWER_CONSUMER_ID zurück.
    */
   power_feed_consumer_id?: EnergyConsumerId;
+  /**
+   * Wasser-Verbraucher (public-supply), der dieses Hospital versorgt. Fällt er
+   * unter sein Minimum, sinkt der Durchsatz: die effektive `clearance` der
+   * Routing-Failures dieses Hauses wird gedrosselt (Overflow drainiert
+   * langsamer). Fehlt das Feld: keine Wasser-Rückkopplung.
+   */
+  water_feed_consumer_id?: EnergyConsumerId;
+  /**
+   * Zivil-/Wohn-Verbraucher (civil-stability), dessen Versorgungslage die
+   * regionale Lage dieses Hospitals beeinflusst. Fällt er unter sein Minimum,
+   * steigt die zivile Unruhe → zusätzliche Krankenfälle (Overflow wächst je Tick)
+   * und längere Transportwege. Fehlt das Feld: keine Zivil-Rückkopplung.
+   */
+  civil_feed_consumer_id?: EnergyConsumerId;
 };
 
 export type IncidentStatus = "open" | "stabilizing" | "escalated" | "fixed" | "collapsed";

@@ -32,6 +32,19 @@ const medicalDomain = structuredClone(medicalWorld.domains.medical);
 const energyDomain = structuredClone(energyWorld.domains.energy!);
 const medicalSimulation = structuredClone(medicalWorld.simulation.medical);
 
+// Cross-Sector-Verdrahtung der Nicht-Strom-Verbraucher: jedes East-Hospital hängt
+// am regionalen Wasser- und Wohn-Feed. Fällt das Wasser unter sein Minimum, sinkt
+// der Durchsatz (Clearance-Drossel); fällt der Wohn-/Zivil-Feed, steigt die
+// zivile Unruhe → zusätzliche Krankenfälle. So bekommen die "billigen" Abwürfe
+// (Wasser/Wohnen statt Medical) eine verzögerte, reale medizinische Folge.
+for (const hospitalId of Object.keys(medicalDomain.hospitals)) {
+  medicalDomain.hospitals[hospitalId] = {
+    ...medicalDomain.hospitals[hospitalId],
+    water_feed_consumer_id: "consumer-water-east",
+    civil_feed_consumer_id: "consumer-residential-east",
+  };
+}
+
 // Combined-Schicht: Medical startet bewusst SAUBER — kein Haus über Kapazität,
 // kein vorgeseedeter Routing-Overflow. Der Druck entsteht erst, wenn der Strom
 // an den Medical-Feeds fällt (Strommangel → schrumpfende Notfallkapazität →
