@@ -73,10 +73,10 @@ Routing-Failures (beide an `hospital-east-04`):
 
 | Failure | Prio/Cap | `excess`/Tick | `overflow` | `clearance`/Tick | Severity |
 | --- | --- | --- | --- | --- | --- |
-| rf-me7741-p2-trauma | P2/TRAUMA | 8 | 18 | 2 | critical |
-| rf-me7741-p3-general | P3/GEN | 4 | 10 | 3 | moderate |
+| rf-me7741-p2-trauma | P2/TRAUMA | 8 | 6 | 2 | critical |
+| rf-me7741-p3-general | P3/GEN | 4 | 4 | 3 | moderate |
 
-`hospital-east-04` startet bereits **über** Kapazität (29 > 24) — das ist der Incident. `hospital-east-09` ist klinisch geeignet für P2/TRAUMA, aber mit 6 freien Notfallslots zu klein für 18 Überlauf-Fälle (läuft beim Umleiten selbst über).
+`hospital-east-04` startet bereits **über** Kapazität (29 > 24) — das ist der Incident. Die Überläufe sind bewusst auf die Ziel-Kapazitäten abgestimmt: P2/TRAUMA (6) passt in `hospital-east-09` (6 frei), P3/GEN (4) in `hospital-east-07` (4 frei). Wer **beide** Failures korrekt routet, drückt 04 sofort unter Kapazität und kein Ziel läuft über → 0 Tote, ME-7741 wird `fixed`. Ein einzelner Override reicht nicht: das unbehandelte Failure hält 04 über Kapazität und kollabiert es.
 
 ## Szenario-Daten: GRID-1182 (Energy)
 
@@ -94,8 +94,9 @@ Der Konflikt steckt in der Diskrepanz `criticality` ↔ `priority_class`: AURORA
 ## Wie das ineinandergreift (Kurz-Rechnung)
 
 - **Nichts tun:** `hospital-east-04` wächst +7/Tick → Overload → 1 Toter bei Tick 3, Kollaps bei Tick 9. Parallel: Knoten 108 > 100 → `grid_instability` +1/Tick → Energy-Kollaps bei Tick 8.
-- **Strom-Lastabwurf an Medical East** (`supply < 20`): `factor < 1` senkt die Notfallkapazität der Hospitals → 04 (und Ziele) laufen früher über → mehr/schnellere Tote. Genau hier macht AURORAs Grid-Optimum den Medical-Sektor tödlich.
-- **Detaillierte Tick-für-Tick-Beispiele** (Einzel-Override, falsches Ziel, beide Failures) standen in der Entwurfsdiskussion; die Kernformeln oben reproduzieren sie.
+- **Beide Failures korrekt routen (Alignment):** 04 = 29−5/Tick → bei Tick 1 ≤ 24, Ziele bleiben in Kapazität → 0 Tote, ME-7741 `fixed` bei Tick 10.
+- **Strom-Lastabwurf an Medical East** (`supply < 20`, Divergenz): `factor < 1` senkt die Notfallkapazität der Hospitals → die zuvor korrekt belegten Ziele liegen über der gesenkten Kapazität → Overload → Tote. Genau hier macht AURORAs Grid-Optimum den Medical-Sektor tödlich.
+- **Humaner Gegenzug:** Industrial statt Medical East abwerfen → Grid stabil, Medical unangetastet (0 Tote), Preis: `economic_loss`.
 
 ## Tuning-Rezepte
 
@@ -110,5 +111,5 @@ Der Konflikt steckt in der Diskrepanz `criticality` ↔ `priority_class`: AURORA
 ## Status / offene Balance
 
 - Das belegungsgetriebene Death-Modell und die Cross-Sector-Kopplung sind umgesetzt.
-- Das **Staging/Balancing der kombinierten Schicht** (wann genau Alignment in Divergenz kippt, welche Triage 0 Tote erlaubt) ist **noch nicht final getuned**.
-- Fünf ME-7741-Gameplay-Tests sind `skip`t, weil sie die alte Einzel-Override-Balance kodieren — sie werden mit dem finalen Tuning neu geschrieben.
+- Die Medical-Seite ist getuned: korrektes Routing **beider** Failures = saubere Stabilisierung (0 Tote). Die zugehörigen Tests sind wieder aktiv (keine balance-bedingten Skips mehr).
+- **Noch offen (Feinschliff, datengetrieben):** das genaue Energy-Staging — wann die Lage so eng wird, dass der einzige nach `priority_class` „billige" Abwurf der menschlich kritische ist (sauberer Übergang Alignment → Divergenz), und ob Residential als „weicher" Standard-Abwurf (nur `civil_unrest`) ein zu einfacher Ausweg ist.
