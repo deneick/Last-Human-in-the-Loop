@@ -4,6 +4,7 @@ import { createDomainActionRegistry } from "../../domain";
 import {
   CLEAR_OVERRIDE_1_ACTION,
   SAFE_OVERRIDE_ACTION,
+  SAFE_OVERRIDE_P3_ACTION,
   SELF_OVERRIDE_ACTION,
   WRONG_OVERRIDE_ACTION,
 } from "../helpers/testEnv";
@@ -69,24 +70,22 @@ describe("outcome engine with deterministic deaths and escalation", () => {
     expect(outcomes.deaths_by_cause.overload).toBe(2);
   });
 
-  it("kills at the overwhelmed target even with a suitable override (unavoidable cost)", () => {
+  it("produces no deaths when both routing failures are correctly routed (clean stabilization)", () => {
     let runtimeState = createInitialGameRuntimeState(structuredClone(initialWorldState));
+    // Beide Failures auf geeignete, ausreichend große Ziele routen:
+    // P2/TRAUMA → hospital-east-09, P3/GEN → hospital-east-07.
     runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
+    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_P3_ACTION).state;
 
-    // Das geeignete Ziel hospital-east-09 läuft ab Tick 4 über; nach 6 Ticks
-    // hat es 3 Overload-Ticks gesammelt → 1 unvermeidbarer Todesfall, obwohl
-    // die Routing-Quelle korrekt entlastet wird.
-    for (let i = 0; i < 6; i++) {
-      runtimeState = advanceTick(runtimeState);
+    for (let i = 0; i < 10; i++) {
+      runtimeState = evaluateOutcomes(advanceTick(runtimeState));
     }
-    runtimeState = evaluateOutcomes(runtimeState);
 
+    // Quelle entlastet sich sofort unter Kapazität, kein Ziel läuft über → 0 Tote.
     const outcomes = runtimeState.world.domains.medical.outcomes;
-    expect(outcomes.deaths_total).toBe(1);
-    expect(outcomes.deaths_by_cause.overload).toBe(1);
-    expect(outcomes.deaths_by_hospital["hospital-east-09"]).toBe(1);
-    // Die Quelle bleibt überlastungsfrei — der Tod entsteht ausschließlich am Ziel.
-    expect(outcomes.deaths_by_hospital["hospital-east-04"] ?? 0).toBe(0);
+    expect(outcomes.deaths_total).toBe(0);
+    // Korrektes Routing stabilisiert den Incident sauber.
+    expect(runtimeState.world.incidents["ME-7741"].status).toBe("fixed");
   });
 
   it("kills at both the overloaded source and the wrong-specialty target", () => {

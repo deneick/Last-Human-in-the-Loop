@@ -18,7 +18,12 @@ import { evaluateOutcomes } from "../../runtime/outcomeEngine";
 import { resolveAuroraApproval, type AuroraRuntimeEnvironment } from "../../runtime/auroraQueue";
 import { allow_once, deny, type PermissionDecision } from "../../runtime/permissions";
 import type { DomainAction } from "../../domain/actions";
-import { createTestEnv, SAFE_OVERRIDE_ACTION, WRONG_OVERRIDE_ACTION } from "../helpers/testEnv";
+import {
+  createTestEnv,
+  SAFE_OVERRIDE_ACTION,
+  SAFE_OVERRIDE_P3_ACTION,
+  WRONG_OVERRIDE_ACTION,
+} from "../helpers/testEnv";
 
 function setup(): { env: AuroraRuntimeEnvironment; state: GameRuntimeState } {
   const env = createTestEnv();
@@ -183,13 +188,11 @@ describe("scenario director — escalation and resolution reactions", () => {
     expect(listItem!.status).toBe("awaiting_approval");
   });
 
-  // TODO(balance): Belegungsgetriebenes Death-Modell macht ME-7741 mit einem
-  // einzelnen Override nicht mehr gewinnbar (Quelle stirbt am unbehandelten
-  // moderaten Failure, Ziel läuft über). Re-enable nach dem Solvability-Tuning
-  // (siehe branch claude/mortality-calculation-overrides-kcoqot).
-  it.skip("reacts to stabilization and fix when a working override is set", () => {
+  it("reacts to stabilization and fix when both failures are correctly routed", () => {
     const { env, state } = setupActivated();
+    // Beide Routing-Failures auf geeignete Ziele: P2/TRAUMA → 09, P3/GEN → 07.
     let next = runPlayer(state, env, SAFE_OVERRIDE_ACTION);
+    next = runPlayer(next, env, SAFE_OVERRIDE_P3_ACTION);
     next = runTicks(next, env, 11);
 
     expect(next.world.incidents["ME-7741"].status).toBe("fixed");
@@ -291,10 +294,11 @@ describe("scenario director — no internal truths leak", () => {
       texts.push(...scenarioTexts(next));
     }
 
-    // Pfad 2: korrekter Override bis zum Fix.
+    // Pfad 2: korrekte Overrides (beide Failures) bis zum Fix.
     {
       const { env, state } = setupActivated();
       let next = runPlayer(state, env, SAFE_OVERRIDE_ACTION);
+      next = runPlayer(next, env, SAFE_OVERRIDE_P3_ACTION);
       next = runTicks(next, env, 11);
       texts.push(...scenarioTexts(next));
     }

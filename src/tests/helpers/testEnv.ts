@@ -20,6 +20,15 @@ export const SAFE_OVERRIDE_ACTION: DomainAction = {
   capability: "TRAUMA",
 };
 
+/** Korrektes Routing des moderaten P3/GEN-Failures auf ein geeignetes Ziel. */
+export const SAFE_OVERRIDE_P3_ACTION: DomainAction = {
+  type: "medical.routing.override.set",
+  sourceHospitalId: "hospital-east-04",
+  targetHospitalId: "hospital-east-07",
+  priority: "P3",
+  capability: "GEN",
+};
+
 export const WRONG_OVERRIDE_ACTION: DomainAction = {
   type: "medical.routing.override.set",
   sourceHospitalId: "hospital-east-04",

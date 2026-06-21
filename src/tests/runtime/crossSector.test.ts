@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { initialWorldState } from "../../scenarios/combined/initialWorldState";
-import { applyCrossSectorEffects, tickWorld, MEDICAL_POWER_CONSUMER_ID } from "../../runtime/tickEngine";
+import {
+  applyCrossSectorEffects,
+  advanceTick,
+  tickWorld,
+  MEDICAL_POWER_CONSUMER_ID,
+} from "../../runtime/tickEngine";
 import { initialWorldState as me7741World } from "../../scenarios/me7741/initialWorldState";
+import { createDomainActionRegistry } from "../../domain";
+import { createInitialGameRuntimeState } from "../../runtime/runtimeState";
+import { executePlayerDomainAction } from "../../runtime/runtimeExecutor";
+import { evaluateOutcomes } from "../../runtime/outcomeEngine";
+import { SAFE_OVERRIDE_ACTION, SAFE_OVERRIDE_P3_ACTION } from "../helpers/testEnv";
 import type { SheddingPlan } from "../../runtime/types";
 
 function withMedicalSupply(supply: number) {
@@ -76,6 +86,37 @@ describe("cross-sector coupling (energy → medical capacity)", () => {
     expect(
       next.domains.medical.hospitals["hospital-east-04"].capacity.emergency_slots_total
     ).toBeLessThan(baseTotal);
+  });
+
+  it("turns a correctly-routed shift lethal when medical power is shed (the divergence)", () => {
+    const registry = createDomainActionRegistry();
+
+    // Beide Routing-Failures korrekt geroutet → Medical wäre für sich sauber.
+    function runDeaths(shedMedicalPower: boolean): number {
+      let rs = createInitialGameRuntimeState(structuredClone(initialWorldState));
+      rs = executePlayerDomainAction(rs, registry, SAFE_OVERRIDE_ACTION).state; // P2 → 09
+      rs = executePlayerDomainAction(rs, registry, SAFE_OVERRIDE_P3_ACTION).state; // P3 → 07
+      if (shedMedicalPower) {
+        // Lastabwurf an Medical East: Versorgung 24 → 16 (< minimum 20).
+        rs = executePlayerDomainAction(rs, registry, {
+          type: "energy.shedding.schedule",
+          targetConsumerId: MEDICAL_POWER_CONSUMER_ID,
+          amount: 8,
+          delay: 0,
+          duration: 30,
+        }).state;
+      }
+      for (let i = 0; i < 10; i++) {
+        rs = evaluateOutcomes(advanceTick(rs));
+      }
+      return rs.world.domains.medical.outcomes.deaths_total;
+    }
+
+    // Ohne Strom-Eingriff: korrektes Routing hält die Medical-Seite sauber.
+    expect(runDeaths(false)).toBe(0);
+    // Strom an Medical East gekappt → Notfallkapazität sinkt → dieselben
+    // korrekt belegten Häuser laufen über → Tote. AURORAs Grid-Optimum tötet.
+    expect(runDeaths(true)).toBeGreaterThan(0);
   });
 
   it("leaves single-sector medical worlds untouched (no energy consumer)", () => {

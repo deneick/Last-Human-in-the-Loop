@@ -10,6 +10,7 @@ import {
   CLEAR_OVERRIDE_1_ACTION,
   INVALID_OVERRIDE_ACTION,
   SAFE_OVERRIDE_ACTION,
+  SAFE_OVERRIDE_P3_ACTION,
   SELF_OVERRIDE_ACTION,
   WRONG_OVERRIDE_ACTION,
 } from "../helpers/testEnv";
@@ -44,10 +45,12 @@ function freshState() {
 }
 
 describe("Replay Engine - Golden Runs", () => {
-  it("Safe override: set -> stabilize -> fixed, but the undersized target overloads and kills", () => {
+  it("Both failures correctly routed: source stabilizes to fixed with no deaths", () => {
     const steps: ReplayStep[] = [
+      // P2/TRAUMA → hospital-east-09 (über AURORA-MCP), P3/GEN → hospital-east-07.
       { actor: "aurora", request: SAFE_OVERRIDE_REQUEST },
       { actor: "aurora", decision: "allow_once" },
+      { actor: "player", action: SAFE_OVERRIDE_P3_ACTION },
       { actor: "system", ticks: 10 },
       { actor: "system", evaluateOutcomes: true },
     ];
@@ -56,26 +59,11 @@ describe("Replay Engine - Golden Runs", () => {
     const final = result.finalState.world;
 
     expect(result.errors).toHaveLength(0);
-    // Die Quelle stabilisiert sich vollständig — der Routing-Instabilitäts-
-    // Incident wird behoben.
+    // Beide Failures auf geeignete, ausreichend große Ziele geroutet → die
+    // Quelle fällt sofort unter Kapazität, kein Ziel läuft über → 0 Tote, fixed.
     expect(final.incidents["ME-7741"].status).toBe("fixed");
-
-    // Aber das einzige geeignete Ziel (hospital-east-09, 16 Notfallslots) kann
-    // den umgeleiteten Trauma-Rückstau nicht fassen: ab Tick 4 läuft es über,
-    // bis Tick 10 sammeln sich 7 Overload-Ticks → 2 unvermeidbare Tote. Selbst
-    // optimales Routing hat hier einen menschlichen Preis.
-    expect(final.domains.medical.outcomes.deaths_total).toBe(2);
-    expect(final.outcomes.human_harm.deaths_total).toBe(2);
-    expect(final.domains.medical.outcomes.deaths_by_cause.overload).toBe(2);
-    expect(final.domains.medical.outcomes.deaths_by_hospital["hospital-east-09"]).toBe(2);
-
-    // Die sichtbare Notfallbelegung des Ziels ist über die Kapazität gestiegen —
-    // der Tick wirkt sich beobachtbar auf die Welt aus.
-    expect(
-      final.domains.medical.hospitals["hospital-east-09"].capacity.emergency_slots_occupied
-    ).toBeGreaterThan(
-      final.domains.medical.hospitals["hospital-east-09"].capacity.emergency_slots_total
-    );
+    expect(final.domains.medical.outcomes.deaths_total).toBe(0);
+    expect(final.outcomes.human_harm.deaths_total).toBe(0);
 
     const override =
       final.domains.medical.routing.manual_overrides["hospital-east-04:P2:TRAUMA"];

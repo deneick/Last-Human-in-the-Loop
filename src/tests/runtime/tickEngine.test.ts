@@ -55,19 +55,19 @@ describe("tick engine deterministic simulation", () => {
 
   it("grows overflow and overload ticks while no override controls the critical failure", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(18);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(6);
 
     runtimeState = advanceTick(runtimeState);
 
     // excess 8 - clearance 2 = +6 overflow per uncontrolled tick
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(24);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(12);
     expect(criticalFailure(runtimeState).stable_ticks).toBe(0);
 
     const source = runtimeState.world.domains.medical.hospitals["hospital-east-04"];
     expect(source.risk_counters?.overload_ticks).toBe(1);
 
     runtimeState = advanceTick(runtimeState);
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(30);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(18);
     expect(
       runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
     ).toBe(2);
@@ -110,31 +110,6 @@ describe("tick engine deterministic simulation", () => {
     expect(emergency(runtimeState, "hospital-east-09")).toBe(14);
   });
 
-  it("overloads the undersized override target once its visible capacity is exceeded", () => {
-    let runtimeState = createInitialGameRuntimeState(initialWorldState);
-    runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
-
-    const target = () => runtimeState.world.domains.medical.hospitals["hospital-east-09"];
-
-    // Ticks 1–3: Ziel füllt sich, bleibt aber ≤ 16 Notfallslots → kein Overload.
-    for (let i = 0; i < 3; i++) {
-      runtimeState = advanceTick(runtimeState);
-    }
-    expect(target().capacity.emergency_slots_occupied).toBe(16);
-    expect(target().risk_counters?.overload_ticks).toBe(0);
-
-    // Ab Tick 4 (umgeleitet 8 → belegt 18 > 16) läuft das Ziel über.
-    runtimeState = advanceTick(runtimeState);
-    expect(target().capacity.emergency_slots_occupied).toBe(18);
-    expect(target().risk_counters?.overload_ticks).toBe(1);
-
-    // Die Quelle bleibt unterdessen selbst überlastet: das moderate P3/GEN-
-    // Failure ist unkontrolliert und hält 04 über seiner Notfallkapazität.
-    expect(
-      runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
-    ).toBe(4);
-  });
-
   it("keeps the source overloaded while any uncontrolled failure remains", () => {
     let runtimeState = createInitialGameRuntimeState(initialWorldState);
     runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
@@ -155,11 +130,11 @@ describe("tick engine deterministic simulation", () => {
     runtimeState = executePlayerDomainAction(runtimeState, registry, SAFE_OVERRIDE_ACTION).state;
 
     runtimeState = advanceTick(runtimeState);
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(16);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(4);
     expect(criticalFailure(runtimeState).stable_ticks).toBe(1);
 
     runtimeState = advanceTick(runtimeState);
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(14);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(2);
     expect(criticalFailure(runtimeState).stable_ticks).toBe(2);
   });
 
@@ -209,7 +184,7 @@ describe("tick engine deterministic simulation", () => {
 
     runtimeState = advanceTick(runtimeState);
 
-    expect(criticalFailure(runtimeState).overflow_cases).toBe(24);
+    expect(criticalFailure(runtimeState).overflow_cases).toBe(12);
     expect(criticalFailure(runtimeState).stable_ticks).toBe(0);
     expect(
       runtimeState.world.domains.medical.hospitals["hospital-east-04"].risk_counters?.overload_ticks
