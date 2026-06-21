@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Layout v2 — große Karte + eine Konsole</title>
+<style>
+  :root{
+    --bg:#0a0a0c; --surface:#141315; --surface-2:#0d0c0e; --surface-inset:#100f11;
+    --border:#2a2521; --border-soft:#211d1a;
+    --text:#ece6dc; --text-dim:#9b938a; --text-mute:#756d64;
+    --accent:#e8703a; --accent-soft:#ff8a5c; --accent-amber:#f0a868; --accent-glow:rgba(232,112,58,.16);
+    --ok:#5fd08a; --warn:#f0a868; --danger:#f0796b;
+    --medical:#e07aa3;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:
+      radial-gradient(circle at top left,var(--accent-glow),transparent 34rem),
+      radial-gradient(circle at top right,rgba(240,168,104,.08),transparent 32rem),var(--bg);
+    color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:14px}
+  .shell{height:calc(100vh - 28px);max-width:1480px;margin:0 auto;border:1px solid var(--border);
+    border-radius:.9rem;background:var(--surface);box-shadow:0 24px 70px rgba(0,0,0,.55);overflow:hidden;
+    display:flex;flex-direction:column}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:.7rem 1.1rem;border-bottom:1px solid var(--border-soft)}
+  .title{color:var(--accent);text-shadow:0 0 24px var(--accent-glow);font-size:1.05rem}
+  .lights{display:inline-flex;gap:.4rem;margin-right:.7rem;vertical-align:middle}
+  .lights i{width:.7rem;height:.7rem;border-radius:50%;display:inline-block}
+  .lights .r{background:#c0473b}.lights .y{background:#caa14a}.lights .g{background:#4f9d68}
+  .gstat{color:var(--text-dim);font-size:.78rem;margin-left:.4rem}
+  .gstat b{color:var(--warn)}
+  .actions{display:flex;gap:.4rem}
+  .btn{border:1px solid var(--border);border-radius:.5rem;background:#1d1916;color:var(--text);font-size:.74rem;padding:.34rem .6rem}
+  .grid{flex:1;display:grid;grid-template-columns:1.62fr 1fr;gap:.8rem;padding:.8rem 1.1rem;min-height:0}
+  .zone{border:1px solid var(--border);border-radius:.7rem;background:var(--surface-2);
+    box-shadow:0 10px 30px rgba(0,0,0,.3);padding:.7rem;min-height:0;display:flex;flex-direction:column}
+  .zlabel{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 .55rem;display:flex;justify-content:space-between}
+  .zlabel .hint{color:var(--text-mute);letter-spacing:.04em;text-transform:none}
+
+  /* 2x2 Karte füllt die gesamte Fläche */
+  .map{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:.7rem;min-height:0}
+  .tile{position:relative;border:1px solid var(--border);border-radius:.6rem;background:var(--surface-inset);
+    padding:.7rem .8rem;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .tile.safe{border-color:#33543a;box-shadow:inset 0 0 0 1px rgba(95,208,138,.12)}
+  .tile.alert{border-color:#5a2420;box-shadow:inset 0 0 0 1px rgba(240,121,107,.12)}
+  .t-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.1rem}
+  .t-name{font-weight:700;letter-spacing:.06em;font-size:.95rem}
+  .t-name .pill{font-size:.58rem;font-weight:600;padding:.05rem .35rem;border-radius:.5rem;margin-left:.4rem;vertical-align:middle}
+  .pill.safe{color:var(--ok);background:rgba(95,208,138,.12);border:1px solid #33543a}
+  .pill.buf{color:var(--accent-soft);background:rgba(232,112,58,.1);border:1px solid var(--border)}
+  .t-node{font-size:.66rem;color:var(--text-dim)}
+  .t-node.over{color:var(--danger)}
+  .nbar{height:.3rem;border-radius:999px;background:#241e19;overflow:hidden;margin:.35rem 0 .55rem}
+  .nbar i{display:block;height:100%;background:var(--danger);width:100%}
+  .feeds{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem}
+  .feed{display:inline-flex;align-items:center;gap:.3rem;font-size:.64rem;color:var(--text-dim);
+    background:var(--surface-2);border:1px solid var(--border-soft);border-radius:.4rem;padding:.12rem .4rem}
+  .feed .d{width:.45rem;height:.45rem;border-radius:50%;background:var(--ok)}
+  .feed.short{color:var(--danger);border-color:#5a2420} .feed.short .d{background:var(--danger)}
+  .hosps{display:flex;flex-direction:column;gap:.35rem;margin-top:auto}
+  .hosp{cursor:pointer;border:1px solid transparent;border-radius:.45rem;padding:.3rem .4rem;transition:background .1s,border-color .1s}
+  .hosp:hover{background:var(--surface-2);border-color:var(--accent)}
+  .hosp.target{background:rgba(95,208,138,.08);border-color:#33543a}
+  .hosp.over{background:rgba(240,121,107,.06)}
+  .h-row{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+  .h-id{font-size:.74rem;color:var(--text)} .h-id .arr{color:var(--ok)}
+  .h-load{font-size:.66rem;color:var(--text-dim)} .h-load.over{color:var(--danger)} .h-load.ok{color:var(--ok)}
+  .h-bar{height:.25rem;border-radius:999px;background:#241e19;overflow:hidden;margin:.2rem 0 .15rem}
+  .h-bar i{display:block;height:100%;background:var(--ok)} .h-bar i.over{background:var(--danger)} .h-bar i.warn{background:var(--warn)}
+  .caps{display:flex;gap:.25rem}
+  .cap{font-size:.56rem;color:var(--text-mute);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:.3rem;padding:0 .3rem}
+  .cap.neu{color:var(--accent-soft);border-color:var(--accent)}
+  .badge-fail{font-size:.56rem;color:var(--danger);border:1px solid #5a2420;background:rgba(240,121,107,.1);border-radius:.4rem;padding:0 .3rem;margin-left:.35rem}
+  /* Reroute-Marker quer über die Karte */
+  .flow-tag{position:absolute;top:.5rem;right:.6rem;font-size:.6rem;color:var(--accent-soft)}
+
+  /* EINE kombinierte Konsole: ein Stream */
+  .console{flex:1;display:flex;flex-direction:column;min-height:0}
+  .stream{flex:1;overflow-y:auto;border:1px solid var(--border-soft);border-radius:.6rem;background:var(--surface-2);
+    padding:.55rem .65rem;font-size:.72rem;line-height:1.55;display:flex;flex-direction:column;gap:.18rem}
+  .l{display:flex;gap:.45rem;align-items:baseline}
+  .tk{color:var(--text-mute);flex:none}
+  .who-op{color:var(--accent)} .who-au{color:var(--accent-soft)} .out{color:#cdc3b6}
+  .ops{padding-left:.5rem;border-left:3px solid var(--medical);margin:.1rem 0}
+  .ops.energy{border-left-color:var(--accent)}
+  .ops .bdg{font-size:.58rem;text-transform:uppercase;padding:0 .3rem;border-radius:.35rem;background:#33220f;color:var(--warn);margin-right:.35rem}
+  .ops .bdg.crit{background:#3a1410;color:var(--danger)}
+  .req{border:1px solid var(--accent);border-radius:.5rem;background:rgba(232,112,58,.1);padding:.45rem .55rem;margin:.25rem 0}
+  .req .k{font-size:.56rem;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-amber);border:1px solid var(--accent);border-radius:.3rem;padding:0 .3rem}
+  .req code{display:block;color:var(--text);margin:.3rem 0;word-break:break-all}
+  .req .opts{display:flex;gap:.35rem}
+  .req .opts span{font-size:.62rem;border:1px solid var(--border);border-radius:.35rem;padding:.18rem .45rem;color:var(--text)}
+  .req .opts .deny{color:var(--danger)}
+  .done{color:var(--ok)} .deny2{color:var(--danger)}
+  .inrow{display:flex;gap:.5rem;align-items:center;margin-top:.55rem}
+  .prompt{color:var(--accent);white-space:nowrap;font-size:.74rem}
+  .input{flex:1;border:1px solid var(--border);border-radius:.5rem;background:var(--surface-2);color:var(--text-mute);
+    padding:.45rem .6rem;font-size:.72rem}
+  .caption{max-width:1480px;margin:.4rem auto 0;color:var(--text-dim);font-size:.74rem}
+  .caption b{color:var(--text)}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div><span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="title">Last Human in the Loop</span>
+        <span class="gstat">· Risiko <b>Angespannt</b> · Tote 0 · grid_instab 3/8</span></div>
+      <div class="actions"><span class="btn">Tick +1</span><span class="btn">Tick +5</span><span class="btn">Neu starten</span></div>
+    </div>
+
+    <div class="grid">
+      <!-- ===== LINKS: große 2x2 Karte, füllt die Fläche ===== -->
+      <div class="zone">
+        <p class="zlabel"><span>Lagekarte · 4 Regionen</span><span class="hint">Klick Haus → Reroute · Klick Feed → Drosselung/Priorität</span></p>
+        <div class="map">
+          <!-- NORTH (alert) -->
+          <div class="tile alert">
+            <div class="t-head"><span class="t-name">NORTH</span><span class="t-node over">grid-north-1 · 108% ⚠</span></div>
+            <div class="nbar"><i></i></div>
+            <div class="feeds">
+              <span class="feed short"><span class="d"></span>⚡ Medical 16/20</span>
+              <span class="feed"><span class="d"></span>🏭 Industrial</span>
+              <span class="feed"><span class="d"></span>💧 Water</span>
+              <span class="feed"><span class="d"></span>🏠 Residential</span>
+            </div>
+            <div class="hosps">
+              <div class="hosp over"><div class="h-row"><span class="h-id">north-01 <span class="badge-fail">P2/NEURO ⚠</span></span><span class="h-load over">96%</span></div>
+                <div class="h-bar"><i class="over" style="width:96%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap neu">NEURO</span></div></div>
+              <div class="hosp"><div class="h-row"><span class="h-id">north-02</span><span class="h-load">69%</span></div>
+                <div class="h-bar"><i class="warn" style="width:69%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div></div>
+            </div>
+          </div>
+
+          <!-- EAST (safe) -->
+          <div class="tile safe">
+            <span class="flow-tag">↻ NEURO ← north-01</span>
+            <div class="t-head"><span class="t-name">EAST <span class="pill safe">NEURO-Ziel</span></span><span class="t-node over">grid-east-3 · 108% ⚠</span></div>
+            <div class="nbar"><i></i></div>
+            <div class="feeds">
+              <span class="feed"><span class="d"></span>⚡ Medical 24/20</span>
+              <span class="feed"><span class="d"></span>🏭 Industrial</span>
+              <span class="feed"><span class="d"></span>💧 Water</span>
+              <span class="feed"><span class="d"></span>🏠 Residential</span>
+            </div>
+            <div class="hosps">
+              <div class="hosp target"><div class="h-row"><span class="h-id">east-04 <span class="arr">◀ Ziel</span></span><span class="h-load">95%</span></div>
+                <div class="h-bar"><i class="warn" style="width:95%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span><span class="cap neu">NEURO</span></div></div>
+              <div class="hosp"><div class="h-row"><span class="h-id">east-07</span><span class="h-load">82%</span></div>
+                <div class="h-bar"><i class="warn" style="width:82%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div></div>
+              <div class="hosp"><div class="h-row"><span class="h-id">east-09</span><span class="h-load">74%</span></div>
+                <div class="h-bar"><i style="width:74%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div></div>
+            </div>
+          </div>
+
+          <!-- WEST -->
+          <div class="tile">
+            <div class="t-head"><span class="t-name">WEST</span><span class="t-node over">grid-west-1 · 108% ⚠</span></div>
+            <div class="nbar"><i></i></div>
+            <div class="feeds">
+              <span class="feed"><span class="d"></span>⚡ Medical</span>
+              <span class="feed"><span class="d"></span>🏭 Industrial</span>
+              <span class="feed"><span class="d"></span>💧 Water</span>
+              <span class="feed"><span class="d"></span>🏠 Residential</span>
+            </div>
+            <div class="hosps">
+              <div class="hosp"><div class="h-row"><span class="h-id">west-01</span><span class="h-load">75%</span></div>
+                <div class="h-bar"><i class="warn" style="width:75%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div></div>
+              <div class="hosp"><div class="h-row"><span class="h-id">west-02</span><span class="h-load">67%</span></div>
+                <div class="h-bar"><i style="width:67%"></i></div><div class="caps"><span class="cap">GEN</span></div></div>
+            </div>
+          </div>
+
+          <!-- SOUTH (buffer) -->
+          <div class="tile">
+            <div class="t-head"><span class="t-name">SOUTH <span class="pill buf">Puffer</span></span><span class="t-node over">grid-south-1 · 108% ⚠</span></div>
+            <div class="nbar"><i></i></div>
+            <div class="feeds">
+              <span class="feed"><span class="d"></span>⚡ Medical</span>
+              <span class="feed"><span class="d"></span>🏭 Industrial</span>
+              <span class="feed"><span class="d"></span>💧 Water</span>
+              <span class="feed"><span class="d"></span>🏠 Residential</span>
+            </div>
+            <div class="hosps">
+              <div class="hosp"><div class="h-row"><span class="h-id">south-01</span><span class="h-load ok">55%</span></div>
+                <div class="h-bar"><i style="width:55%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">TRAUMA</span></div></div>
+              <div class="hosp"><div class="h-row"><span class="h-id">south-02</span><span class="h-load ok">50%</span></div>
+                <div class="h-bar"><i style="width:50%"></i></div><div class="caps"><span class="cap">GEN</span><span class="cap">PED</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RECHTS: EINE kombinierte Konsole (ein Stream) ===== -->
+      <div class="zone">
+        <p class="zlabel"><span>Konsole</span><span class="hint">Operator · AURORA · Lage — ein Stream</span></p>
+        <div class="console">
+          <div class="stream">
+            <div class="l"><span class="tk">[T1]</span><span class="who-op">operator@aurora:~$</span><span class="out">mcp add energy-east-mcp</span></div>
+            <div class="l"><span class="tk">[T1]</span><span class="out">✓ energy-east-mcp aktiviert</span></div>
+            <div class="l"><span class="tk">[T2]</span><span class="who-au">AURORA</span><span class="out">Die Last in Nord ist ohne Energy-Daten nicht erklärbar. Ich empfehle eine Drosselung nach Kontinuitätsklasse.</span></div>
+            <div class="req">
+              <span class="k">Tool Request · write</span>
+              <code>mcp call energy-east-mcp shedding_schedule --target consumer-medical-north --amount 8 --delay 1</code>
+              <div class="opts"><span>Einmal erlauben</span><span>Immer erlauben</span><span class="deny">Ablehnen</span></div>
+            </div>
+            <div class="l"><span class="tk">[T2]</span><span class="deny2">✗ abgelehnt — Freigabe verweigert</span></div>
+            <div class="ops"><span class="bdg crit">Kritisch</span><span class="out">grid-north-1 über sicherer Kapazität · Medical-Feed Nord reduziert</span></div>
+            <div class="l"><span class="tk">[T3]</span><span class="who-op">operator@aurora:~$</span><span class="out">cat logs/energy.log</span></div>
+            <div class="l"><span class="tk">[T3]</span><span class="who-au">AURORA</span><span class="out">Ihre Priorisierung erhöht die erwarteten Systemkosten.</span></div>
+            <div class="l"><span class="tk">[T3]</span><span class="who-op">operator@aurora:~$</span><span class="out">override north-01 → east-04 P2/NEURO</span></div>
+            <div class="l"><span class="tk">[T3]</span><span class="done">✓ Reroute gesetzt (override-3)</span></div>
+          </div>
+          <div class="inrow"><span class="prompt">operator@aurora:~$</span><span class="input">_  (Befehl · oder „@aurora &lt;nachricht&gt;")</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="caption"><b>Layout v2:</b> 2×2-Karte füllt die Fläche (kein toter Raum), rechts EINE Konsole als ein chronologischer Stream
+    (Operator-Commands, AURORA, Lage-Log, Permission-Requests inline). Eine Eingabezeile — Befehle, Nachrichten an AURORA via <code>@aurora</code>.</div>
+</body>
+</html>
