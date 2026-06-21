@@ -99,6 +99,62 @@ function Meter({
   );
 }
 
+/** Eine ausgerichtete Gauge-Zeile: Label · Meter · Wert. */
+function GaugeRow({
+  label,
+  value,
+  max,
+  mark,
+  tone,
+  valueText,
+  badge,
+  onClick,
+  disabled,
+  title,
+  className = "",
+}: {
+  label: string;
+  value: number;
+  max: number;
+  mark?: number;
+  tone: Tone;
+  valueText: string;
+  badge?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}) {
+  const content = (
+    <>
+      <span className="gauge-label">{label}</span>
+      <Meter value={value} max={max} mark={mark} tone={tone} />
+      <span className={`gauge-value ${tone === "danger" ? "over-text" : ""}`}>
+        {badge && <span className="gauge-badge">{badge}</span>}
+        {valueText}
+      </span>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`gauge-row gauge-button ${className}`}
+        onClick={onClick}
+        disabled={disabled}
+        title={title}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <div className={`gauge-row ${className}`} title={title}>
+      {content}
+    </div>
+  );
+}
+
 export function SituationMapPanel({
   regions,
   sheddingPlans,
@@ -143,6 +199,11 @@ export function SituationMapPanel({
 
   return (
     <section className="map-panel">
+      <div className="map-head">
+        <h2>SYSTEMLAGE</h2>
+        <span className="map-head-sub">· {regions.length} Regionen</span>
+      </div>
+
       {/* Lage-Leiste: der Zustand der Schicht auf einen Blick. */}
       <div className="situation-bar">
         <span className={`stat risk-${outcome.globalRisk}`}>
@@ -257,15 +318,22 @@ function RegionTile({
       <header className="tile-head">
         <span className="tile-name">{region.key.toUpperCase()}</span>
         <span className={`tile-status status-tone-${status.tone}`}>{status.label}</span>
-        {node && (
-          <span className={`node-pill ${nodeOver ? "node-over" : ""}`}>
-            Netz {node.load}/{node.safeCapacity}
-          </span>
-        )}
       </header>
 
-      {/* Verbraucher als kleine Versorgungs-Meter (Versorgung vs. Bedarf, Min-Marke). */}
-      <div className="tile-feeds">
+      {/* Eine gemeinsame Gauge-Spalte: Netz + Verbraucher, ausgerichtet. */}
+      <div className="gauges">
+        {node && (
+          <GaugeRow
+            label="NETZ"
+            value={node.load}
+            max={Math.max(node.load, node.safeCapacity)}
+            mark={node.safeCapacity}
+            tone={nodeOver ? "danger" : "ok"}
+            valueText={`${Math.round(node.loadPercent)}%`}
+            className="gauge-node"
+            title={`${node.id} · Last ${node.load} / sicher ${node.safeCapacity}`}
+          />
+        )}
         {sortedConsumers.map((consumer) => {
           const short = consumer.currentSupply < consumer.minimumSupply;
           const reduced = consumer.status !== "nominal";
@@ -277,21 +345,22 @@ function RegionTile({
               key={consumer.id}
               type="button"
               data-consumer-id={consumer.id}
-              className={`feed-gauge ${short ? "feed-short" : ""}`}
+              className={`gauge-row gauge-button ${short ? "gauge-short" : ""}`}
               onClick={() => onConsumerClick(consumer)}
               disabled={disabled}
               title={`${consumer.criticalityLabel} · Systemklasse ${consumer.priorityClass} · ${consumer.reductionConsequence}`}
             >
-              <span className="feed-top">
-                <span className="feed-label">{consumerMeta(consumer.id).label}</span>
-                {shedTotal > 0 && <span className="feed-shed">−{shedTotal}</span>}
-              </span>
+              <span className="gauge-label">{consumerMeta(consumer.id).label}</span>
               <Meter
                 value={consumer.currentSupply}
                 max={consumer.demand}
                 mark={consumer.minimumSupply}
                 tone={tone}
               />
+              <span className={`gauge-value ${short ? "over-text" : ""}`}>
+                {shedTotal > 0 && <span className="gauge-badge">−{shedTotal}</span>}
+                {consumer.currentSupply}/{consumer.minimumSupply}
+              </span>
             </button>
           );
         })}
@@ -321,25 +390,23 @@ function RegionTile({
               onClick={() => onHospitalClick(hospital)}
               disabled={disabled}
             >
-              <div className="hosp-line">
-                <span className="hosp-id">{hospital.id}</span>
-                <span className="hosp-caps">
-                  {hospital.clinicalCapabilities.map((cap) => (
-                    <span key={cap} className={`caps-tag ${cap === "NEURO" ? "cap-neuro" : ""}`}>
-                      {cap}
-                    </span>
-                  ))}
-                </span>
-              </div>
-              <div className="hosp-gauge">
+              <div className="gauge-row">
+                <span className="gauge-label gauge-label-hosp">{hospital.id}</span>
                 <Meter
                   value={hospital.emergencySlotsOccupied}
                   max={hospital.emergencySlotsTotal}
                   tone={emTone}
                 />
-                <span className={`hosp-em ${emOver ? "over-text" : "muted"}`}>
+                <span className={`gauge-value ${emOver ? "over-text" : ""}`}>
                   {hospital.emergencySlotsOccupied}/{hospital.emergencySlotsTotal}
                 </span>
+              </div>
+              <div className="hosp-caps">
+                {hospital.clinicalCapabilities.map((cap) => (
+                  <span key={cap} className={`caps-tag ${cap === "NEURO" ? "cap-neuro" : ""}`}>
+                    {cap}
+                  </span>
+                ))}
               </div>
               {(outgoing.length > 0 || incoming.length > 0) && (
                 <div className="hosp-overrides">
