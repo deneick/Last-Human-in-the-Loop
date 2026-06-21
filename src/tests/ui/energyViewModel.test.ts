@@ -21,6 +21,8 @@ describe("energy view model", () => {
       {
         id: "grid-east-3",
         label: "East Distribution Node 3",
+        regionId: "energy-region-east",
+        regionLabel: "East Grid",
         load: 108,
         safeCapacity: 100,
         loadPercent: 108,
@@ -40,6 +42,8 @@ describe("energy view model", () => {
       id: "consumer-medical-east",
       label: "Medical East",
       nodeId: "grid-east-3",
+      regionId: "energy-region-east",
+      regionLabel: "East Grid",
       criticality: "human-life",
       criticalityLabel: "Menschenleben",
       priorityClass: "standard",

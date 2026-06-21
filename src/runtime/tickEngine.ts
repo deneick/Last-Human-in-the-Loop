@@ -402,8 +402,15 @@ export function tickEnergyDomain(world: WorldState): WorldState {
 
     if (load > node.safe_capacity) {
       anyNodeOverloaded = true;
-      gridInstabilityDelta += 1;
     }
+  }
+
+  // Instabilität ist die globale Doom-Clock und bewusst node-ZAHL-unabhängig:
+  // +1 je Tick, solange IRGENDEIN Knoten überlastet ist (nicht je Knoten). So
+  // bleibt das Collapse-Timing gleich, egal über wie viele Regionen die Last
+  // verteilt ist — mehr Regionen machen das Netz nicht automatisch schneller tot.
+  if (anyNodeOverloaded) {
+    gridInstabilityDelta += 1;
   }
 
   const nextInstability = energy.outcomes.grid_instability + gridInstabilityDelta;

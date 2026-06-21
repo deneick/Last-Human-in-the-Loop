@@ -184,7 +184,7 @@ describe("energy read actions", () => {
 
   it("fails technically, not silently, for unknown regions and consumers", () => {
     const unknownRegion = registry.execute(
-      { type: "energy.grid.status", region: "west" },
+      { type: "energy.grid.status", region: "atlantis" },
       grid1182World
     );
     expect(unknownRegion.success).toBe(false);
