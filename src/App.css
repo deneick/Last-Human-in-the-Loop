@@ -330,6 +330,373 @@ code {
   background: var(--surface-inset);
 }
 
+/* ===== Lagekarte (SituationMapPanel) ============================== */
+
+/* Zwei Spalten: links breite Karte, rechts gestapelte Konsolen. */
+.layout-map {
+  grid-template-columns: 1.7fr 1fr;
+}
+
+.console-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.console-column > .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Im gestapelten Zustand teilen sich beide Konsolen die Spaltenhöhe. */
+.console-column .console-panel,
+.console-column .aurora-panel {
+  height: auto;
+  flex: 1;
+  min-height: 22rem;
+}
+
+.map-panel .map-hint {
+  font-size: 0.72rem;
+}
+
+/* Lage-Leiste: Kennzahlen „was passiert gerade". */
+.situation-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.2rem 0 0.8rem;
+}
+
+.situation-bar .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 5.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: var(--surface-inset);
+  font-size: 0.82rem;
+}
+
+.situation-bar .stat-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.situation-bar .stat b {
+  font-variant-numeric: tabular-nums;
+}
+
+.situation-bar .stat-warn {
+  border-color: #33220f;
+}
+.situation-bar .stat-warn b {
+  color: var(--warn);
+}
+.situation-bar .stat-danger {
+  border-color: #5a2420;
+}
+.situation-bar .stat-danger b {
+  color: var(--danger);
+}
+.situation-bar .stat-ok b {
+  color: var(--ok);
+}
+
+.situation-bar .stat-bar {
+  display: block;
+  height: 0.25rem;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: #241e19;
+  overflow: hidden;
+}
+.situation-bar .stat-bar-fill {
+  display: block;
+  height: 100%;
+}
+.stat-fill-ok {
+  background: var(--ok);
+}
+.stat-fill-warn {
+  background: var(--warn);
+}
+.stat-fill-danger {
+  background: var(--danger);
+}
+
+/* Region-Status-Badge in der Kachel-Überschrift. */
+.tile-status {
+  margin-left: 0.5rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.5rem;
+  vertical-align: middle;
+}
+.status-tone-ok {
+  color: var(--ok);
+  background: rgba(95, 208, 138, 0.1);
+  border: 1px solid #2c4a32;
+}
+.status-tone-warn {
+  color: var(--warn);
+  background: rgba(240, 168, 104, 0.1);
+  border: 1px solid #33220f;
+}
+.status-tone-danger {
+  color: var(--danger);
+  background: rgba(240, 121, 107, 0.1);
+  border: 1px solid #5a2420;
+}
+
+.region-tile.tile-ok {
+  border-color: var(--border);
+}
+.region-tile.tile-warn {
+  border-color: #33220f;
+}
+.region-tile.tile-danger {
+  border-color: #5a2420;
+  box-shadow: inset 0 0 0 1px rgba(240, 121, 107, 0.12);
+}
+
+/* 2x2-Regionenraster, füllt die Breite. */
+.region-map {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.region-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface-inset);
+  padding: 0.7rem 0.75rem;
+}
+
+.region-tile.tile-alert {
+  border-color: #5a2420;
+  box-shadow: inset 0 0 0 1px rgba(240, 121, 107, 0.12);
+}
+
+.tile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tile-name {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.tile-node {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.tile-node.over {
+  color: var(--danger);
+}
+
+.tile-node-bar {
+  margin: 0;
+}
+
+/* Feeds / Verbraucher als anklickbare Chips. */
+.tile-feeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  font: inherit;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.4rem;
+}
+
+.feed-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-soft);
+}
+
+.feed-chip.feed-reduced {
+  color: var(--warn);
+  border-color: #33220f;
+}
+
+.feed-chip.feed-short {
+  color: var(--danger);
+  border-color: #5a2420;
+}
+
+.feed-icon {
+  font-size: 0.8rem;
+}
+
+/* Hospitäler als anklickbare Zeilen. */
+.tile-hospitals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hosp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.45rem;
+  background: var(--surface-2);
+}
+
+.hosp-row:hover {
+  border-color: var(--accent);
+  background: #1a1512;
+  color: var(--text);
+}
+
+.hosp-row.hosp-over {
+  border-color: #5a2420;
+  background: rgba(240, 121, 107, 0.06);
+}
+
+.hosp-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hosp-id {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.hosp-load {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hosp-bar {
+  margin: 0;
+}
+
+.load-fill-ok {
+  background: var(--ok);
+}
+
+.load-fill-warn {
+  background: var(--warn);
+}
+
+.load-fill-over {
+  background: var(--danger);
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+.over-text {
+  color: var(--danger);
+}
+
+.hosp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.66rem;
+}
+
+.hosp-caps {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.caps-tag {
+  font-size: 0.6rem;
+  color: var(--text-mute);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
+}
+
+.caps-tag.cap-neuro {
+  color: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.hosp-overrides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.ovr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.62rem;
+  color: var(--accent-amber);
+  background: rgba(232, 112, 58, 0.1);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  padding: 0 0.3rem;
+}
+
+.ovr-chip.ovr-in {
+  color: var(--info);
+}
+
+.ovr-clear {
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.ovr-clear:hover {
+  color: var(--danger);
+}
+
+.map-shedding h3 {
+  margin: 0.9rem 0 0.4rem;
+}
+
+.shedding-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.4rem;
+}
+
 .hospital-card p {
   margin: 0;
   color: #d2c8bb;
