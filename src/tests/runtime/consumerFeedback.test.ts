@@ -47,6 +47,39 @@ describe("non-power consumer feedback (energy → medical)", () => {
     expect(overflowOf(unrestTicked)).toBeGreaterThan(0);
   });
 
+  it("residential/civil shortage lengthens transport: reroute throughput drops", () => {
+    // Aktives, fachlich geeignetes Reroute east-04 → east-09 (TRAUMA/P2) mit
+    // vorhandenem Rückstau. Zivile Unruhe blockiert Routen → weniger Fälle
+    // erreichen je Tick das Ziel (Transport-Latenz), sichtbar an redirected_cases.
+    const base = structuredClone(initialWorldState);
+    base.domains.medical.routing.manual_overrides["hospital-east-04:P2:TRAUMA"] = {
+      id: "override-1",
+      source_hospital_id: "hospital-east-04",
+      target_hospital_id: "hospital-east-09",
+      priority: "P2",
+      capability: "TRAUMA",
+      active_since_tick: 0,
+      created_by: "player",
+    };
+    const seedFailure = base.simulation.medical.routing_failures.find(
+      (f) => f.id === "rf-me7741-p2-trauma"
+    )!;
+    seedFailure.overflow_cases = 10;
+    seedFailure.initial_overflow_cases = 10;
+
+    const redirectedOf = (world: WorldState): number =>
+      world.simulation.medical.routing_failures.find((f) => f.id === "rf-me7741-p2-trauma")!
+        .redirected_cases;
+
+    const calm = tickMedicalDomain(structuredClone(base));
+
+    const unrest = structuredClone(base);
+    setSupply(unrest, "consumer-residential-east", 10); // < Minimum 18
+    const unrestTicked = tickMedicalDomain(unrest);
+
+    expect(redirectedOf(unrestTicked)).toBeLessThan(redirectedOf(calm));
+  });
+
   it("is a no-op while water and residential stay at or above their minimum", () => {
     // Default-Welt (alle Feeds nominal, Strom voll): keine Rückkopplung, kein
     // Rückstau — Beleg, dass die Effekte streng an Unterversorgung gebunden sind.
