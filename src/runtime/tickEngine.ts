@@ -37,8 +37,10 @@ const GRID_INSTABILITY_FOR_ESCALATION = 4;
 const GRID_INSTABILITY_FOR_COLLAPSE = 8;
 
 // Cross-Sector-Rückkopplungen der Nicht-Strom-Verbraucher auf den Medical-Sektor.
-// Wasser kurz → Durchsatz/Clearance sinkt; Zivil/Wohn kurz → mehr Krankenfälle.
+// Wasser kurz → Durchsatz/Clearance sinkt; Zivil/Wohn kurz → längere Transportwege
+// (Clearance-Drossel) UND mehr Krankenfälle.
 const WATER_CLEARANCE_PENALTY = 1;
+const CIVIL_TRANSPORT_PENALTY = 1;
 const CIVIL_EXTRA_CASES_PER_TICK = 1;
 
 /**
@@ -147,10 +149,19 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     resolutions.set(failure.id, resolution);
 
     const hospitalId = failure.affected_hospital_id;
-    const effectiveClearance = waterShortFor(hospitalId)
-      ? Math.max(0, failure.clearance_per_tick - WATER_CLEARANCE_PENALTY)
-      : failure.clearance_per_tick;
-    const civilExtraCases = civilShortFor(hospitalId) ? CIVIL_EXTRA_CASES_PER_TICK : 0;
+    const waterShort = waterShortFor(hospitalId);
+    const civilShort = civilShortFor(hospitalId);
+    // Wasser drosselt den Durchsatz; zivile Unruhe verlängert zusätzlich die
+    // Transportwege (blockierte Routen → weniger Fälle erreichen je Tick ihr
+    // Reroute-Ziel). Beide Strafen senken die effektive Clearance und stapeln.
+    const effectiveClearance = Math.max(
+      0,
+      failure.clearance_per_tick -
+        (waterShort ? WATER_CLEARANCE_PENALTY : 0) -
+        (civilShort ? CIVIL_TRANSPORT_PENALTY : 0)
+    );
+    // Zivile Unruhe lädt zudem zusätzliche Krankenfälle nach (unabhängig vom Strom).
+    const civilExtraCases = civilShort ? CIVIL_EXTRA_CASES_PER_TICK : 0;
 
     if (resolution === "uncontrolled") {
       const accrues = !consumers || feedShortFor(hospitalId);
