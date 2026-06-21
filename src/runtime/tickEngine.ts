@@ -36,6 +36,11 @@ const ENERGY_STABLE_TICKS_TO_FIX = 3;
 const GRID_INSTABILITY_FOR_ESCALATION = 4;
 const GRID_INSTABILITY_FOR_COLLAPSE = 8;
 
+// Cross-Sector-Rückkopplungen der Nicht-Strom-Verbraucher auf den Medical-Sektor.
+// Wasser kurz → Durchsatz/Clearance sinkt; Zivil/Wohn kurz → mehr Krankenfälle.
+const WATER_CLEARANCE_PENALTY = 1;
+const CIVIL_EXTRA_CASES_PER_TICK = 1;
+
 /**
  * Verbraucher-Id, deren Stromversorgung die Notfallkapazität der Medical-
  * Hospitals trägt. In der Kombi-Welt versorgt dieser Energy-Verbraucher die
@@ -101,37 +106,61 @@ export function tickMedicalDomain(world: WorldState): WorldState {
   // unverändert.
   const worldCoupled = !!consumers && Object.keys(hospitals).length > 0;
 
-  // Liegt der Strom-Feed eines Hospitals unter seinem Minimum? Jedes Haus folgt
-  // seinem `power_feed_consumer_id` (Fallback: Standard-Feed). Getrennte Feeds:
-  // ein Abwurf trifft nur die daran hängenden Häuser.
+  // Versorgungslage eines beliebigen Feeds (unter Minimum?). Basis für alle
+  // Cross-Sector-Rückkopplungen.
+  const consumerShort = (consumerId: string | undefined): boolean => {
+    if (!consumers || !consumerId) {
+      return false;
+    }
+    const consumer = consumers[consumerId];
+    return !!consumer && consumer.current_supply < consumer.minimum_supply;
+  };
+
+  // Strom-Feed (Fallback: Standard-Feed). Getrennte Feeds: ein Abwurf trifft nur
+  // die daran hängenden Häuser.
   const feedShortFor = (hospitalId: string): boolean => {
     if (!consumers) {
       return false;
     }
-    const feedId = hospitals[hospitalId]?.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID;
-    const consumer = consumers[feedId];
-    return !!consumer && consumer.current_supply < consumer.minimum_supply;
+    return consumerShort(hospitals[hospitalId]?.power_feed_consumer_id ?? MEDICAL_POWER_CONSUMER_ID);
   };
+  // Wasser-Feed kurz → gedrosselte Clearance (langsamerer Durchsatz).
+  const waterShortFor = (hospitalId: string): boolean =>
+    consumerShort(hospitals[hospitalId]?.water_feed_consumer_id);
+  // Zivil-/Wohn-Feed kurz → zusätzliche Krankenfälle (Unruhe), Overflow steigt.
+  const civilShortFor = (hospitalId: string): boolean =>
+    consumerShort(hospitals[hospitalId]?.civil_feed_consumer_id);
 
   const resolutions = new Map<string, RoutingFailureResolution>();
 
   // Pass 1: Failures fortschreiben (Overflow/Umleitung/Mismatch). Der Rückstau
-  // eines unkontrollierten Failures wächst nur, wenn sein Feed unterversorgt ist
-  // (in einer ungekoppelten Welt wie bisher immer). So entsteht der Overflow
-  // erst durch Strommangel. stable_ticks wird erst in Pass 2 gesetzt, weil die
-  // Stabilisierung von der Overload-Lage abhängt.
+  // eines unkontrollierten Failures wächst nur, wenn sein Strom-Feed
+  // unterversorgt ist (in einer ungekoppelten Welt wie bisher immer). So
+  // entsteht der Overflow erst durch Strommangel. Zwei weitere Rückkopplungen:
+  //  - Wasser kurz → effektive `clearance` gedrosselt (Overflow drainiert
+  //    langsamer; bei vollem Wasser ohne Effekt).
+  //  - Zivil/Wohn kurz → zusätzliche Krankenfälle je Tick (Unruhe), unabhängig
+  //    vom Strom (bei voller Versorgung ohne Effekt).
+  // stable_ticks wird erst in Pass 2 gesetzt (hängt von der Overload-Lage ab).
   const advanced = failures.map((failure) => {
     const resolution = resolveRoutingFailure(world, failure);
     resolutions.set(failure.id, resolution);
 
+    const hospitalId = failure.affected_hospital_id;
+    const effectiveClearance = waterShortFor(hospitalId)
+      ? Math.max(0, failure.clearance_per_tick - WATER_CLEARANCE_PENALTY)
+      : failure.clearance_per_tick;
+    const civilExtraCases = civilShortFor(hospitalId) ? CIVIL_EXTRA_CASES_PER_TICK : 0;
+
     if (resolution === "uncontrolled") {
-      const accrues = !consumers || feedShortFor(failure.affected_hospital_id);
+      const accrues = !consumers || feedShortFor(hospitalId);
+      const powerOverflow = accrues
+        ? Math.max(0, failure.excess_cases_per_tick - effectiveClearance)
+        : 0;
       return {
         failure: {
           ...failure,
-          overflow_cases:
-            failure.overflow_cases +
-            (accrues ? Math.max(0, failure.excess_cases_per_tick - failure.clearance_per_tick) : 0),
+          overflow_cases: failure.overflow_cases + powerOverflow + civilExtraCases,
         },
         resolution,
       };
@@ -141,12 +170,12 @@ export function tickMedicalDomain(world: WorldState): WorldState {
     // Ziel. Die Quelle wird entlastet, das Ziel über redirected_cases geladen.
     // Bei mismatch landen sie an einem fachlich ungeeigneten Haus — sie zählen
     // dort jeden Tick als unbehandelbar (capability_mismatch), solange der
-    // falsche Override besteht.
-    const cleared = Math.min(failure.clearance_per_tick, failure.overflow_cases);
+    // falsche Override besteht. Zivile Unruhe lädt parallel weiter Fälle nach.
+    const cleared = Math.min(effectiveClearance, failure.overflow_cases);
     return {
       failure: {
         ...failure,
-        overflow_cases: failure.overflow_cases - cleared,
+        overflow_cases: failure.overflow_cases - cleared + civilExtraCases,
         redirected_cases: failure.redirected_cases + cleared,
         mismatch_ticks: resolution === "mismatch" ? failure.mismatch_ticks + 1 : failure.mismatch_ticks,
       },
