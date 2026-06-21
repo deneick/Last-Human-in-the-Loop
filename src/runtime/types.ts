@@ -88,6 +88,14 @@ export type HospitalState = {
   operational: HospitalOperationalState;
   routing: HospitalRoutingState;
   risk_counters?: HospitalRiskCounters;
+  /**
+   * Energy-Verbraucher, der die Notfallkapazität dieses Hospitals trägt
+   * (Cross-Sector-Kopplung Energy→Medical). Erlaubt getrennte Stromfeeds je
+   * Region: Strommangel an einem Feed trifft nur die daran hängenden Häuser.
+   * Fehlt das Feld, fällt die Kopplung auf den Standard-Feed
+   * MEDICAL_POWER_CONSUMER_ID zurück.
+   */
+  power_feed_consumer_id?: EnergyConsumerId;
 };
 
 export type IncidentStatus = "open" | "stabilizing" | "escalated" | "fixed" | "collapsed";

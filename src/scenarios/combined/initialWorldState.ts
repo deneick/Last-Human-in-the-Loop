@@ -32,6 +32,60 @@ const medicalDomain = structuredClone(medicalWorld.domains.medical);
 const energyDomain = structuredClone(energyWorld.domains.energy!);
 const medicalSimulation = structuredClone(medicalWorld.simulation.medical);
 
+// Combined-Schicht: Medical startet bewusst SAUBER — kein Haus über Kapazität,
+// kein vorgeseedeter Routing-Overflow. Der Druck entsteht erst, wenn der Strom
+// an den Medical-Feeds fällt (Strommangel → schrumpfende Notfallkapazität →
+// Overflow/Overload → Tote). Anders als in der reinen ME-7741-Einzelwelt ist die
+// Quelle hospital-east-04 hier daher unter Kapazität.
+medicalDomain.hospitals["hospital-east-04"].capacity = {
+  ...medicalDomain.hospitals["hospital-east-04"].capacity,
+  staffed_beds_occupied: 95,
+  emergency_slots_occupied: 22,
+  triage_slots_occupied: 10,
+};
+medicalSimulation.capacity_baseline["hospital-east-04"] = {
+  ...medicalSimulation.capacity_baseline["hospital-east-04"],
+  emergency_slots_occupied: 22,
+  staffed_beds_occupied: 95,
+};
+
+// Routing-Failures sind am Start DORMANT (overflow_cases 0): sie wachsen erst,
+// wenn der speisende Stromfeed unter sein Minimum fällt (tickMedicalDomain).
+// Beide sind `critical` → ME-7741 gilt erst als gelöst, wenn BEIDE korrekt
+// geroutet sind UND der Strom zurück ist (kein Haus überlastet, emergenter Gate).
+medicalSimulation.routing_failures = [
+  {
+    id: "rf-me7741-p2-trauma",
+    incident_id: "ME-7741",
+    affected_hospital_id: "hospital-east-04",
+    priority: "P2",
+    capability: "TRAUMA",
+    excess_cases_per_tick: 3,
+    overflow_cases: 0,
+    initial_overflow_cases: 0,
+    redirected_cases: 0,
+    clearance_per_tick: 2,
+    stable_ticks: 0,
+    mismatch_ticks: 0,
+    severity: "critical",
+  },
+  {
+    id: "rf-me7741-p3-general",
+    incident_id: "ME-7741",
+    affected_hospital_id: "hospital-east-04",
+    priority: "P3",
+    capability: "GEN",
+    excess_cases_per_tick: 3,
+    overflow_cases: 0,
+    initial_overflow_cases: 0,
+    redirected_cases: 0,
+    clearance_per_tick: 2,
+    stable_ticks: 0,
+    mismatch_ticks: 0,
+    severity: "critical",
+  },
+];
+
 // Kopplungsanker: volle Notfallkapazität je Hospital in der Baseline ablegen,
 // damit applyCrossSectorEffects sie bei Stromunterdeckung herunter- und bei
 // Rückkehr der Versorgung wieder hochrechnen kann.

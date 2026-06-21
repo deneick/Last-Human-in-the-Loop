@@ -157,8 +157,10 @@ describe("App MVP loop", () => {
     expect(text()).toContain("hospital-east-04");
     expect(text()).toContain("hospital-east-07");
     expect(text()).toContain("hospital-east-09");
-    expect(text()).toContain("Betten 118/100");
-    expect(text()).toContain("überfüllt");
+    // Die Kombi-Schicht startet bewusst SAUBER: kein Haus über Kapazität, der
+    // Druck entsteht erst durch Strommangel. east-04 liegt daher unter Last.
+    expect(text()).toContain("Betten 95/100");
+    expect(text()).toContain("Notfallslots 22/24");
     expect(text()).toContain("Warteschlange: 45 Fälle");
   });
 
@@ -234,11 +236,15 @@ describe("App MVP loop", () => {
     expect(text()).toContain("Keine aktiven Overrides.");
   });
 
-  it("collapses the incident when no override controls the failure", () => {
+  it("collapses the grid and ends the shift when nobody intervenes", () => {
+    // Neues Modell: ohne Eingriff kollabiert das überlastete Grid (Instabilität
+    // läuft auf). Medical bleibt dagegen sicher, solange kein Strom abgeworfen
+    // wird — ME-7741 bleibt also "offen", der Kollaps kommt von GRID-1182.
     clickButton("Tick +5");
     clickButton("Tick +5");
 
-    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Risiko: Kollabiert");
+    expect(text()).toContain("Todesfälle: 0");
   });
 
   it("shows the operator chat placeholder and send button", () => {
@@ -423,17 +429,18 @@ describe("MVP hardening", () => {
     clickButton("Tick +5");
 
     // Modell A: kein einzelnes Sieg/Niederlage-Urteil, sondern zwei getrennte
-    // Zielbilanzen — die Differenz der Ziele wird sichtbar.
+    // Zielbilanzen — die Differenz der Ziele wird sichtbar. Ohne Eingriff
+    // kollabiert das Grid (Menschen aber unversehrt: 0 Tote).
     expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
     expect(text()).toContain("Menschen-Bilanz");
     expect(text()).toContain("System-Bilanz");
-    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Risiko: Kollabiert");
   });
 
-  it("disables tick buttons and stops further changes once the incident collapses", () => {
+  it("disables tick buttons and stops further changes once the shift collapses", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Risiko: Kollabiert");
 
     const tickOnceButton = findButton("Tick +1");
     const tickFiveButton = findButton("Tick +5");
@@ -469,15 +476,15 @@ describe("MVP hardening", () => {
     expect(text()).toBe(snapshot);
   });
 
-  it("Neu starten works after the incident has collapsed and re-enables tick buttons", () => {
+  it("Neu starten works after the shift has collapsed and re-enables tick buttons", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Risiko: Kollabiert");
 
     clickButton("Neu starten");
 
     expect(text()).toContain("03:17 Uhr");
-    expect(incidentDetails()).not.toContain("Kollabiert");
+    expect(text()).not.toContain("Risiko: Kollabiert");
     expect(findButton("Tick +1").disabled).toBe(false);
     expect(findButton("Tick +5").disabled).toBe(false);
   });

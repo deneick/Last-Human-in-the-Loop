@@ -187,12 +187,13 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
     clickButton("Tick +5");
     clickButton("Tick +5");
 
-    // Beide Incidents kollabieren ohne Eingriff → Modell-A-Endstand mit beiden
-    // Zielbilanzen statt einem Sieg/Niederlage-Urteil.
+    // Ohne Eingriff kollabiert das überlastete Grid und beendet die Schicht.
+    // Medical bleibt unversehrt (kein Strom abgeworfen → 0 Tote): Modell-A-
+    // Endstand mit beiden Zielbilanzen statt einem Sieg/Niederlage-Urteil.
     expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
     expect(text()).toContain("Menschen-Bilanz");
     expect(text()).toContain("System-Bilanz");
-    expect(incidentDetails()).toContain("Kollabiert");
+    expect(text()).toContain("Risiko: Kollabiert");
   });
 
   it("Neu starten resets the combined shift to its initial state", () => {
