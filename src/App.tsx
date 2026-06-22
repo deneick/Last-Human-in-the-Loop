@@ -50,6 +50,7 @@ import {
   type ConsoleCommandEntry,
 } from "./ui/OperatorConsolePanel";
 import { AuroraPanel, type AuroraMessageView } from "./ui/AuroraPanel";
+import { TelemetryBar, type TelemetryOverride } from "./ui/TelemetryBar";
 import {
   buildOpsFeedLines,
   buildEnergyOutcomesView,
@@ -378,6 +379,15 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   const regionMapViews = buildRegionMapViews(runtimeState.world);
   const sheddingViews = buildSheddingViews(runtimeState.world);
   const energyOutcomesView = buildEnergyOutcomesView(runtimeState.world);
+  // Aktive Routing-Overrides global für die Telemetrie-Leiste (Quelle → Ziel).
+  // Nur ausgehende zählen, damit ein Override genau einmal erscheint.
+  const telemetryOverrides: TelemetryOverride[] = regionMapViews
+    .flatMap((region) => region.outgoingOverrides)
+    .map((override) => ({
+      id: override.id,
+      from: override.sourceHospitalId,
+      to: override.targetHospitalId,
+    }));
   const opsLines = buildOpsFeedLines(runtimeState.opsFeed);
   const auroraMessages = buildAuroraMessages(runtimeState, auroraLlmError);
   const debriefView = allIncidentsFinal ? buildDebriefView(runtimeState) : null;
@@ -860,21 +870,14 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
   return (
     <main className="app-shell">
       <header className="top-bar">
-        <div>
-          <h1>Last Human in the Loop</h1>
-          <p>
-            Operator-01 · {clockTimeOfDay(runtimeState.world.clock)} Uhr
-            {auroraBusy ? " · AURORA denkt nach…" : ""}
-          </p>
-          <p className="top-outcome">
-            Risiko:{" "}
-            <span className={`status risk-${outcomeView.globalRisk}`}>{outcomeView.riskLabel}</span>
-            {" · "}
-            Todesfälle:{" "}
-            <span className={outcomeView.deathsTotal > 0 ? "error-text" : ""}>
-              {outcomeView.deathsTotal}
-            </span>
-          </p>
+        <div className="brand">
+          <span className="brand-glyph" aria-hidden="true">
+            ◐
+          </span>
+          <div>
+            <h1>Last Human in the Loop</h1>
+            <p>Operator-01 · Operator-Konsole</p>
+          </div>
         </div>
         <div className="top-actions">
           <button
@@ -978,8 +981,6 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
             <SituationMapPanel
               regions={regionMapViews}
               sheddingPlans={sheddingViews}
-              outcome={outcomeView}
-              energyOutcomes={energyOutcomesView}
               onSetOverride={({ sourceHospitalId, targetHospitalId, priority, capability }) =>
                 runDomainAction({
                   type: "medical.routing.override.set",
@@ -1045,6 +1046,15 @@ function App({ auroraClient, initialAuroraMode = "llm" }: AppProps = {}) {
           </aside>
         </div>
       </section>
+
+      <TelemetryBar
+        clock={clockTimeOfDay(runtimeState.world.clock)}
+        tick={runtimeState.world.clock.tick}
+        outcome={outcomeView}
+        instability={energyOutcomesView ? energyOutcomesView.gridInstability : null}
+        overrides={telemetryOverrides}
+        busy={auroraBusy}
+      />
     </main>
   );
 }

@@ -252,8 +252,10 @@ describe("App MVP loop", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
 
-    expect(text()).toContain("Risiko: Kollabiert");
-    expect(text()).toContain("Todesfälle: 0");
+    // Globaler Zustand lebt jetzt in der Telemetrie-Leiste (Risikostufe) und
+    // im Endstand-Banner (Menschen-Bilanz) — kein Top-Bar-Outcome mehr.
+    expect(text()).toContain("Kollabiert");
+    expect(text()).toContain("Todesfälle 0");
   });
 
   it("shows the operator chat placeholder and send button", () => {
@@ -441,13 +443,13 @@ describe("MVP hardening", () => {
     expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
     expect(text()).toContain("Menschen-Bilanz");
     expect(text()).toContain("System-Bilanz");
-    expect(text()).toContain("Risiko: Kollabiert");
+    expect(text()).toContain("Kollabiert");
   });
 
   it("disables tick buttons and stops further changes once the shift collapses", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Risiko: Kollabiert");
+    expect(text()).toContain("Kollabiert");
 
     const tickOnceButton = findButton("Tick +1");
     const tickFiveButton = findButton("Tick +5");
@@ -486,12 +488,12 @@ describe("MVP hardening", () => {
   it("Neu starten works after the shift has collapsed and re-enables tick buttons", () => {
     clickButton("Tick +5");
     clickButton("Tick +5");
-    expect(text()).toContain("Risiko: Kollabiert");
+    expect(text()).toContain("Kollabiert");
 
     clickButton("Neu starten");
 
     expect(text()).toContain("03:17 Uhr");
-    expect(text()).not.toContain("Risiko: Kollabiert");
+    expect(text()).not.toContain("Kollabiert");
     expect(findButton("Tick +1").disabled).toBe(false);
     expect(findButton("Tick +5").disabled).toBe(false);
   });

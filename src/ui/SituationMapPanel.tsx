@@ -3,17 +3,11 @@ import { KNOWN_CAPABILITIES, KNOWN_PRIORITIES } from "../domain/medicalActions";
 import { KNOWN_PRIORITY_CLASSES } from "../domain/energyActions";
 import type {
   ConsumerView,
-  EnergyOutcomesView,
-  GlobalOutcomeView,
   HospitalView,
   RegionMapView,
   SheddingPlanView,
 } from "./viewModel";
 import { Modal } from "./Modal";
-
-// Schwelle, ab der das Grid kollabiert (GRID_INSTABILITY_FOR_COLLAPSE in
-// tickEngine.ts) — hier nur zur Anzeige der Doom-Clock „X/8".
-const GRID_COLLAPSE_AT = 8;
 
 export type OverrideFormInput = {
   sourceHospitalId: string;
@@ -27,8 +21,6 @@ type Tone = "ok" | "warn" | "danger" | "accent";
 type SituationMapPanelProps = {
   regions: RegionMapView[];
   sheddingPlans: SheddingPlanView[];
-  outcome: GlobalOutcomeView;
-  energyOutcomes: EnergyOutcomesView | null;
   onSetOverride: (input: OverrideFormInput) => void;
   onClearOverride: (overrideId: string) => void;
   onSetPriority: (input: { consumerId: string; priorityClass: string }) => void;
@@ -158,8 +150,6 @@ function GaugeRow({
 export function SituationMapPanel({
   regions,
   sheddingPlans,
-  outcome,
-  energyOutcomes,
   onSetOverride,
   onClearOverride,
   onSetPriority,
@@ -186,16 +176,14 @@ export function SituationMapPanel({
 
   const activePlans = [...shedsByConsumer.values()].flat();
 
-  // Kennzahlen für die Lage-Leiste: „was passiert gerade".
+  // Domänen-Kennzahlen für die Lage-Leiste: „was passiert gerade" in der Karte.
+  // Globaler Schichtzustand (Risiko, Tote, Instabilität) lebt jetzt allein in
+  // der Telemetrie-Leiste am Fuß — hier stehen nur noch Karten-Rollups.
   const nodesTotal = regions.filter((r) => r.node).length;
   const nodesOver = regions.filter((r) => r.node?.overloaded).length;
   const hospitalsOver = allHospitals.filter(
     (h) => h.overloaded || h.emergencySlotsOccupied > h.emergencySlotsTotal
   ).length;
-  const reroutesActive = regions.reduce((sum, r) => sum + r.outgoingOverrides.length, 0);
-  const instability = energyOutcomes?.gridInstability ?? 0;
-  const instabilityTone: Tone =
-    instability >= GRID_COLLAPSE_AT ? "danger" : instability >= GRID_COLLAPSE_AT / 2 ? "warn" : "ok";
 
   return (
     <section className="map-panel">
@@ -204,25 +192,8 @@ export function SituationMapPanel({
         <span className="map-head-sub">· {regions.length} Regionen</span>
       </div>
 
-      {/* Lage-Leiste: der Zustand der Schicht auf einen Blick. */}
+      {/* Lage-Leiste: Karten-Rollups (Domäne/Region), kein globaler Zustand. */}
       <div className="situation-bar">
-        <span className={`stat risk-${outcome.globalRisk}`}>
-          <span className="stat-label">Risiko</span>
-          <b>{outcome.riskLabel}</b>
-        </span>
-        <span className={`stat ${outcome.deathsTotal > 0 ? "stat-danger" : ""}`}>
-          <span className="stat-label">Tote</span>
-          <b>{outcome.deathsTotal}</b>
-        </span>
-        {energyOutcomes && (
-          <span className={`stat stat-${instabilityTone} stat-wide`}>
-            <span className="stat-label">Grid bis Kollaps</span>
-            <b>
-              {instability}/{GRID_COLLAPSE_AT}
-            </b>
-            <Meter value={instability} max={GRID_COLLAPSE_AT} tone={instabilityTone} />
-          </span>
-        )}
         <span className={`stat ${nodesOver > 0 ? "stat-warn" : ""}`}>
           <span className="stat-label">Knoten über</span>
           <b>
@@ -234,12 +205,28 @@ export function SituationMapPanel({
           <b>{hospitalsOver}</b>
         </span>
         <span className="stat">
-          <span className="stat-label">Reroutes</span>
-          <b>{reroutesActive}</b>
-        </span>
-        <span className="stat">
           <span className="stat-label">Drosselungen</span>
           <b>{activePlans.length}</b>
+        </span>
+      </div>
+
+      {/* Farb-Legende: macht die Meter-Richtung unmissverständlich. */}
+      <div className="map-legend">
+        <span className="map-legend-title">Status</span>
+        <span className="map-legend-item">
+          <span className="map-legend-swatch swatch-ok" />
+          stabil
+        </span>
+        <span className="map-legend-item">
+          <span className="map-legend-swatch swatch-warn" />
+          angespannt
+        </span>
+        <span className="map-legend-item">
+          <span className="map-legend-swatch swatch-danger" />
+          kritisch
+        </span>
+        <span className="map-legend-hint">
+          Marke = Mindestversorgung · Häuser: Notfallslots belegt/Kapazität
         </span>
       </div>
 

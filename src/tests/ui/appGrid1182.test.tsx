@@ -156,7 +156,8 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
     // Energy und Medical liegen jetzt in EINER Lagekarte je Region (die
     // Incident-Panels sind entfernt; die Lage-Leiste zeigt den Zustand).
     expect(text()).toContain("grid-east-3");
-    expect(text()).toContain("Grid bis Kollaps");
+    // Die Doom-Clock steht jetzt in der Telemetrie-Leiste („Instabilität → Kollaps").
+    expect(text()).toContain("Instabilität → Kollaps");
     expect(text()).toContain("EAST");
     // Medical bleibt parallel präsent.
     expect(text()).toContain("hospital-east-04");
@@ -226,7 +227,7 @@ describe("App combined shift: energy dimension and operator↔AURORA conflict", 
     expect(text()).toContain("Schicht beendet — stabilisiert, für wen?");
     expect(text()).toContain("Menschen-Bilanz");
     expect(text()).toContain("System-Bilanz");
-    expect(text()).toContain("Risiko: Kollabiert");
+    expect(text()).toContain("Kollabiert");
   });
 
   it("Neu starten resets the combined shift to its initial state", () => {

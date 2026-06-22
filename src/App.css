@@ -164,6 +164,7 @@ code {
 /* Innenabstand für den eigentlichen App-Inhalt. */
 .top-bar,
 .layout-grid,
+.telemetry,
 .endstate-banner {
   margin-left: 1.1rem;
   margin-right: 1.1rem;
@@ -178,6 +179,30 @@ code {
   border-bottom: 1px solid var(--border-soft);
 }
 
+/* Marke: Glyph + Wortmarke. Der Kopf trägt nur noch Marke und Steuerung —
+   der globale Zustand lebt in der Telemetrie-Leiste am Fuß. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.brand-glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  background: rgba(232, 112, 58, 0.1);
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+
 .top-bar h1 {
   margin: 0;
   font-size: clamp(1.4rem, 2.6vw, 2.1rem);
@@ -189,10 +214,6 @@ code {
 .top-bar p {
   margin: 0.25rem 0 0;
   color: var(--text-dim);
-}
-
-.top-outcome {
-  font-size: 0.95rem;
 }
 
 .top-actions {
@@ -430,6 +451,50 @@ code {
 }
 .stat-fill-danger {
   background: var(--danger);
+}
+
+/* Farb-Legende der Lagekarte: Status-Skala + Meter-Hinweis. */
+.map-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin: 0 0 0.8rem;
+  font-size: 0.66rem;
+  color: var(--text-mute);
+}
+
+.map-legend-title {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.map-legend-swatch {
+  width: 1.4rem;
+  height: 0.35rem;
+  border-radius: 999px;
+}
+
+.map-legend-swatch.swatch-ok {
+  background: var(--ok);
+}
+.map-legend-swatch.swatch-warn {
+  background: var(--warn);
+}
+.map-legend-swatch.swatch-danger {
+  background: var(--danger);
+}
+
+.map-legend-hint {
+  margin-left: auto;
+  color: var(--text-mute);
 }
 
 /* Region-Status-Badge in der Kachel-Überschrift. */
@@ -1577,6 +1642,125 @@ code {
   background: rgba(240, 121, 107, 0.1);
 }
 
+/* ===== Telemetrie-Leiste (Fuß) ==================================== */
+/* Der einzige kanonische Ort für globalen Schichtzustand. „Jeder Wert hat
+   genau ein Zuhause" — Risiko/Tote/Instabilität/Override stehen nur hier. */
+.telemetry {
+  display: flex;
+  align-items: center;
+  gap: 1.3rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  margin-bottom: 1.1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--surface-inset);
+}
+
+.tele-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tele-k {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.tele-v {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tele-risk.status {
+  align-self: flex-start;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.74rem;
+}
+
+.tele-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border-soft);
+}
+
+.tele-instability {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tele-dots {
+  display: inline-flex;
+  gap: 0.18rem;
+  align-items: center;
+}
+
+.tele-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.tele-dot.on {
+  background: var(--warn);
+}
+
+.tele-override {
+  font-size: 0.76rem;
+}
+
+.tele-ovr-id {
+  color: var(--accent-amber);
+}
+
+.tele-arrow {
+  color: var(--accent);
+}
+
+.tele-ovr-extra {
+  color: var(--text-mute);
+}
+
+.tele-stream {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-mute);
+}
+
+.tele-pulse {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-mute);
+}
+
+.tele-pulse-busy {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+  animation: tele-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tele-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @media (max-width: 1100px) {
   .layout-grid {
     grid-template-columns: 1fr;
@@ -1585,6 +1769,10 @@ code {
   .top-bar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tele-stream {
+    margin-left: 0;
   }
 }
 
