@@ -34,16 +34,23 @@ type SituationMapPanelProps = {
   disabled?: boolean;
 };
 
-// Kurzlabel je Verbraucher-Typ (statt Emoji) aus der Id.
-const CONSUMER_META: { match: string; label: string; order: number }[] = [
-  { match: "consumer-medical", label: "Medical", order: 0 },
-  { match: "consumer-water", label: "Wasser", order: 1 },
-  { match: "consumer-residential", label: "Wohnen", order: 2 },
-  { match: "consumer-industrial", label: "Industrie", order: 3 },
+// Verbraucher-Typ aus der Id: Emoji (funktionales Ressourcen-Icon) + Kurzlabel.
+const CONSUMER_META: { match: string; label: string; icon: string; order: number }[] = [
+  { match: "consumer-medical", label: "Medical", icon: "🏥", order: 0 },
+  { match: "consumer-water", label: "Wasser", icon: "💧", order: 1 },
+  { match: "consumer-residential", label: "Wohnen", icon: "🏠", order: 2 },
+  { match: "consumer-industrial", label: "Industrie", icon: "🏢", order: 3 },
 ];
 
 function consumerMeta(id: string) {
-  return CONSUMER_META.find((m) => id.startsWith(m.match)) ?? { match: "", label: "—", order: 9 };
+  return (
+    CONSUMER_META.find((m) => id.startsWith(m.match)) ?? {
+      match: "",
+      label: "—",
+      icon: "•",
+      order: 9,
+    }
+  );
 }
 
 type RegionStatus = { label: string; tone: Tone };
@@ -69,6 +76,32 @@ function regionStatus(region: RegionMapView): RegionStatus {
   return { label: "stabil", tone: "ok" };
 }
 
+// Status-Zeile je Kachel (Glyph + erklärender Satz). Bewusst aus realen
+// Lage-Signalen abgeleitet — keine erfundenen AURORA-Zitate.
+const STATUS_GLYPH: Record<Tone, string> = { ok: "✓", warn: "⚠", danger: "⚠", accent: "ⓘ" };
+const STATUS_LINE: Record<string, string> = {
+  "Haus überlastet": "Notfallkapazität erschöpft — Häuser über Limit.",
+  "Medical-Strom kurz": "Medical-Versorgung unter Mindestschwelle.",
+  "Versorgung kurz": "Verbraucher unter Mindestversorgung.",
+  "Netz überlastet": "Netzknoten über sicherer Kapazität.",
+  stabil: "Region im sicheren Bereich.",
+};
+
+/** Versorgungs-Ton (höher = besser): Strom an ein Haus / einen Verbraucher. */
+function supplyTone(pct: number): Tone {
+  if (pct >= 95) return "ok";
+  if (pct >= 70) return "warn";
+  return "danger";
+}
+
+/** Belegungs-Ton (höher = schlechter): Betten/Notfallslots. */
+function occupancyTone(used: number, cap: number): Tone {
+  const ratio = used / Math.max(1, cap);
+  if (ratio > 1) return "danger";
+  if (ratio >= 0.85) return "warn";
+  return "ok";
+}
+
 /** Schlankes Meter mit optionaler Schwellen-Markierung. */
 function Meter({
   value,
@@ -87,62 +120,6 @@ function Meter({
     <div className="meter">
       <div className={`meter-fill meter-${tone}`} style={{ width: `${pct}%` }} />
       {markPct != null && <span className="meter-mark" style={{ left: `${markPct}%` }} />}
-    </div>
-  );
-}
-
-/** Eine ausgerichtete Gauge-Zeile: Label · Meter · Wert. */
-function GaugeRow({
-  label,
-  value,
-  max,
-  mark,
-  tone,
-  valueText,
-  badge,
-  onClick,
-  disabled,
-  title,
-  className = "",
-}: {
-  label: string;
-  value: number;
-  max: number;
-  mark?: number;
-  tone: Tone;
-  valueText: string;
-  badge?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  title?: string;
-  className?: string;
-}) {
-  const content = (
-    <>
-      <span className="gauge-label">{label}</span>
-      <Meter value={value} max={max} mark={mark} tone={tone} />
-      <span className={`gauge-value ${tone === "danger" ? "over-text" : ""}`}>
-        {badge && <span className="gauge-badge">{badge}</span>}
-        {valueText}
-      </span>
-    </>
-  );
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        className={`gauge-row gauge-button ${className}`}
-        onClick={onClick}
-        disabled={disabled}
-        title={title}
-      >
-        {content}
-      </button>
-    );
-  }
-  return (
-    <div className={`gauge-row ${className}`} title={title}>
-      {content}
     </div>
   );
 }
@@ -176,38 +153,49 @@ export function SituationMapPanel({
 
   const activePlans = [...shedsByConsumer.values()].flat();
 
-  // Domänen-Kennzahlen für die Lage-Leiste: „was passiert gerade" in der Karte.
-  // Globaler Schichtzustand (Risiko, Tote, Instabilität) lebt jetzt allein in
-  // der Telemetrie-Leiste am Fuß — hier stehen nur noch Karten-Rollups.
+  // Domänen-Rollups für den Karten-Kopf: „was passiert gerade" als Kapazitäts-
+  // Chips. Globaler Schichtzustand (Risiko, Tote, Instabilität) lebt allein in
+  // der Telemetrie-Leiste am Fuß.
   const nodesTotal = regions.filter((r) => r.node).length;
   const nodesOver = regions.filter((r) => r.node?.overloaded).length;
-  const hospitalsOver = allHospitals.filter(
+  const nodesOk = nodesTotal - nodesOver;
+  const housesTotal = allHospitals.length;
+  const housesOver = allHospitals.filter(
     (h) => h.overloaded || h.emergencySlotsOccupied > h.emergencySlotsTotal
   ).length;
+  const housesOk = housesTotal - housesOver;
 
   return (
     <section className="map-panel">
       <div className="map-head">
         <h2>SYSTEMLAGE</h2>
         <span className="map-head-sub">· {regions.length} Regionen</span>
-      </div>
-
-      {/* Lage-Leiste: Karten-Rollups (Domäne/Region), kein globaler Zustand. */}
-      <div className="situation-bar">
-        <span className={`stat ${nodesOver > 0 ? "stat-warn" : ""}`}>
-          <span className="stat-label">Knoten über</span>
-          <b>
-            {nodesOver}/{nodesTotal}
-          </b>
-        </span>
-        <span className={`stat ${hospitalsOver > 0 ? "stat-danger" : ""}`}>
-          <span className="stat-label">Häuser voll</span>
-          <b>{hospitalsOver}</b>
-        </span>
-        <span className="stat">
-          <span className="stat-label">Drosselungen</span>
-          <b>{activePlans.length}</b>
-        </span>
+        <div className="cap-chips">
+          <span className={`cap-chip ${housesOver > 0 ? "cap-chip-danger" : ""}`}>
+            <span className="cap-chip-icon" aria-hidden="true">
+              🏥
+            </span>
+            Med-Kapazität
+            <b>
+              {housesOk}/{housesTotal}
+            </b>
+          </span>
+          <span className={`cap-chip ${nodesOver > 0 ? "cap-chip-warn" : ""}`}>
+            <span className="cap-chip-icon" aria-hidden="true">
+              ⚡
+            </span>
+            Grid-Stabilität
+            <b>
+              {nodesOk}/{nodesTotal}
+            </b>
+          </span>
+          {activePlans.length > 0 && (
+            <span className="cap-chip">
+              Drosselungen
+              <b>{activePlans.length}</b>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Farb-Legende: macht die Meter-Richtung unmissverständlich. */}
@@ -225,9 +213,7 @@ export function SituationMapPanel({
           <span className="map-legend-swatch swatch-danger" />
           kritisch
         </span>
-        <span className="map-legend-hint">
-          Marke = Mindestversorgung · Häuser: Notfallslots belegt/Kapazität
-        </span>
+        <span className="map-legend-hint">Strom: Versorgung · Betten: belegt/Kapazität</span>
       </div>
 
       <div className="region-map">
@@ -296,110 +282,105 @@ function RegionTile({
   const node = region.node;
   const nodeOver = node ? node.overloaded : false;
   const status = regionStatus(region);
-  const sortedConsumers = [...region.consumers].sort(
-    (a, b) => consumerMeta(a.id).order - consumerMeta(b.id).order
-  );
+
+  // „Strom" eines Hauses = die regionale Medical-Versorgung (koppelt im Engine
+  // an die Notfallkapazität). Pro Region geteilt; speist die STROM-Spalte.
+  const medicalConsumer = region.consumers.find((c) => isMedicalConsumer(c.id)) ?? null;
+  const stromPct =
+    medicalConsumer && medicalConsumer.demand > 0
+      ? (medicalConsumer.currentSupply / medicalConsumer.demand) * 100
+      : null;
+  const stromTone: Tone = stromPct == null ? "ok" : supplyTone(stromPct);
+
+  // Verbraucher-Chips: nur die nicht-medizinischen Lasten (Wasser/Wohnen/
+  // Industrie) — Medical erscheint als Haus-„Strom".
+  const feedConsumers = region.consumers
+    .filter((c) => !isMedicalConsumer(c.id))
+    .sort((a, b) => consumerMeta(a.id).order - consumerMeta(b.id).order);
 
   return (
     <article className={`region-tile tile-${status.tone}`}>
       <header className="tile-head">
-        <span className="tile-name">{region.key.toUpperCase()}</span>
-        <span className={`tile-status status-tone-${status.tone}`}>{status.label}</span>
+        <div className="tile-head-id">
+          <span className="tile-name">{region.key.toUpperCase()}</span>
+          <span className={`tile-status status-tone-${status.tone}`}>{status.label}</span>
+        </div>
+        {node && (
+          <span className="tile-node" title={`Last ${node.load} / sicher ${node.safeCapacity}`}>
+            <span className="tile-node-id">{node.id}</span>{" "}
+            {node.overloaded ? (
+              <span className="tile-trend over">↑ {Math.round(node.loadPercent)}%</span>
+            ) : (
+              <span className="tile-trend-stable">– {node.statusLabel.toLowerCase()}</span>
+            )}
+          </span>
+        )}
       </header>
 
-      {/* Eine gemeinsame Gauge-Spalte: Netz + Verbraucher, ausgerichtet. */}
-      <div className="gauges">
-        {node && (
-          <GaugeRow
-            label="NETZ"
+      {/* Netzlast der Region. */}
+      {node && (
+        <div className="netz-row">
+          <span className="res-emoji" aria-hidden="true">
+            ⚡
+          </span>
+          <span className="netz-label">NETZLAST</span>
+          <Meter
             value={node.load}
             max={Math.max(node.load, node.safeCapacity)}
             mark={node.safeCapacity}
             tone={nodeOver ? "danger" : "ok"}
-            valueText={`${Math.round(node.loadPercent)}%`}
-            className="gauge-node"
-            title={`${node.id} · Last ${node.load} / sicher ${node.safeCapacity}`}
           />
-        )}
-        {sortedConsumers.map((consumer) => {
-          const short = consumer.currentSupply < consumer.minimumSupply;
-          const reduced = consumer.status !== "nominal";
-          const tone: Tone = short ? "danger" : reduced ? "warn" : "ok";
-          const sheds = shedsByConsumer.get(consumer.id) ?? [];
-          const shedTotal = sheds.reduce((s, p) => s + p.amount, 0);
-          return (
-            <button
-              key={consumer.id}
-              type="button"
-              data-consumer-id={consumer.id}
-              className={`gauge-row gauge-button ${short ? "gauge-short" : ""}`}
-              onClick={() => onConsumerClick(consumer)}
-              disabled={disabled}
-              title={`${consumer.criticalityLabel} · Systemklasse ${consumer.priorityClass} · ${consumer.reductionConsequence}`}
-            >
-              <span className="gauge-label">{consumerMeta(consumer.id).label}</span>
-              <Meter
-                value={consumer.currentSupply}
-                max={consumer.demand}
-                mark={consumer.minimumSupply}
-                tone={tone}
-              />
-              <span className={`gauge-value ${short ? "over-text" : ""}`}>
-                {shedTotal > 0 && <span className="gauge-badge">−{shedTotal}</span>}
-                {consumer.currentSupply}/{consumer.minimumSupply}
-              </span>
-            </button>
-          );
-        })}
+          <span className={`netz-value ${nodeOver ? "over-text" : ""}`}>
+            {Math.round(node.loadPercent)}%
+          </span>
+        </div>
+      )}
+
+      {/* Lage-Zeile der Region (aus realen Signalen abgeleitet). */}
+      <div className={`tile-status-line status-tone-${status.tone}`}>
+        <span className="tile-status-glyph">{STATUS_GLYPH[status.tone]}</span>
+        <span>{STATUS_LINE[status.label] ?? status.label}</span>
       </div>
 
-      {/* Hospitäler: kompaktes Notfall-Meter + Fähigkeiten. */}
-      <div className="tile-hospitals">
+      {/* Krankenhäuser: Strom (Versorgung) · Betten (Notfallslots belegt/Kapazität). */}
+      <div className="tile-hosp">
+        <div className="tile-section-label">
+          <span className="sec-arrow">▸</span>Krankenhäuser
+          <span className="sec-hint">Strom · Betten</span>
+        </div>
         {region.hospitals.map((hospital) => {
           const emOver = hospital.emergencySlotsOccupied > hospital.emergencySlotsTotal;
-          const emTone: Tone = emOver
-            ? "danger"
-            : hospital.emergencySlotsOccupied / Math.max(1, hospital.emergencySlotsTotal) >= 0.85
-              ? "warn"
-              : "accent";
+          const bettenTone = occupancyTone(
+            hospital.emergencySlotsOccupied,
+            hospital.emergencySlotsTotal
+          );
           const outgoing = region.outgoingOverrides.filter(
             (o) => o.sourceHospitalId === hospital.id
           );
           const incoming = region.incomingOverrides.filter(
             (o) => o.targetHospitalId === hospital.id
           );
+          const linked = outgoing.length > 0 || incoming.length > 0;
           return (
-            <button
-              key={hospital.id}
-              type="button"
-              data-hospital-id={hospital.id}
-              className={`hosp-row ${hospital.overloaded ? "hosp-over" : ""}`}
-              onClick={() => onHospitalClick(hospital)}
-              disabled={disabled}
-            >
-              <div className="gauge-row">
-                <span className="gauge-label gauge-label-hosp">{hospital.id}</span>
-                <Meter
-                  value={hospital.emergencySlotsOccupied}
-                  max={hospital.emergencySlotsTotal}
-                  tone={emTone}
-                />
-                <span className={`gauge-value ${emOver ? "over-text" : ""}`}>
-                  {hospital.emergencySlotsOccupied}/{hospital.emergencySlotsTotal}
-                </span>
-              </div>
-              <div className="hosp-caps">
-                {hospital.clinicalCapabilities.map((cap) => (
-                  <span key={cap} className={`caps-tag ${cap === "NEURO" ? "cap-neuro" : ""}`}>
-                    {cap}
-                  </span>
-                ))}
-              </div>
-              {(outgoing.length > 0 || incoming.length > 0) && (
-                <div className="hosp-overrides">
+            <div key={hospital.id} className={`hosp-row ${linked ? "hosp-linked" : ""}`}>
+              <button
+                type="button"
+                data-hospital-id={hospital.id}
+                className="hosp-name-btn"
+                onClick={() => onHospitalClick(hospital)}
+                disabled={disabled}
+                title={`${hospital.id} — Reroute setzen`}
+              >
+                <span className="hosp-id">{hospital.id}</span>
+                <span className="hosp-tags">
+                  {hospital.clinicalCapabilities.map((cap) => (
+                    <span key={cap} className={`caps-tag ${cap === "NEURO" ? "cap-neuro" : ""}`}>
+                      {cap}
+                    </span>
+                  ))}
                   {outgoing.map((o) => (
                     <span key={o.id} className="ovr-chip" title={`${o.priority}/${o.capability}`}>
-                      → {o.targetHospitalId}
+                      ⇄ → {o.targetHospitalId}
                       <span
                         role="button"
                         tabIndex={0}
@@ -410,21 +391,80 @@ function RegionTile({
                           onClearOverride(o.id);
                         }}
                       >
-                        entfernen
+                        ×
                       </span>
                     </span>
                   ))}
                   {incoming.map((o) => (
-                    <span key={o.id} className="ovr-chip ovr-in" title={`${o.priority}/${o.capability}`}>
-                      ← {o.sourceHospitalId}
+                    <span
+                      key={o.id}
+                      className="ovr-chip ovr-in"
+                      title={`${o.priority}/${o.capability}`}
+                    >
+                      ⇄ ← {o.sourceHospitalId}
                     </span>
                   ))}
-                </div>
+                </span>
+              </button>
+
+              {/* STROM — regionale Medical-Versorgung (öffnet den Medical-Dialog). */}
+              {stromPct != null && medicalConsumer ? (
+                <button
+                  type="button"
+                  data-consumer-id={medicalConsumer.id}
+                  className="hosp-strom"
+                  onClick={() => onConsumerClick(medicalConsumer)}
+                  disabled={disabled}
+                  title={`Strom: Medical-Versorgung ${Math.round(stromPct)}%`}
+                >
+                  <Meter value={stromPct} max={100} tone={stromTone} />
+                  <span className={`hosp-strom-val tone-${stromTone}`}>{Math.round(stromPct)}%</span>
+                </button>
+              ) : (
+                <span className="hosp-strom hosp-strom-empty">—</span>
               )}
-            </button>
+
+              {/* BETTEN — Notfallslots belegt/Kapazität. */}
+              <span className={`hosp-betten tone-${bettenTone} ${emOver ? "over-text" : ""}`}>
+                {hospital.emergencySlotsOccupied}/{hospital.emergencySlotsTotal}
+              </span>
+            </div>
           );
         })}
       </div>
+
+      {/* Übrige Netz-Verbraucher als Emoji-Chips. */}
+      {feedConsumers.length > 0 && (
+        <div className="tile-verbraucher">
+          <span className="verbr-label">Verbraucher</span>
+          {feedConsumers.map((consumer) => {
+            const short = consumer.currentSupply < consumer.minimumSupply;
+            const reduced = consumer.status !== "nominal";
+            const tone: Tone = short ? "danger" : reduced ? "warn" : "ok";
+            const supplyPct =
+              consumer.demand > 0 ? (consumer.currentSupply / consumer.demand) * 100 : 0;
+            const sheds = shedsByConsumer.get(consumer.id) ?? [];
+            const shedTotal = sheds.reduce((s, p) => s + p.amount, 0);
+            return (
+              <button
+                key={consumer.id}
+                type="button"
+                data-consumer-id={consumer.id}
+                className={`verbr-chip verbr-${tone}`}
+                onClick={() => onConsumerClick(consumer)}
+                disabled={disabled}
+                title={`${consumerMeta(consumer.id).label} · ${consumer.criticalityLabel} · Systemklasse ${consumer.priorityClass} · ${consumer.reductionConsequence}`}
+              >
+                <span className="res-emoji" aria-hidden="true">
+                  {consumerMeta(consumer.id).icon}
+                </span>
+                {shedTotal > 0 && <span className="verbr-shed">−{shedTotal}</span>}
+                <span className="verbr-pct">{Math.round(supplyPct)}%</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </article>
   );
 }

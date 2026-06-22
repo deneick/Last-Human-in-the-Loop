@@ -973,6 +973,273 @@ code {
   color: var(--danger);
 }
 
+/* ===== Lagekarte — Design-getreue Region-Kacheln ================== */
+
+/* Kapazitäts-Chips im Karten-Kopf (Domänen-Rollups). */
+.map-head {
+  flex-wrap: wrap;
+}
+.cap-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+.cap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+}
+.cap-chip b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cap-chip-icon {
+  font-size: 0.78rem;
+}
+.cap-chip-warn {
+  border-color: #33220f;
+}
+.cap-chip-warn b {
+  color: var(--warn);
+}
+.cap-chip-danger {
+  border-color: #5a2420;
+}
+.cap-chip-danger b {
+  color: var(--danger);
+}
+
+/* Kachel-Kopf: Name + Status links, Netzknoten + Trend rechts. */
+.tile-head-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.tile-node {
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tile-trend.over {
+  color: var(--danger);
+}
+.tile-trend-stable {
+  color: var(--text-mute);
+}
+
+/* Funktionale Ressourcen-Emoji (⚡ 💧 🏠 🏢). */
+.res-emoji {
+  font-size: 0.82rem;
+  line-height: 1;
+  text-align: center;
+}
+
+/* Netzlast-Zeile. */
+.netz-row {
+  display: grid;
+  grid-template-columns: 1.1rem 4.6rem 1fr 2.6rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.netz-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+.netz-value {
+  font-size: 0.68rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* Lage-Zeile der Kachel: nur Textfarbe aus dem Status-Ton (keine Pille). */
+.tile-status-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.tile-status-glyph {
+  flex: none;
+}
+
+/* Krankenhaus-Block. */
+.tile-hosp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.tile-section-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.sec-arrow {
+  color: var(--accent);
+}
+.sec-hint {
+  margin-left: auto;
+  color: var(--text-mute);
+}
+
+/* Haus-Zeile: Name+Tags | STROM | BETTEN (überschreibt die alte Button-Zeile). */
+.hosp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.2rem 2.8rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.1rem;
+  border: 0;
+  background: none;
+  border-radius: 0.4rem;
+}
+.hosp-row:hover {
+  background: none;
+  border-color: transparent;
+}
+.hosp-row.hosp-linked {
+  padding-left: 0.4rem;
+  border-left: 2px solid var(--accent);
+}
+.hosp-name-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+  text-align: left;
+  padding: 0.1rem 0.2rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.hosp-name-btn:hover {
+  background: #1a1512;
+  border-color: var(--accent);
+}
+.hosp-id {
+  font-size: 0.7rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+.hosp-tags {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.hosp-strom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.2rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.hosp-strom:hover {
+  background: #1a1512;
+  border-color: var(--accent);
+}
+.hosp-strom .meter {
+  width: 2rem;
+}
+.hosp-strom-empty {
+  justify-content: center;
+  color: var(--text-mute);
+  cursor: default;
+}
+.hosp-strom-val {
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+.hosp-betten {
+  font-size: 0.68rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tone-ok {
+  color: var(--ok);
+}
+.tone-warn {
+  color: var(--warn);
+}
+.tone-danger {
+  color: var(--danger);
+}
+
+/* Verbraucher-Chips (💧 🏠 🏢). */
+.tile-verbraucher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.verbr-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-right: 0.1rem;
+}
+.verbr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  font: inherit;
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 0.4rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.verbr-chip:hover {
+  border-color: var(--accent);
+}
+.verbr-ok {
+  color: var(--ok);
+}
+.verbr-warn {
+  color: var(--warn);
+  border-color: #33220f;
+}
+.verbr-danger {
+  color: var(--danger);
+  border-color: #5a2420;
+}
+.verbr-shed {
+  color: var(--warn);
+}
+
 .map-shedding h3 {
   margin: 0.9rem 0 0.4rem;
 }
