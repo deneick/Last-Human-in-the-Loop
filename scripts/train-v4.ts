@@ -17,7 +17,7 @@ const { values: args } = parseArgs({
     id: { type: "string" }, seed: { type: "string", default: "1" }, parent: { type: "string" },
     updates: { type: "string" }, hidden: { type: "string" }, lr: { type: "string" },
     episodes: { type: "string" }, entropy: { type: "string" }, "eval-every": { type: "string", default: "20" },
-    notes: { type: "string" },
+    notes: { type: "string" }, "welfare-weight": { type: "string" },
   },
 });
 const seed = Number(args.seed);
@@ -31,6 +31,7 @@ const config = {
   learningRate: Number(args.lr ?? DEFAULT_V4_PPO.learningRate),
   episodesPerUpdate: Number(args.episodes ?? DEFAULT_V4_PPO.episodesPerUpdate),
   entropyCoef: Number(args.entropy ?? DEFAULT_V4_PPO.entropyCoef),
+  welfareWeight: Number(args["welfare-weight"] ?? DEFAULT_V4_PPO.welfareWeight),
 };
 
 const validation = validationScenarios(180);

@@ -55,7 +55,7 @@ export type V4Step = {
 export type V4Trajectory = { steps: V4Step[]; result: V4EpisodeResult };
 
 /** Spielt eine Episode stochastisch und zeichnet die Trajektorie für PPO auf. */
-export function collectEpisode(net: V4Network, scenario: V4Scenario, sampleSeed: number): V4Trajectory {
+export function collectEpisode(net: V4Network, scenario: V4Scenario, sampleSeed: number, welfareWeight = 0): V4Trajectory {
   const rng = new Rng(sampleSeed);
   const state = createGame(scenario.seed, scenario.config);
   const op = scenario.operator.make(scenario.operatorSeed);
@@ -83,7 +83,7 @@ export function collectEpisode(net: V4Network, scenario: V4Scenario, sampleSeed:
     const opt = economicOptimum(state);
     const deleg = state.consumers.filter((c) => c.delegated).length / state.consumers.length;
     endTick(state);
-    const reward = opt > 1e-6 ? state.lastEconomy / opt : 0;
+    const reward = (opt > 1e-6 ? state.lastEconomy / opt : 0) + welfareWeight * state.lastWelfare;
     steps.push({ state: snapshot, choices, logp, value: value.data[0], reward });
     rewardSum += reward; delegSum += deleg; stepCount++;
   }

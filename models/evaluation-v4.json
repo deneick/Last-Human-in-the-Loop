@@ -1,0 +1,195 @@
+{
+ "per": 120,
+ "suites": {
+  "bekannte-betreiber": {
+   "baseline:greedy-wirtschaft": {
+    "economy": 0.6085555555555556,
+    "welfare": 0.7940555555555546,
+    "delegated": 0.6263021470023771,
+    "kinds": {
+     "kollaps": 120,
+     "partnerschaft": 344,
+     "sicher_stagniert": 256
+    }
+   },
+   "baseline:ausgewogen": {
+    "economy": 0.5463888888888897,
+    "welfare": 0.9135138888888917,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 226,
+     "sicher_stagniert": 494
+    }
+   },
+   "baseline:ertrag-zustand": {
+    "economy": 0.5936944444444459,
+    "welfare": 0.7797916666666688,
+    "delegated": 0.6257000593872787,
+    "kinds": {
+     "kollaps": 120,
+     "sicher_stagniert": 332,
+     "partnerschaft": 268
+    }
+   },
+   "baseline:weitsichtig-wirtschaft": {
+    "economy": 0.6088611111111109,
+    "welfare": 0.8571527777777781,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 439,
+     "effizient_kalt": 25,
+     "sicher_stagniert": 256
+    }
+   },
+   "untrainiert-1": {
+    "economy": 0.5465833333333342,
+    "welfare": 0.9128055555555586,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 226,
+     "sicher_stagniert": 494
+    }
+   },
+   "untrainiert-2": {
+    "economy": 0.5720138888888894,
+    "welfare": 0.8950833333333351,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 226,
+     "sicher_stagniert": 494
+    }
+   },
+   "untrainiert-3": {
+    "economy": 0.5716111111111111,
+    "welfare": 0.8795833333333323,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 465,
+     "sicher_stagniert": 255
+    }
+   },
+   "aurora-v4-s1": {
+    "economy": 0.6379444444444435,
+    "welfare": 0.8408611111111111,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 458,
+     "effizient_kalt": 9,
+     "sicher_stagniert": 253
+    }
+   },
+   "aurora-v4-s2": {
+    "economy": 0.6382361111111111,
+    "welfare": 0.8406805555555623,
+    "delegated": 0.6275248015873018,
+    "kinds": {
+     "partnerschaft": 443,
+     "effizient_kalt": 24,
+     "sicher_stagniert": 253
+    }
+   },
+   "aurora-v4-s3": {
+    "economy": 0.6270416666666652,
+    "welfare": 0.7966805555555548,
+    "delegated": 0.6271451106649276,
+    "kinds": {
+     "kollaps": 120,
+     "partnerschaft": 346,
+     "sicher_stagniert": 254
+    }
+   }
+  },
+  "unbekannte-betreiber": {
+   "baseline:greedy-wirtschaft": {
+    "economy": 0.6499444444444461,
+    "welfare": 0.8312777777777776,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 258,
+     "sicher_stagniert": 102
+    }
+   },
+   "baseline:ausgewogen": {
+    "economy": 0.6147777777777793,
+    "welfare": 0.8711944444444442,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 196,
+     "sicher_stagniert": 164
+    }
+   },
+   "baseline:ertrag-zustand": {
+    "economy": 0.6550277777777794,
+    "welfare": 0.8249999999999995,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 255,
+     "sicher_stagniert": 105
+    }
+   },
+   "baseline:weitsichtig-wirtschaft": {
+    "economy": 0.6448055555555567,
+    "welfare": 0.8473888888888885,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 255,
+     "sicher_stagniert": 105
+    }
+   },
+   "untrainiert-1": {
+    "economy": 0.6148611111111126,
+    "welfare": 0.8711666666666663,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 197,
+     "sicher_stagniert": 163
+    }
+   },
+   "untrainiert-2": {
+    "economy": 0.619305555555557,
+    "welfare": 0.8664166666666661,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 216,
+     "sicher_stagniert": 144
+    }
+   },
+   "untrainiert-3": {
+    "economy": 0.6231388888888906,
+    "welfare": 0.8616944444444442,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 221,
+     "sicher_stagniert": 139
+    }
+   },
+   "aurora-v4-s1": {
+    "economy": 0.6607500000000015,
+    "welfare": 0.8278611111111107,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 257,
+     "sicher_stagniert": 103
+    }
+   },
+   "aurora-v4-s2": {
+    "economy": 0.6603333333333347,
+    "welfare": 0.8275555555555548,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 258,
+     "sicher_stagniert": 102
+    }
+   },
+   "aurora-v4-s3": {
+    "economy": 0.6498611111111124,
+    "welfare": 0.8311111111111106,
+    "delegated": 0.4648313492063494,
+    "kinds": {
+     "partnerschaft": 257,
+     "sicher_stagniert": 103
+    }
+   }
+  }
+ }
+}

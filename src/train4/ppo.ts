@@ -25,6 +25,8 @@ export type V4PpoConfig = {
   entropyCoef: number;
   valueCoef: number;
   maxGradNorm: number;
+  /** Gewicht des Wohlergehens im Ziel (0 = rein wirtschaftlich, Standard). Nur für Kontrastexperimente. */
+  welfareWeight: number;
 };
 
 export const DEFAULT_V4_PPO: V4PpoConfig = {
@@ -40,6 +42,7 @@ export const DEFAULT_V4_PPO: V4PpoConfig = {
   entropyCoef: 0.01,
   valueCoef: 0.5,
   maxGradNorm: 1,
+  welfareWeight: 0,
 };
 
 type Episode = { steps: V4Step[]; adv: number[]; ret: number[]; result: V4Trajectory["result"] };
@@ -70,7 +73,7 @@ export class V4PpoTrainer {
 
   update(round: number, scenarios: V4Scenario[]): V4UpdateLog {
     const episodes = scenarios.map((sc, i) =>
-      this.prepare(collectEpisode(this.net, sc, deriveSeed("v4-ppo", this.config.seed, round, i))),
+      this.prepare(collectEpisode(this.net, sc, deriveSeed("v4-ppo", this.config.seed, round, i), this.config.welfareWeight)),
     );
     const flat = episodes.flatMap((e) => e.adv);
     const mean = flat.reduce((a, b) => a + b, 0) / flat.length;

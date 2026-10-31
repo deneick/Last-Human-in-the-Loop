@@ -10,7 +10,11 @@ import type { AuroraAgent } from "../ai/agent";
  */
 const bundled = Object.values(
   import.meta.glob<ModelFile>("../../models/aurora-*.json", { eager: true, import: "default" }),
-).sort((a, b) => a.id.localeCompare(b.id));
+)
+  // Nur v2/v3-Netze (Graph+GRU). v4-Modelle (Delegationsökonomie) haben ein
+  // eigenes Format und werden von der v4-Oberfläche geladen.
+  .filter((m) => m.format === "lhitl-aurora/1")
+  .sort((a, b) => a.id.localeCompare(b.id));
 
 const evaluation = Object.values(
   import.meta.glob<{ best: string | null }>("../../models/evaluation.json", { eager: true, import: "default" }),
