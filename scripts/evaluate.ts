@@ -45,11 +45,13 @@ for (const e of entries) {
 }
 
 // Ablation: bestes Modell ohne Gedächtnis.
-const best = models.length
-  ? models.reduce((a, b) => (mean(results[a.id].suites) >= mean(results[b.id].suites) ? a : b))
-  : null;
-if (best) {
-  const agent = new NeuralAgent(loadNetwork(best), `${best.id}-ohne-gedaechtnis`, "sample", true);
+const pickBest = (list: ModelFile[]) =>
+  list.length ? list.reduce((a, b) => (mean(results[a.id].suites) >= mean(results[b.id].suites) ? a : b)) : null;
+const best = pickBest(models);
+// Die Gedächtnis-Ablation ist nur für Modelle mit GRU sinnvoll.
+const bestWithMemory = pickBest(models.filter((m) => m.spec.memory !== false));
+if (bestWithMemory) {
+  const agent = new NeuralAgent(loadNetwork(bestWithMemory), `${bestWithMemory.id}-ohne-gedaechtnis`, "sample", true);
   const reports = suites.map((s) => evaluateSuite(agent, s));
   results[agent.name] = { kind: "ablation", info: "GRU-Zustand nach jedem Zug gelöscht", suites: reports, strategy: analyzeStrategy(agent, suites[0].scenarios) };
   console.log(`${agent.name}: ${reports.map((r) => `${(r.overall.winRate * 100).toFixed(1)}%`).join("  ")}`);

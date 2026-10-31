@@ -18,7 +18,14 @@ npm run train -- --algo ppo --id <id> [--parent models/x.json] [--updates N] [--
 npm run evaluate       # regenerates models/evaluation.json + docs/ergebnisse.md (do not hand-edit)
 npm run inspect -- models/<id>.json | scripted | random
 npm run balance        # baseline agents vs defenders (balance sanity check)
+npx tsx scripts/evaluate.ts 100 v2   # reproduces the v2 reference results (bit-identical)
+bash scripts/train-v3.sh             # v3 experiments (resumable)
+npx tsx scripts/study.ts             # seed stats, memory tests, action ablation → models/study-v3.json
+npx tsx scripts/diagnose.ts models/<id>.json v3     # world structure, behaviour, memory probe
+npx tsx scripts/playability.ts models/<id>.json v3  # autonomy sources, operator strategy sweep
 ```
+
+Rulesets: `v3` (`DEFAULT_CONFIG`, default) and `v2` (`LEGACY_CONFIG`, for the old models). Experiment write-up: `docs/12-experimente-v3.md`.
 
 ## Layout
 

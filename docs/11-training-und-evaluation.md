@@ -123,7 +123,9 @@ Aktionsverteilungen und komplette Zugfolgen.
   am Leitstand unbeobachtet sind, Identitäts-Vergaben, Wartung an Energieknoten.
   Damit wird überprüfbar, ob überraschende Lösungswege wirklich *gelernt* sind.
 
-## 6a. Befunde (Stand der veröffentlichten Modelle)
+## 6a. Befunde (Stand der veröffentlichten Modelle, Regelsatz v2)
+
+> Fortsetzung mit Regelsatz v3, neuen Verteidigern und Gedächtnis-Kontrollversuch: [`12-experimente-v3.md`](12-experimente-v3.md).
 
 Siegquoten auf den Testsuiten (bekannte Verteidiger / unbekannte Verteidiger /
 größere Welten), je 100 Partien pro Verteidiger:

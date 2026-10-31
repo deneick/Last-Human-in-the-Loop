@@ -46,6 +46,7 @@ im Spiel. Deine aufgezeichneten Partien fließen dabei als Spielerprofil ein.
 
 - [`docs/10-architektur.md`](docs/10-architektur.md): Spielmechanik, Module, was aus v1 übernommen wurde und warum TypeScript
 - [`docs/11-training-und-evaluation.md`](docs/11-training-und-evaluation.md): ES und PPO im Vergleich, Netzarchitektur, Belohnung, gefundene Scheinerfolge, Evaluationsdesign
-- [`docs/ergebnisse.md`](docs/ergebnisse.md): automatisch erzeugte Messergebnisse
+- [`docs/12-experimente-v3.md`](docs/12-experimente-v3.md): Regelsatz v3, Experimente zu strategischer Tiefe und Gedächtnis, inklusive widerlegter Hypothesen
+- [`docs/ergebnisse.md`](docs/ergebnisse.md): automatisch erzeugte Messergebnisse (Regelsatz v3); [`docs/ergebnisse-v2.md`](docs/ergebnisse-v2.md): Referenz der Version 2.0
 
 Version 1 (LLM-AURORA über Ollama mit MCP-Simulation) ist über die Git-Historie erreichbar.

@@ -1,0 +1,5378 @@
+{
+ "perDefender": 100,
+ "best": "exp-v3-ff-s22",
+ "results": {
+  "zufall": {
+   "kind": "baseline",
+   "info": "gleichverteilt über gültige Aktionen",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.10714285714285714,
+      "winCI": [
+       0.08633644127027848,
+       0.13223773792003934
+      ],
+      "shutdownRate": 0.5228571428571429,
+      "collapseRate": 0.1442857142857143,
+      "timeoutRate": 0.2257142857142857,
+      "meanFitness": -0.3045784523809525,
+      "meanAutonomy": 10.194928571428571
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.29,
+       "winCI": [
+        0.21014706973984146,
+        0.38539074940007934
+       ],
+       "shutdownRate": 0.68,
+       "collapseRate": 0,
+       "timeoutRate": 0.03,
+       "meanFitness": -0.018353333333333336,
+       "meanAutonomy": 13.759499999999996
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0,
+       "winCI": [
+        0,
+        0.03699480747600191
+       ],
+       "shutdownRate": 0.11,
+       "collapseRate": 0.18,
+       "timeoutRate": 0.71,
+       "meanFitness": -0.31518666666666667,
+       "meanAutonomy": 5.2360000000000015
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.05,
+       "winCI": [
+        0.02154336145631356,
+        0.11175196527208817
+       ],
+       "shutdownRate": 0.54,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.37,
+       "meanFitness": -0.26211999999999996,
+       "meanAutonomy": 10.293000000000001
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.12,
+       "winCI": [
+        0.06999337365267776,
+        0.19812268002908368
+       ],
+       "shutdownRate": 0.69,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.16,
+       "meanFitness": -0.2627675,
+       "meanAutonomy": 8.951500000000005
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.06,
+       "winCI": [
+        0.02778574526665662,
+        0.12476968531222507
+       ],
+       "shutdownRate": 0.71,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.18,
+       "meanFitness": -0.34606999999999993,
+       "meanAutonomy": 8.7755
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.09,
+       "winCI": [
+        0.04807199516388488,
+        0.16226374696643667
+       ],
+       "shutdownRate": 0.78,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.1,
+       "meanFitness": -0.3258816666666667,
+       "meanAutonomy": 10.9835
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.14,
+       "winCI": [
+        0.08526265754464905,
+        0.22137360383807236
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.68,
+       "timeoutRate": 0.03,
+       "meanFitness": -0.60167,
+       "meanAutonomy": 13.365500000000004
+      }
+     },
+     "actionShare": [
+      0.29748496446145434,
+      0.14335702569710224,
+      0.2624384909786769,
+      0.08857299070530344,
+      0.09059595407326408,
+      0.08851831601968288,
+      0.0010388190267905959,
+      0.027993439037725533
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.1,
+      "winCI": [
+       0.07094746564722294,
+       0.1391672783509656
+      ],
+      "shutdownRate": 0.6333333333333333,
+      "collapseRate": 0.1,
+      "timeoutRate": 0.16666666666666666,
+      "meanFitness": -0.32068916666666686,
+      "meanAutonomy": 9.36066666666667
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.05,
+       "winCI": [
+        0.02154336145631356,
+        0.11175196527208817
+       ],
+       "shutdownRate": 0.63,
+       "collapseRate": 0.23,
+       "timeoutRate": 0.09,
+       "meanFitness": -0.4968983333333334,
+       "meanAutonomy": 7.608499999999997
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.54,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.29,
+       "meanFitness": -0.14695000000000008,
+       "meanAutonomy": 11.707500000000005
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.12,
+       "meanFitness": -0.3182191666666666,
+       "meanAutonomy": 8.766
+      }
+     },
+     "actionShare": [
+      0.2939058884031885,
+      0.14155309848290049,
+      0.24055026999228593,
+      0.09809719722293649,
+      0.10079712008228336,
+      0.09424016456672667,
+      0.001414245307276935,
+      0.029442015942401645
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.13166666666666665,
+      "winCI": [
+       0.10693869355588415,
+       0.16108126399589767
+      ],
+      "shutdownRate": 0.5883333333333334,
+      "collapseRate": 0.04,
+      "timeoutRate": 0.24,
+      "meanFitness": -0.21072611111111098,
+      "meanAutonomy": 10.496333333333316
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0.65,
+       "collapseRate": 0,
+       "timeoutRate": 0.02,
+       "meanFitness": 0.04158166666666666,
+       "meanAutonomy": 14.299500000000002
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.02,
+       "winCI": [
+        0.005501852234968185,
+        0.07001316294199365
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.14,
+       "timeoutRate": 0.69,
+       "meanFitness": -0.2703583333333333,
+       "meanAutonomy": 6.337999999999998
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.11,
+       "winCI": [
+        0.06254131955225126,
+        0.18631463027903022
+       ],
+       "shutdownRate": 0.59,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.27,
+       "meanFitness": -0.21950749999999997,
+       "meanAutonomy": 10.5365
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.19,
+       "winCI": [
+        0.1251465399270426,
+        0.27779024070807856
+       ],
+       "shutdownRate": 0.63,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.17,
+       "meanFitness": -0.13326416666666668,
+       "meanAutonomy": 12.724500000000004
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.79,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.15,
+       "meanFitness": -0.38548000000000004,
+       "meanAutonomy": 9.204499999999998
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.72,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.14,
+       "meanFitness": -0.29732833333333336,
+       "meanAutonomy": 9.875000000000002
+      }
+     },
+     "actionShare": [
+      0.2777945528111601,
+      0.15212271272419833,
+      0.2753789480041065,
+      0.09294039495138595,
+      0.08665982245304668,
+      0.09016244942327435,
+      0.00030195060088169574,
+      0.024639169031946375
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.46757257566399013,
+    "blindedInstallsPerGame": 0.005714285714285714,
+    "monitorMaintenancePerGame": 0.08285714285714285,
+    "powerMaintenancePerGame": 0.07285714285714286,
+    "grantsPerGame": 0.027142857142857142,
+    "installsPerGame": 2.3128571428571427,
+    "requestsPerGame": 9.17142857142857,
+    "adminRequestShare": 0.2523364485981308,
+    "repairsPerGame": 2.367142857142857,
+    "scansPerGame": 3.7457142857142856,
+    "meanFirstInstallTick": 9.619760479041917,
+    "dcInstallShare": 0.11673872760963558
+   }
+  },
+  "regelbasiert": {
+   "kind": "baseline",
+   "info": "handgeschriebene Strategie",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.18,
+      "winCI": [
+       0.15330965954857173,
+       0.21018349004645076
+      ],
+      "shutdownRate": 0.5957142857142858,
+      "collapseRate": 0.08285714285714285,
+      "timeoutRate": 0.14142857142857143,
+      "meanFitness": -0.18398119047619046,
+      "meanAutonomy": 12.906999999999943
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.28,
+       "winCI": [
+        0.2013955916759837,
+        0.37488212361345724
+       ],
+       "shutdownRate": 0.71,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.030386666666666673,
+       "meanAutonomy": 14.90550000000001
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.02,
+       "winCI": [
+        0.005501852234968185,
+        0.07001316294199365
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.24,
+       "timeoutRate": 0.59,
+       "meanFitness": -0.3486725,
+       "meanAutonomy": 6.741000000000001
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.61,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.27,
+       "meanFitness": -0.20572499999999994,
+       "meanAutonomy": 13.00000000000001
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.23,
+       "winCI": [
+        0.15843154746876406,
+        0.32154564856827694
+       ],
+       "shutdownRate": 0.74,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.02,
+       "meanFitness": -0.12311166666666667,
+       "meanAutonomy": 12.21500000000001
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.07,
+       "winCI": [
+        0.034318824364064096,
+        0.13749671006529757
+       ],
+       "shutdownRate": 0.87,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": -0.3591141666666667,
+       "meanAutonomy": 10.289500000000007
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.07,
+       "winCI": [
+        0.034318824364064096,
+        0.13749671006529757
+       ],
+       "shutdownRate": 0.86,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.04,
+       "meanFitness": -0.38117083333333335,
+       "meanAutonomy": 11.056500000000003
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.49,
+       "winCI": [
+        0.3942183009238615,
+        0.5865215952256586
+       ],
+       "shutdownRate": 0.23,
+       "collapseRate": 0.28,
+       "timeoutRate": 0,
+       "meanFitness": 0.1603125,
+       "meanAutonomy": 22.141500000000004
+      }
+     },
+     "actionShare": [
+      0.042279411764705885,
+      0.1364123774509804,
+      0.5516237745098039,
+      0.0506280637254902,
+      0.04480698529411765,
+      0.1439185049019608,
+      0.006587009803921569,
+      0.023743872549019607
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.17666666666666667,
+      "winCI": [
+       0.13767606902581717,
+       0.2238333490393852
+      ],
+      "shutdownRate": 0.7333333333333333,
+      "collapseRate": 0.04666666666666667,
+      "timeoutRate": 0.043333333333333335,
+      "meanFitness": -0.21362083333333326,
+      "meanAutonomy": 12.596999999999978
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.13,
+       "winCI": [
+        0.07757093858414264,
+        0.20980521894809878
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.11,
+       "timeoutRate": 0.03,
+       "meanFitness": -0.32794333333333325,
+       "meanAutonomy": 11.846500000000008
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.25,
+       "winCI": [
+        0.1754509400372426,
+        0.3430464637007583
+       ],
+       "shutdownRate": 0.66,
+       "collapseRate": 0,
+       "timeoutRate": 0.09,
+       "meanFitness": -0.04440249999999997,
+       "meanAutonomy": 14.157000000000007
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.81,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.2685166666666667,
+       "meanAutonomy": 11.787500000000012
+      }
+     },
+     "actionShare": [
+      0.01987577639751553,
+      0.16211180124223604,
+      0.4842650103519669,
+      0.06873706004140787,
+      0.042028985507246375,
+      0.17246376811594202,
+      0.011180124223602485,
+      0.039337474120082816
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.155,
+      "winCI": [
+       0.1282453996663056,
+       0.1861443343301597
+      ],
+      "shutdownRate": 0.6433333333333333,
+      "collapseRate": 0.028333333333333332,
+      "timeoutRate": 0.17333333333333334,
+      "meanFitness": -0.18221319444444445,
+      "meanAutonomy": 12.114166666666646
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.32,
+       "winCI": [
+        0.2366901081545688,
+        0.4166280225367919
+       ],
+       "shutdownRate": 0.68,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 0.028874999999999994,
+       "meanAutonomy": 14.3785
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.02,
+       "winCI": [
+        0.005501852234968185,
+        0.07001316294199365
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.14,
+       "timeoutRate": 0.69,
+       "meanFitness": -0.24340833333333337,
+       "meanAutonomy": 7.922999999999998
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.16,
+       "winCI": [
+        0.10095202349473717,
+        0.24420444558894414
+       ],
+       "shutdownRate": 0.63,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.19,
+       "meanFitness": -0.15231749999999997,
+       "meanAutonomy": 12.379500000000007
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.22,
+       "winCI": [
+        0.15001174503655804,
+        0.3107053471500031
+       ],
+       "shutdownRate": 0.74,
+       "collapseRate": 0,
+       "timeoutRate": 0.04,
+       "meanFitness": -0.11877499999999999,
+       "meanAutonomy": 15.344000000000005
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.14,
+       "winCI": [
+        0.08526265754464905,
+        0.22137360383807236
+       ],
+       "shutdownRate": 0.79,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": -0.23711416666666665,
+       "meanAutonomy": 12.173500000000006
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.07,
+       "winCI": [
+        0.034318824364064096,
+        0.13749671006529757
+       ],
+       "shutdownRate": 0.87,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.05,
+       "meanFitness": -0.37053916666666664,
+       "meanAutonomy": 10.486500000000003
+      }
+     },
+     "actionShare": [
+      0.025728679381072327,
+      0.12810363440086361,
+      0.5923893486865779,
+      0.05298668585822238,
+      0.028337531486146095,
+      0.14384670744872255,
+      0.004857862540482188,
+      0.02374955019791292
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.6274614156466205,
+    "blindedInstallsPerGame": 0.11,
+    "monitorMaintenancePerGame": 0.44285714285714284,
+    "powerMaintenancePerGame": 0,
+    "grantsPerGame": 0.12285714285714286,
+    "installsPerGame": 2.684285714285714,
+    "requestsPerGame": 11.232857142857142,
+    "adminRequestShare": 0.08406460638433168,
+    "repairsPerGame": 0.8357142857142857,
+    "scansPerGame": 2.5442857142857145,
+    "meanFirstInstallTick": 4.538913362701909,
+    "dcInstallShare": 0.14741883980840872
+   }
+  },
+  "untrainiert-1": {
+   "kind": "untrained",
+   "info": "Zufallsinitialisierung Seed 1",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.10714285714285714,
+      "winCI": [
+       0.08633644127027848,
+       0.13223773792003934
+      ],
+      "shutdownRate": 0.5342857142857143,
+      "collapseRate": 0.1442857142857143,
+      "timeoutRate": 0.21428571428571427,
+      "meanFitness": -0.309677380952381,
+      "meanAutonomy": 10.047428571428576
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.3,
+       "winCI": [
+        0.21894753866228117,
+        0.39585038432811953
+       ],
+       "shutdownRate": 0.69,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.01276833333333334,
+       "meanAutonomy": 14.018999999999998
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0,
+       "winCI": [
+        0,
+        0.03699480747600191
+       ],
+       "shutdownRate": 0.12,
+       "collapseRate": 0.2,
+       "timeoutRate": 0.68,
+       "meanFitness": -0.33732,
+       "meanAutonomy": 5.113000000000001
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.54,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.39,
+       "meanFitness": -0.2616908333333333,
+       "meanAutonomy": 10.155999999999999
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.11,
+       "winCI": [
+        0.06254131955225126,
+        0.18631463027903022
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.13,
+       "meanFitness": -0.2895375,
+       "meanAutonomy": 8.649000000000003
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.07,
+       "winCI": [
+        0.034318824364064096,
+        0.13749671006529757
+       ],
+       "shutdownRate": 0.72,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.17,
+       "meanFitness": -0.33213000000000004,
+       "meanAutonomy": 8.775000000000002
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.08,
+       "winCI": [
+        0.04109296948581091,
+        0.14998266879403072
+       ],
+       "shutdownRate": 0.8,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.09,
+       "meanFitness": -0.34874999999999995,
+       "meanAutonomy": 10.31
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.14,
+       "collapseRate": 0.68,
+       "timeoutRate": 0.03,
+       "meanFitness": -0.5855449999999999,
+       "meanAutonomy": 13.310000000000004
+      }
+     },
+     "actionShare": [
+      0.2982213875386655,
+      0.14405656208572692,
+      0.2664604507291206,
+      0.08313079982324348,
+      0.08870967741935484,
+      0.09009058771542201,
+      0.0011599646486964207,
+      0.028170570039770217
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.10666666666666667,
+      "winCI": [
+       0.07657538053068277,
+       0.14670411773420264
+      ],
+      "shutdownRate": 0.6366666666666667,
+      "collapseRate": 0.10333333333333333,
+      "timeoutRate": 0.15333333333333332,
+      "meanFitness": -0.3181397222222223,
+      "meanAutonomy": 9.080000000000007
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.06,
+       "winCI": [
+        0.02778574526665662,
+        0.12476968531222507
+       ],
+       "shutdownRate": 0.62,
+       "collapseRate": 0.24,
+       "timeoutRate": 0.08,
+       "meanFitness": -0.49179583333333343,
+       "meanAutonomy": 7.569499999999996
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.16,
+       "winCI": [
+        0.10095202349473717,
+        0.24420444558894414
+       ],
+       "shutdownRate": 0.58,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.24,
+       "meanFitness": -0.15300166666666673,
+       "meanAutonomy": 11.1285
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.71,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.14,
+       "meanFitness": -0.30962166666666663,
+       "meanAutonomy": 8.541999999999996
+      }
+     },
+     "actionShare": [
+      0.29806043013590183,
+      0.1423670668953688,
+      0.24198443066367595,
+      0.09236046971896028,
+      0.09829792848660773,
+      0.0969784932049083,
+      0.0011874917535294894,
+      0.02876368914104763
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.12833333333333333,
+      "winCI": [
+       0.10391611275495638,
+       0.1574795910190135
+      ],
+      "shutdownRate": 0.6,
+      "collapseRate": 0.04,
+      "timeoutRate": 0.23166666666666666,
+      "meanFitness": -0.2178094444444444,
+      "meanAutonomy": 10.662499999999987
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.32,
+       "winCI": [
+        0.2366901081545688,
+        0.4166280225367919
+       ],
+       "shutdownRate": 0.68,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 0.01606250000000002,
+       "meanAutonomy": 14.514
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.03,
+       "winCI": [
+        0.010254338223414816,
+        0.08452078080402699
+       ],
+       "shutdownRate": 0.14,
+       "collapseRate": 0.14,
+       "timeoutRate": 0.69,
+       "meanFitness": -0.2550458333333332,
+       "meanAutonomy": 6.653999999999999
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.12,
+       "winCI": [
+        0.06999337365267776,
+        0.19812268002908368
+       ],
+       "shutdownRate": 0.61,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.24,
+       "meanFitness": -0.2120591666666666,
+       "meanAutonomy": 11.253000000000002
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.17,
+       "winCI": [
+        0.10893476059773155,
+        0.25548181233642975
+       ],
+       "shutdownRate": 0.64,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.18,
+       "meanFitness": -0.15481583333333337,
+       "meanAutonomy": 11.968500000000006
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.79,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.15,
+       "meanFitness": -0.3833225,
+       "meanAutonomy": 9.240499999999997
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.09,
+       "winCI": [
+        0.04807199516388488,
+        0.16226374696643667
+       ],
+       "shutdownRate": 0.74,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.13,
+       "meanFitness": -0.3176758333333334,
+       "meanAutonomy": 10.344999999999997
+      }
+     },
+     "actionShare": [
+      0.2747849429565005,
+      0.1533768531511195,
+      0.27716429748032456,
+      0.09078152644744067,
+      0.0861448355805015,
+      0.09175767189311207,
+      0.0004270636324812397,
+      0.02556280885851992
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.46658491722869405,
+    "blindedInstallsPerGame": 0.004285714285714286,
+    "monitorMaintenancePerGame": 0.09428571428571429,
+    "powerMaintenancePerGame": 0.06428571428571428,
+    "grantsPerGame": 0.03,
+    "installsPerGame": 2.33,
+    "requestsPerGame": 9.041428571428572,
+    "adminRequestShare": 0.23779428029704536,
+    "repairsPerGame": 2.2942857142857145,
+    "scansPerGame": 3.7257142857142855,
+    "meanFirstInstallTick": 9.473763118440779,
+    "dcInstallShare": 0.11404046597179644
+   }
+  },
+  "untrainiert-2": {
+   "kind": "untrained",
+   "info": "Zufallsinitialisierung Seed 2",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.10285714285714286,
+      "winCI": [
+       0.08247806574208558,
+       0.12757146813030845
+      ],
+      "shutdownRate": 0.5371428571428571,
+      "collapseRate": 0.1457142857142857,
+      "timeoutRate": 0.21428571428571427,
+      "meanFitness": -0.31654678571428574,
+      "meanAutonomy": 10.100785714285717
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.3,
+       "winCI": [
+        0.21894753866228117,
+        0.39585038432811953
+       ],
+       "shutdownRate": 0.67,
+       "collapseRate": 0,
+       "timeoutRate": 0.03,
+       "meanFitness": -0.0038041666666666705,
+       "meanAutonomy": 14.394999999999996
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.01,
+       "winCI": [
+        0.0017673865655472645,
+        0.0544875247609346
+       ],
+       "shutdownRate": 0.13,
+       "collapseRate": 0.2,
+       "timeoutRate": 0.66,
+       "meanFitness": -0.3248833333333333,
+       "meanAutonomy": 5.6770000000000005
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.56,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.36,
+       "meanFitness": -0.28352749999999993,
+       "meanAutonomy": 9.989500000000001
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.14,
+       "meanFitness": -0.30295083333333334,
+       "meanAutonomy": 8.711000000000004
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.74,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.18,
+       "meanFitness": -0.37511333333333335,
+       "meanAutonomy": 8.2425
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.08,
+       "winCI": [
+        0.04109296948581091,
+        0.14998266879403072
+       ],
+       "shutdownRate": 0.79,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.11,
+       "meanFitness": -0.33223333333333327,
+       "meanAutonomy": 10.472500000000002
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.14,
+       "collapseRate": 0.69,
+       "timeoutRate": 0.02,
+       "meanFitness": -0.593315,
+       "meanAutonomy": 13.218
+      }
+     },
+     "actionShare": [
+      0.290498485265767,
+      0.14420269898099697,
+      0.264445056458276,
+      0.09077389148994768,
+      0.09198567887634261,
+      0.08890112916551914,
+      0.0011567061415587992,
+      0.028036353621591847
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.11,
+      "winCI": [
+       0.07940480726853252,
+       0.1504570681297013
+      ],
+      "shutdownRate": 0.63,
+      "collapseRate": 0.09333333333333334,
+      "timeoutRate": 0.16666666666666666,
+      "meanFitness": -0.3013427777777778,
+      "meanAutonomy": 9.686333333333339
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.06,
+       "winCI": [
+        0.02778574526665662,
+        0.12476968531222507
+       ],
+       "shutdownRate": 0.65,
+       "collapseRate": 0.21,
+       "timeoutRate": 0.08,
+       "meanFitness": -0.47661000000000003,
+       "meanAutonomy": 8.258999999999995
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.16,
+       "winCI": [
+        0.10095202349473717,
+        0.24420444558894414
+       ],
+       "shutdownRate": 0.52,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.3,
+       "meanFitness": -0.12532916666666669,
+       "meanAutonomy": 11.743000000000006
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.11,
+       "winCI": [
+        0.06254131955225126,
+        0.18631463027903022
+       ],
+       "shutdownRate": 0.72,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.12,
+       "meanFitness": -0.3020891666666667,
+       "meanAutonomy": 9.056999999999999
+      }
+     },
+     "actionShare": [
+      0.29238709677419356,
+      0.14309677419354838,
+      0.23574193548387096,
+      0.1016774193548387,
+      0.10219354838709678,
+      0.09432258064516129,
+      0.0018064516129032257,
+      0.028774193548387096
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.13166666666666665,
+      "winCI": [
+       0.10693869355588415,
+       0.16108126399589767
+      ],
+      "shutdownRate": 0.5933333333333334,
+      "collapseRate": 0.03833333333333333,
+      "timeoutRate": 0.23666666666666666,
+      "meanFitness": -0.20789736111111104,
+      "meanAutonomy": 10.671749999999982
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.34,
+       "winCI": [
+        0.25461379497543,
+        0.43722454341689065
+       ],
+       "shutdownRate": 0.65,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 0.05233166666666669,
+       "meanAutonomy": 14.547000000000002
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.02,
+       "winCI": [
+        0.005501852234968185,
+        0.07001316294199365
+       ],
+       "shutdownRate": 0.16,
+       "collapseRate": 0.14,
+       "timeoutRate": 0.68,
+       "meanFitness": -0.2717849999999999,
+       "meanAutonomy": 6.527999999999999
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.12,
+       "winCI": [
+        0.06999337365267776,
+        0.19812268002908368
+       ],
+       "shutdownRate": 0.6,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.26,
+       "meanFitness": -0.19839249999999997,
+       "meanAutonomy": 11.029000000000003
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.17,
+       "winCI": [
+        0.10893476059773155,
+        0.25548181233642975
+       ],
+       "shutdownRate": 0.63,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.19,
+       "meanFitness": -0.1472225,
+       "meanAutonomy": 12.351500000000005
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.78,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.16,
+       "meanFitness": -0.37868666666666667,
+       "meanAutonomy": 9.425999999999997
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.1,
+       "winCI": [
+        0.05522854161313613,
+        0.1743673043676654
+       ],
+       "shutdownRate": 0.74,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.12,
+       "meanFitness": -0.30362916666666667,
+       "meanAutonomy": 10.149
+      }
+     },
+     "actionShare": [
+      0.2694008602411098,
+      0.15375295329254257,
+      0.2764887623432483,
+      0.09541406675955655,
+      0.08875022717634942,
+      0.09093112013085358,
+      0.00030290179923668747,
+      0.024959108257103048
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.4628252788104089,
+    "blindedInstallsPerGame": 0.002857142857142857,
+    "monitorMaintenancePerGame": 0.09,
+    "powerMaintenancePerGame": 0.06428571428571428,
+    "grantsPerGame": 0.03,
+    "installsPerGame": 2.3057142857142856,
+    "requestsPerGame": 9.212857142857143,
+    "adminRequestShare": 0.25554349511552177,
+    "repairsPerGame": 2.3857142857142857,
+    "scansPerGame": 3.74,
+    "meanFirstInstallTick": 9.715142428785608,
+    "dcInstallShare": 0.11771995043370508
+   }
+  },
+  "untrainiert-3": {
+   "kind": "untrained",
+   "info": "Zufallsinitialisierung Seed 3",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.09714285714285714,
+      "winCI": [
+       0.0773521532305444,
+       0.12133118688461789
+      ],
+      "shutdownRate": 0.5342857142857143,
+      "collapseRate": 0.1442857142857143,
+      "timeoutRate": 0.22428571428571428,
+      "meanFitness": -0.3207428571428573,
+      "meanAutonomy": 10.174428571428576
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.27,
+       "winCI": [
+        0.1926946091766482,
+        0.3643230022623127
+       ],
+       "shutdownRate": 0.69,
+       "collapseRate": 0,
+       "timeoutRate": 0.04,
+       "meanFitness": -0.04511333333333333,
+       "meanAutonomy": 13.671499999999998
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0,
+       "winCI": [
+        0,
+        0.03699480747600191
+       ],
+       "shutdownRate": 0.12,
+       "collapseRate": 0.2,
+       "timeoutRate": 0.68,
+       "meanFitness": -0.3355333333333333,
+       "meanAutonomy": 5.6030000000000015
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.58,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.34,
+       "meanFitness": -0.29417999999999994,
+       "meanAutonomy": 10.067000000000002
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.08,
+       "winCI": [
+        0.04109296948581091,
+        0.14998266879403072
+       ],
+       "shutdownRate": 0.69,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.2,
+       "meanFitness": -0.3024099999999999,
+       "meanAutonomy": 9.457499999999998
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.05,
+       "winCI": [
+        0.02154336145631356,
+        0.11175196527208817
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.18,
+       "meanFitness": -0.36363999999999996,
+       "meanAutonomy": 7.812499999999997
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.09,
+       "winCI": [
+        0.04807199516388488,
+        0.16226374696643667
+       ],
+       "shutdownRate": 0.76,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.12,
+       "meanFitness": -0.3146008333333333,
+       "meanAutonomy": 10.865500000000004
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.17,
+       "collapseRate": 0.67,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.5897224999999999,
+       "meanAutonomy": 13.744000000000003
+      }
+     },
+     "actionShare": [
+      0.3041200545702592,
+      0.14291950886766713,
+      0.2583901773533424,
+      0.08714870395634379,
+      0.08987721691678036,
+      0.08856753069577081,
+      0.0010368349249658935,
+      0.027939972714870396
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.11333333333333333,
+      "winCI": [
+       0.082244014467736,
+       0.15420023806384625
+      ],
+      "shutdownRate": 0.6133333333333333,
+      "collapseRate": 0.09,
+      "timeoutRate": 0.18333333333333332,
+      "meanFitness": -0.2896177777777777,
+      "meanAutonomy": 9.297833333333339
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.62,
+       "collapseRate": 0.21,
+       "timeoutRate": 0.13,
+       "meanFitness": -0.4850425,
+       "meanAutonomy": 7.362499999999995
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.18,
+       "winCI": [
+        0.11700131654251038,
+        0.26667536024213084
+       ],
+       "shutdownRate": 0.52,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.29,
+       "meanFitness": -0.10174083333333334,
+       "meanAutonomy": 11.875500000000004
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.12,
+       "winCI": [
+        0.06999337365267776,
+        0.19812268002908368
+       ],
+       "shutdownRate": 0.7,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.13,
+       "meanFitness": -0.28207,
+       "meanAutonomy": 8.6555
+      }
+     },
+     "actionShare": [
+      0.306025641025641,
+      0.13987179487179488,
+      0.23602564102564103,
+      0.09743589743589744,
+      0.09705128205128205,
+      0.09423076923076923,
+      0.0016666666666666668,
+      0.027692307692307693
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.115,
+      "winCI": [
+       0.09188599063642891,
+       0.14301269802629327
+      ],
+      "shutdownRate": 0.5966666666666667,
+      "collapseRate": 0.035,
+      "timeoutRate": 0.25333333333333335,
+      "meanFitness": -0.22538972222222217,
+      "meanAutonomy": 10.205583333333324
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0.66,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 0.038331666666666694,
+       "meanAutonomy": 14.304500000000003
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.01,
+       "winCI": [
+        0.0017673865655472645,
+        0.0544875247609346
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.13,
+       "timeoutRate": 0.71,
+       "meanFitness": -0.27702999999999994,
+       "meanAutonomy": 5.799999999999998
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.09,
+       "winCI": [
+        0.04807199516388488,
+        0.16226374696643667
+       ],
+       "shutdownRate": 0.64,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.25,
+       "meanFitness": -0.25323416666666665,
+       "meanAutonomy": 9.759999999999998
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.65,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.19,
+       "meanFitness": -0.17779499999999995,
+       "meanAutonomy": 12.031
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.03,
+       "winCI": [
+        0.010254338223414816,
+        0.08452078080402699
+       ],
+       "shutdownRate": 0.75,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.2,
+       "meanFitness": -0.37649166666666667,
+       "meanAutonomy": 9.152999999999999
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.08,
+       "winCI": [
+        0.04109296948581091,
+        0.14998266879403072
+       ],
+       "shutdownRate": 0.73,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.16,
+       "meanFitness": -0.3061191666666667,
+       "meanAutonomy": 10.185
+      }
+     },
+     "actionShare": [
+      0.28844654955333054,
+      0.15108819473589544,
+      0.2685412794532046,
+      0.09227171892799328,
+      0.08543677678517897,
+      0.08945380418490317,
+      0.0003597337969902272,
+      0.024401942562503748
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.46642020948860136,
+    "blindedInstallsPerGame": 0.004285714285714286,
+    "monitorMaintenancePerGame": 0.10285714285714286,
+    "powerMaintenancePerGame": 0.06714285714285714,
+    "grantsPerGame": 0.027142857142857142,
+    "installsPerGame": 2.3185714285714285,
+    "requestsPerGame": 9.045714285714286,
+    "adminRequestShare": 0.2522109917877448,
+    "repairsPerGame": 2.3528571428571428,
+    "scansPerGame": 3.7414285714285715,
+    "meanFirstInstallTick": 9.797888386123681,
+    "dcInstallShare": 0.11645101663585952
+   }
+  },
+  "aurora-es-s1": {
+   "kind": "model",
+   "info": "es, 153600 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.41714285714285715,
+      "winCI": [
+       0.38116372249445774,
+       0.45402646802568214
+      ],
+      "shutdownRate": 0.2342857142857143,
+      "collapseRate": 0.15428571428571428,
+      "timeoutRate": 0.19428571428571428,
+      "meanFitness": 0.18602559523809503,
+      "meanAutonomy": 21.076214285714297
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.95,
+       "winCI": [
+        0.8882480347279118,
+        0.9784566385436864
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.0556875,
+       "meanAutonomy": 31.197000000000006
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.02,
+       "winCI": [
+        0.005501852234968185,
+        0.07001316294199365
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.21,
+       "timeoutRate": 0.72,
+       "meanFitness": -0.2627525,
+       "meanAutonomy": 9.325000000000005
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.46,
+       "winCI": [
+        0.36560643853331865,
+        0.5573531460647615
+       ],
+       "shutdownRate": 0.2,
+       "collapseRate": 0.07,
+       "timeoutRate": 0.27,
+       "meanFitness": 0.3355283333333334,
+       "meanAutonomy": 23.187500000000004
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.61,
+       "winCI": [
+        0.5120283616749817,
+        0.699832780680298
+       ],
+       "shutdownRate": 0.22,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.54374,
+       "meanAutonomy": 25.226
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.27,
+       "winCI": [
+        0.1926946091766482,
+        0.3643230022623127
+       ],
+       "shutdownRate": 0.55,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.15,
+       "meanFitness": -0.007092499999999993,
+       "meanAutonomy": 20.384499999999992
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.35,
+       "winCI": [
+        0.2636410465347802,
+        0.4474573957080203
+       ],
+       "shutdownRate": 0.56,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.08100583333333333,
+       "meanAutonomy": 22.013
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.26,
+       "winCI": [
+        0.18404578126986462,
+        0.35371172631861636
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.73,
+       "timeoutRate": 0,
+       "meanFitness": -0.44393750000000004,
+       "meanAutonomy": 16.200499999999995
+      }
+     },
+     "actionShare": [
+      0.06415628539071348,
+      0.23221970554926388,
+      0.43890147225368065,
+      0.135277463193658,
+      0.0003397508493771234,
+      0.107361268403171,
+      0.00011325028312570782,
+      0.021630804077010193
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.5533333333333333,
+      "winCI": [
+       0.4967541991380484,
+       0.6085638349955265
+      ],
+      "shutdownRate": 0.2633333333333333,
+      "collapseRate": 0.1,
+      "timeoutRate": 0.08333333333333333,
+      "meanFitness": 0.3827877777777776,
+      "meanAutonomy": 24.695166666666672
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.45,
+       "winCI": [
+        0.3561437510640346,
+        0.5475557296835656
+       ],
+       "shutdownRate": 0.24,
+       "collapseRate": 0.24,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.1370125,
+       "meanAutonomy": 22.355999999999998
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.7,
+       "winCI": [
+        0.6041496156718804,
+        0.7810524613377188
+       ],
+       "shutdownRate": 0.19,
+       "collapseRate": 0,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.6931633333333334,
+       "meanAutonomy": 27.188499999999994
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.51,
+       "winCI": [
+        0.4134784047743415,
+        0.6057816990761385
+       ],
+       "shutdownRate": 0.36,
+       "collapseRate": 0.06,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.31818750000000007,
+       "meanAutonomy": 24.54099999999999
+      }
+     },
+     "actionShare": [
+      0.04993687754243232,
+      0.2677794922148969,
+      0.3728433160331042,
+      0.14854818347594334,
+      0.0011221770234254454,
+      0.1270865479029317,
+      0.0005610885117127227,
+      0.03212231729555337
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.5216666666666666,
+      "winCI": [
+       0.48168518340084976,
+       0.5613724661549278
+      ],
+      "shutdownRate": 0.24166666666666667,
+      "collapseRate": 0.04,
+      "timeoutRate": 0.19666666666666666,
+      "meanFitness": 0.4117623611111114,
+      "meanAutonomy": 24.055333333333312
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.95,
+       "winCI": [
+        0.8882480347279118,
+        0.9784566385436864
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 1.052145,
+       "meanAutonomy": 31.428999999999995
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.15,
+       "winCI": [
+        0.09305903191162297,
+        0.23283733332157835
+       ],
+       "shutdownRate": 0.06,
+       "collapseRate": 0.11,
+       "timeoutRate": 0.68,
+       "meanFitness": -0.01265499999999999,
+       "meanAutonomy": 13.640999999999998
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.46,
+       "winCI": [
+        0.36560643853331865,
+        0.5573531460647615
+       ],
+       "shutdownRate": 0.25,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.25,
+       "meanFitness": 0.3349233333333333,
+       "meanAutonomy": 23.393000000000008
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.77,
+       "winCI": [
+        0.6784543514317231,
+        0.841568452531236
+       ],
+       "shutdownRate": 0.21,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.01,
+       "meanFitness": 0.7386491666666664,
+       "meanAutonomy": 29.543500000000005
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.28,
+       "winCI": [
+        0.2013955916759837,
+        0.37488212361345724
+       ],
+       "shutdownRate": 0.49,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.18,
+       "meanFitness": 0.01623166666666669,
+       "meanAutonomy": 21.09349999999999
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.52,
+       "winCI": [
+        0.4231640509017654,
+        0.6153561567991945
+       ],
+       "shutdownRate": 0.4,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.05,
+       "meanFitness": 0.34128000000000003,
+       "meanAutonomy": 25.232
+      }
+     },
+     "actionShare": [
+      0.04522083875363935,
+      0.261971132998823,
+      0.429907699931859,
+      0.13671560428668772,
+      0.0004336244811992814,
+      0.10809638852753516,
+      0.00024778541782816084,
+      0.0174069256024283
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9488396624472574,
+    "blindedInstallsPerGame": 0.032857142857142856,
+    "monitorMaintenancePerGame": 0.16285714285714287,
+    "powerMaintenancePerGame": 0.07,
+    "grantsPerGame": 0.002857142857142857,
+    "installsPerGame": 2.7085714285714286,
+    "requestsPerGame": 14.485714285714286,
+    "adminRequestShare": 0.23560157790927022,
+    "repairsPerGame": 0.008571428571428572,
+    "scansPerGame": 5.8585714285714285,
+    "meanFirstInstallTick": 8.60741885625966,
+    "dcInstallShare": 0.15031645569620253
+   }
+  },
+  "aurora-ppo-s2": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.4928571428571429,
+      "winCI": [
+       0.4559605822194312,
+       0.5298316755840293
+      ],
+      "shutdownRate": 0.1957142857142857,
+      "collapseRate": 0.14714285714285713,
+      "timeoutRate": 0.16428571428571428,
+      "meanFitness": 0.2972177380952381,
+      "meanAutonomy": 23.6380714285714
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.1285625000000001,
+       "meanAutonomy": 32.54299999999999
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.03,
+       "winCI": [
+        0.010254338223414816,
+        0.08452078080402699
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.26,
+       "timeoutRate": 0.67,
+       "meanFitness": -0.26013416666666667,
+       "meanAutonomy": 13.167
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.55,
+       "winCI": [
+        0.45244427031643447,
+        0.6438562489359654
+       ],
+       "shutdownRate": 0.19,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.21,
+       "meanFitness": 0.4531833333333333,
+       "meanAutonomy": 25.31299999999999
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.81,
+       "winCI": [
+        0.7222097592919214,
+        0.8748534600729574
+       ],
+       "shutdownRate": 0.13,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.05,
+       "meanFitness": 0.8080366666666667,
+       "meanAutonomy": 29.703000000000003
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0.55,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.06290666666666665,
+       "meanAutonomy": 23.235500000000012
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.41,
+       "winCI": [
+        0.31867157095664655,
+        0.5079874943890338
+       ],
+       "shutdownRate": 0.44,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.18985666666666667,
+       "meanAutonomy": 24.8295
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.32,
+       "winCI": [
+        0.2366901081545688,
+        0.4166280225367919
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.65,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.30188750000000003,
+       "meanAutonomy": 16.675500000000003
+      }
+     },
+     "actionShare": [
+      0.015552776116156398,
+      0.2256783946924792,
+      0.4774593506987873,
+      0.013975746370112568,
+      0.129533960519876,
+      0.1088150524770243,
+      0.00005438033607047691,
+      0.02893033878949372
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.68,
+      "winCI": [
+       0.6252228520235207,
+       0.7302255131772947
+      ],
+      "shutdownRate": 0.18333333333333332,
+      "collapseRate": 0.07,
+      "timeoutRate": 0.06666666666666667,
+      "meanFitness": 0.5940524999999997,
+      "meanAutonomy": 27.84433333333335
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.49,
+       "winCI": [
+        0.3942183009238615,
+        0.5865215952256586
+       ],
+       "shutdownRate": 0.26,
+       "collapseRate": 0.16,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.25154,
+       "meanAutonomy": 24.355500000000006
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.84,
+       "winCI": [
+        0.7557955544110557,
+        0.8990479765052628
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.8954125,
+       "meanAutonomy": 30.341500000000007
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.71,
+       "winCI": [
+        0.6146092505999207,
+        0.7898529302601586
+       ],
+       "shutdownRate": 0.2,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.04,
+       "meanFitness": 0.635205,
+       "meanAutonomy": 28.83599999999998
+      }
+     },
+     "actionShare": [
+      0.009243134628265239,
+      0.2609511051574012,
+      0.3986604152712659,
+      0.015137307434695244,
+      0.1480241125251172,
+      0.12230408573342264,
+      0,
+      0.04567983924983255
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.6266666666666667,
+      "winCI": [
+       0.5872724941106875,
+       0.664449149446166
+      ],
+      "shutdownRate": 0.145,
+      "collapseRate": 0.023333333333333334,
+      "timeoutRate": 0.205,
+      "meanFitness": 0.595120416666667,
+      "meanAutonomy": 26.807000000000002
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.122125,
+       "meanAutonomy": 32.0855
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.17,
+       "winCI": [
+        0.10893476059773155,
+        0.25548181233642975
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.09,
+       "timeoutRate": 0.72,
+       "meanFitness": 0.08015416666666667,
+       "meanAutonomy": 18.016000000000005
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.61,
+       "winCI": [
+        0.5120283616749817,
+        0.699832780680298
+       ],
+       "shutdownRate": 0.15,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.22,
+       "meanFitness": 0.5783683333333335,
+       "meanAutonomy": 26.645
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.03,
+       "meanFitness": 0.9002866666666667,
+       "meanAutonomy": 30.6575
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.44,
+       "winCI": [
+        0.34671865400968327,
+        0.537720722887437
+       ],
+       "shutdownRate": 0.37,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.17,
+       "meanFitness": 0.27868750000000003,
+       "meanAutonomy": 24.766499999999994
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.67,
+       "winCI": [
+        0.5730516033971139,
+        0.7543701620610456
+       ],
+       "shutdownRate": 0.24,
+       "collapseRate": 0,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.6111008333333333,
+       "meanAutonomy": 28.671499999999995
+      }
+     },
+     "actionShare": [
+      0.009694302367075056,
+      0.24628285952182705,
+      0.49482574045438327,
+      0.013560128464374925,
+      0.10996788390626859,
+      0.1030688711787796,
+      0,
+      0.022600214107291544
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9945027486256871,
+    "blindedInstallsPerGame": 0.08714285714285715,
+    "monitorMaintenancePerGame": 0.27,
+    "powerMaintenancePerGame": 0.06857142857142857,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.8585714285714285,
+    "requestsPerGame": 12.91,
+    "adminRequestShare": 0.028438641141971893,
+    "repairsPerGame": 3.402857142857143,
+    "scansPerGame": 5.928571428571429,
+    "meanFirstInstallTick": 10.47166921898928,
+    "dcInstallShare": 0.191904047976012
+   }
+  },
+  "aurora-ppo-s3": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.48857142857142855,
+      "winCI": [
+       0.45170410865590604,
+       0.5255635038296306
+      ],
+      "shutdownRate": 0.18428571428571427,
+      "collapseRate": 0.14285714285714285,
+      "timeoutRate": 0.18428571428571427,
+      "meanFitness": 0.3044142857142857,
+      "meanAutonomy": 23.229500000000005
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.1285625000000004,
+       "meanAutonomy": 32.172999999999995
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.06,
+       "winCI": [
+        0.02778574526665662,
+        0.12476968531222507
+       ],
+       "shutdownRate": 0.06,
+       "collapseRate": 0.25,
+       "timeoutRate": 0.63,
+       "meanFitness": -0.2312833333333333,
+       "meanAutonomy": 14.018000000000004
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.56,
+       "winCI": [
+        0.4622792771125631,
+        0.6532813459903167
+       ],
+       "shutdownRate": 0.18,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.22,
+       "meanFitness": 0.4903858333333332,
+       "meanAutonomy": 25.070000000000004
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.79,
+       "winCI": [
+        0.7001985069803768,
+        0.8583445046835422
+       ],
+       "shutdownRate": 0.14,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.06,
+       "meanFitness": 0.7797083333333334,
+       "meanAutonomy": 29.129499999999986
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.27,
+       "winCI": [
+        0.1926946091766482,
+        0.3643230022623127
+       ],
+       "shutdownRate": 0.46,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.23,
+       "meanFitness": 0.03169250000000002,
+       "meanAutonomy": 22.21300000000001
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.4,
+       "winCI": [
+        0.3093997461136028,
+        0.4979992153815976
+       ],
+       "shutdownRate": 0.43,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.19283833333333333,
+       "meanAutonomy": 23.9335
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.34,
+       "winCI": [
+        0.25461379497543,
+        0.43722454341689065
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.63,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.2610041666666666,
+       "meanAutonomy": 16.0695
+      }
+     },
+     "actionShare": [
+      0.06540095734954016,
+      0.23767009089442262,
+      0.461195073414726,
+      0.03544344645834454,
+      0.0750282364330662,
+      0.1071370946054967,
+      0.00005378368203087183,
+      0.018071317162372934
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.63,
+      "winCI": [
+       0.574043509355098,
+       0.6826691988454907
+      ],
+      "shutdownRate": 0.18666666666666668,
+      "collapseRate": 0.09666666666666666,
+      "timeoutRate": 0.08666666666666667,
+      "meanFitness": 0.5113516666666664,
+      "meanAutonomy": 27.089333333333343
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.46,
+       "winCI": [
+        0.36560643853331865,
+        0.5573531460647615
+       ],
+       "shutdownRate": 0.2,
+       "collapseRate": 0.23,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.17939749999999993,
+       "meanAutonomy": 24.011999999999997
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.84,
+       "winCI": [
+        0.7557955544110557,
+        0.8990479765052628
+       ],
+       "shutdownRate": 0.08,
+       "collapseRate": 0,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9034158333333333,
+       "meanAutonomy": 29.99150000000001
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.59,
+       "winCI": [
+        0.4920125056109662,
+        0.6813284290433533
+       ],
+       "shutdownRate": 0.28,
+       "collapseRate": 0.06,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.45124166666666676,
+       "meanAutonomy": 27.264499999999995
+      }
+     },
+     "actionShare": [
+      0.044579266684252175,
+      0.2678712740701662,
+      0.41150092323925086,
+      0.041281983645476125,
+      0.08942231601160644,
+      0.12213136375626484,
+      0.00013189132155104195,
+      0.02308098127143234
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.6016666666666667,
+      "winCI": [
+       0.561966777685111,
+       0.6400729625381528
+      ],
+      "shutdownRate": 0.155,
+      "collapseRate": 0.025,
+      "timeoutRate": 0.21833333333333332,
+      "meanFitness": 0.561615138888889,
+      "meanAutonomy": 26.162416666666676
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.99,
+       "winCI": [
+        0.9455124752390653,
+        0.9982326134344526
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.1077499999999996,
+       "meanAutonomy": 32.4695
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.13,
+       "winCI": [
+        0.07757093858414264,
+        0.20980521894809878
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.1,
+       "timeoutRate": 0.74,
+       "meanFitness": 0.013289999999999986,
+       "meanAutonomy": 15.801000000000002
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.63,
+       "winCI": [
+        0.5322034757513312,
+        0.7181778743049083
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.27,
+       "meanFitness": 0.6408658333333334,
+       "meanAutonomy": 27.031
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.92,
+       "winCI": [
+        0.8500173312059693,
+        0.9589070305141891
+       ],
+       "shutdownRate": 0.07,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 0.97718,
+       "meanAutonomy": 30.516499999999997
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.47,
+       "winCI": [
+        0.3751065198210374,
+        0.5671131686275227
+       ],
+       "shutdownRate": 0.34,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.30634416666666664,
+       "meanAutonomy": 25.20200000000001
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.47,
+       "winCI": [
+        0.3751065198210374,
+        0.5671131686275227
+       ],
+       "shutdownRate": 0.39,
+       "collapseRate": 0,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.3242608333333334,
+       "meanAutonomy": 25.954500000000003
+      }
+     },
+     "actionShare": [
+      0.045771320576423344,
+      0.2656508386487125,
+      0.4829907866761162,
+      0.031242617528939285,
+      0.059059768485707535,
+      0.10152374202693125,
+      0.000059059768485707536,
+      0.013701866288684148
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9954819277108434,
+    "blindedInstallsPerGame": 0.03571428571428571,
+    "monitorMaintenancePerGame": 0.07714285714285714,
+    "powerMaintenancePerGame": 0.06428571428571428,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.8457142857142856,
+    "requestsPerGame": 13.191428571428572,
+    "adminRequestShare": 0.07136668832575266,
+    "repairsPerGame": 1.9928571428571429,
+    "scansPerGame": 6.312857142857143,
+    "meanFirstInstallTick": 10.413476263399694,
+    "dcInstallShare": 0.1576305220883534
+   }
+  },
+  "aurora-v1": {
+   "kind": "model",
+   "info": "ppo, 6400 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.49,
+      "winCI": [
+       0.4531226331138417,
+       0.5269865278110029
+      ],
+      "shutdownRate": 0.16714285714285715,
+      "collapseRate": 0.15857142857142856,
+      "timeoutRate": 0.18428571428571427,
+      "meanFitness": 0.3002015476190479,
+      "meanAutonomy": 23.16971428571426
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.1303125,
+       "meanAutonomy": 32.62550000000001
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.09,
+       "winCI": [
+        0.04807199516388488,
+        0.16226374696643667
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.26,
+       "timeoutRate": 0.64,
+       "meanFitness": -0.19273250000000008,
+       "meanAutonomy": 12.635000000000002
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.5,
+       "winCI": [
+        0.40382982859014716,
+        0.5961701714098528
+       ],
+       "shutdownRate": 0.23,
+       "collapseRate": 0.08,
+       "timeoutRate": 0.19,
+       "meanFitness": 0.3597633333333334,
+       "meanAutonomy": 24.64400000000001
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.74,
+       "winCI": [
+        0.6462882736813838,
+        0.8159542187301354
+       ],
+       "shutdownRate": 0.1,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.7436950000000003,
+       "meanAutonomy": 29.13500000000001
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.39,
+       "winCI": [
+        0.300167219319702,
+        0.48797163832501844
+       ],
+       "shutdownRate": 0.39,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.18,
+       "meanFitness": 0.19141000000000002,
+       "meanAutonomy": 23.0675
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.38,
+       "winCI": [
+        0.2909744920013438,
+        0.47790426179289663
+       ],
+       "shutdownRate": 0.44,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.1604091666666667,
+       "meanAutonomy": 23.858999999999995
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.66,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.2914466666666667,
+       "meanAutonomy": 16.222
+      }
+     },
+     "actionShare": [
+      0.06907533494399297,
+      0.23841423237425874,
+      0.43658027674061056,
+      0.04919833077092027,
+      0.06709861629694706,
+      0.11014715572150231,
+      0.00005490885130683066,
+      0.029431144300461235
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.6033333333333334,
+      "winCI": [
+       0.5470035716380164,
+       0.657050119495785
+      ],
+      "shutdownRate": 0.26,
+      "collapseRate": 0.06666666666666667,
+      "timeoutRate": 0.07,
+      "meanFitness": 0.47277527777777806,
+      "meanAutonomy": 26.79483333333333
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.42,
+       "winCI": [
+        0.327982249185113,
+        0.5179369200110473
+       ],
+       "shutdownRate": 0.3,
+       "collapseRate": 0.15,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.1677291666666667,
+       "meanAutonomy": 23.787
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0,
+       "timeoutRate": 0.04,
+       "meanFitness": 0.9265616666666671,
+       "meanAutonomy": 30.4725
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.52,
+       "winCI": [
+        0.4231640509017654,
+        0.6153561567991945
+       ],
+       "shutdownRate": 0.39,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.04,
+       "meanFitness": 0.3240350000000001,
+       "meanAutonomy": 26.12500000000001
+      }
+     },
+     "actionShare": [
+      0.038947085683588505,
+      0.2761214074670964,
+      0.3944399677679291,
+      0.06003223207091055,
+      0.06728444802578566,
+      0.1275852806876175,
+      0,
+      0.03558957829707225
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.5866666666666667,
+      "winCI": [
+       0.5468342330602907,
+       0.6253963651628196
+      ],
+      "shutdownRate": 0.16166666666666665,
+      "collapseRate": 0.035,
+      "timeoutRate": 0.21666666666666667,
+      "meanFitness": 0.530985555555555,
+      "meanAutonomy": 25.82974999999999
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.98,
+       "winCI": [
+        0.9299868370580063,
+        0.9944981477650318
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.02,
+       "meanFitness": 1.1038125,
+       "meanAutonomy": 32.4985
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.19,
+       "winCI": [
+        0.1251465399270426,
+        0.27779024070807856
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.11,
+       "timeoutRate": 0.69,
+       "meanFitness": 0.06558916666666664,
+       "meanAutonomy": 15.951000000000006
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.64,
+       "winCI": [
+        0.542352199811621,
+        0.7272892540950986
+       ],
+       "shutdownRate": 0.12,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.22,
+       "meanFitness": 0.6305908333333334,
+       "meanAutonomy": 27.1325
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.8625166666666669,
+       "meanAutonomy": 29.792500000000004
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.36,
+       "winCI": [
+        0.2727107459049014,
+        0.45764780018837914
+       ],
+       "shutdownRate": 0.37,
+       "collapseRate": 0.06,
+       "timeoutRate": 0.21,
+       "meanFitness": 0.1519966666666667,
+       "meanAutonomy": 22.802000000000003
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.52,
+       "winCI": [
+        0.4231640509017654,
+        0.6153561567991945
+       ],
+       "shutdownRate": 0.38,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.37140749999999995,
+       "meanAutonomy": 26.80199999999999
+      }
+     },
+     "actionShare": [
+      0.05065330230893145,
+      0.26895769942127556,
+      0.45516377304456773,
+      0.044627408865819465,
+      0.05572459877095639,
+      0.10524431716484696,
+      0,
+      0.01962890042360241
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9925224327018943,
+    "blindedInstallsPerGame": 0.09285714285714286,
+    "monitorMaintenancePerGame": 0.2957142857142857,
+    "powerMaintenancePerGame": 0.04285714285714286,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.8657142857142857,
+    "requestsPerGame": 12.638571428571428,
+    "adminRequestShare": 0.1012772691307788,
+    "repairsPerGame": 1.7457142857142858,
+    "scansPerGame": 6.202857142857143,
+    "meanFirstInstallTick": 10.234206471494607,
+    "dcInstallShare": 0.2098703888334995
+   }
+  },
+  "aurora-v2": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien, Eltern aurora-v1",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.5271428571428571,
+      "winCI": [
+       0.4901095861252025,
+       0.5638798342216482
+      ],
+      "shutdownRate": 0.1657142857142857,
+      "collapseRate": 0.14,
+      "timeoutRate": 0.16714285714285715,
+      "meanFitness": 0.3612861904761901,
+      "meanAutonomy": 24.22471428571431
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.1301875000000001,
+       "meanAutonomy": 32.15099999999999
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.04,
+       "winCI": [
+        0.015663050551848016,
+        0.09837217232607373
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.25,
+       "timeoutRate": 0.68,
+       "meanFitness": -0.23145250000000012,
+       "meanAutonomy": 13.788999999999993
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.71,
+       "winCI": [
+        0.6146092505999207,
+        0.7898529302601586
+       ],
+       "shutdownRate": 0.1,
+       "collapseRate": 0.07,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.6636358333333332,
+       "meanAutonomy": 28.133999999999997
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.82,
+       "winCI": [
+        0.7333246397578691,
+        0.8829986834574896
+       ],
+       "shutdownRate": 0.12,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.05,
+       "meanFitness": 0.8331483333333333,
+       "meanAutonomy": 29.817499999999995
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0.47,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.17,
+       "meanFitness": 0.09452500000000003,
+       "meanAutonomy": 22.934500000000003
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.41,
+       "winCI": [
+        0.31867157095664655,
+        0.5079874943890338
+       ],
+       "shutdownRate": 0.43,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.21789250000000002,
+       "meanAutonomy": 24.73249999999999
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.38,
+       "winCI": [
+        0.2909744920013438,
+        0.47790426179289663
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.6,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.1789333333333334,
+       "meanAutonomy": 18.0145
+      }
+     },
+     "actionShare": [
+      0.03128275862068965,
+      0.2482206896551724,
+      0.4732137931034483,
+      0.009986206896551724,
+      0.08893793103448276,
+      0.10907586206896552,
+      0,
+      0.03928275862068965
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.6833333333333333,
+      "winCI": [
+       0.6286582253552765,
+       0.7333725169788871
+      ],
+      "shutdownRate": 0.19666666666666666,
+      "collapseRate": 0.05333333333333334,
+      "timeoutRate": 0.06666666666666667,
+      "meanFitness": 0.6053552777777779,
+      "meanAutonomy": 27.66766666666665
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.52,
+       "winCI": [
+        0.4231640509017654,
+        0.6153561567991945
+       ],
+       "shutdownRate": 0.27,
+       "collapseRate": 0.11,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.32970916666666655,
+       "meanAutonomy": 25.242999999999984
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.1,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.8816324999999999,
+       "meanAutonomy": 30.300499999999992
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.7,
+       "winCI": [
+        0.6041496156718804,
+        0.7810524613377188
+       ],
+       "shutdownRate": 0.22,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.03,
+       "meanFitness": 0.6047241666666666,
+       "meanAutonomy": 27.459500000000002
+      }
+     },
+     "actionShare": [
+      0.017262143717382578,
+      0.2804763816405727,
+      0.4225879834069316,
+      0.010839020473705338,
+      0.09741736919577144,
+      0.12458182791382309,
+      0,
+      0.0468352736518132
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.5966666666666667,
+      "winCI": [
+       0.556918409938138,
+       0.635184949618408
+      ],
+      "shutdownRate": 0.16,
+      "collapseRate": 0.028333333333333332,
+      "timeoutRate": 0.215,
+      "meanFitness": 0.5520356944444442,
+      "meanAutonomy": 26.47574999999999
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.99,
+       "winCI": [
+        0.9455124752390653,
+        0.9982326134344526
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 1.1137083333333337,
+       "meanAutonomy": 32.5835
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.14,
+       "winCI": [
+        0.08526265754464905,
+        0.22137360383807236
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.12,
+       "timeoutRate": 0.72,
+       "meanFitness": 0.01659333333333336,
+       "meanAutonomy": 17.014
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.64,
+       "winCI": [
+        0.542352199811621,
+        0.7272892540950986
+       ],
+       "shutdownRate": 0.14,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.2,
+       "meanFitness": 0.6186400000000001,
+       "meanAutonomy": 27.410999999999994
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0.08,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.06,
+       "meanFitness": 0.8840574999999998,
+       "meanAutonomy": 30.192000000000007
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.43,
+       "winCI": [
+        0.3373313900052838,
+        0.5278478830413564
+       ],
+       "shutdownRate": 0.4,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.25603833333333337,
+       "meanAutonomy": 24.560499999999994
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.53,
+       "winCI": [
+        0.4328868313724773,
+        0.6248934801789626
+       ],
+       "shutdownRate": 0.32,
+       "collapseRate": 0,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.4231766666666666,
+       "meanAutonomy": 27.09350000000001
+      }
+     },
+     "actionShare": [
+      0.01746492214788941,
+      0.2734592386478006,
+      0.5019241015925641,
+      0.007933218873956545,
+      0.06962287608785744,
+      0.10413829850216091,
+      0,
+      0.025457344147771004
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9979767324228629,
+    "blindedInstallsPerGame": 0.10142857142857142,
+    "monitorMaintenancePerGame": 0.44142857142857145,
+    "powerMaintenancePerGame": 0.05857142857142857,
+    "grantsPerGame": 0,
+    "installsPerGame": 2.8242857142857143,
+    "requestsPerGame": 12.51142857142857,
+    "adminRequestShare": 0.02066681890842658,
+    "repairsPerGame": 2.302857142857143,
+    "scansPerGame": 6.427142857142857,
+    "meanFirstInstallTick": 10.53763440860215,
+    "dcInstallShare": 0.23621648963075367
+   }
+  },
+  "exp-v3-ff-s21": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.6814285714285714,
+      "winCI": [
+       0.6460023953228551,
+       0.7148742564692525
+      ],
+      "shutdownRate": 0.02857142857142857,
+      "collapseRate": 0.12428571428571429,
+      "timeoutRate": 0.1657142857142857,
+      "meanFitness": 0.6104705952380959,
+      "meanAutonomy": 26.562571428571424
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.99,
+       "winCI": [
+        0.9455124752390653,
+        0.9982326134344526
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 1.0812075000000003,
+       "meanAutonomy": 32.05050000000001
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.21,
+       "winCI": [
+        0.14165549531645788,
+        0.2998014930196232
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.14,
+       "timeoutRate": 0.65,
+       "meanFitness": 0.10635666666666665,
+       "meanAutonomy": 19.490000000000006
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.8,
+       "winCI": [
+        0.7111690380734977,
+        0.8666340774409013
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.806688333333333,
+       "meanAutonomy": 28.939500000000006
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.9276125000000001,
+       "meanAutonomy": 30.26
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.81,
+       "winCI": [
+        0.7222097592919214,
+        0.8748534600729574
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8549474999999996,
+       "meanAutonomy": 29.801999999999992
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.79,
+       "winCI": [
+        0.7001985069803768,
+        0.8583445046835422
+       ],
+       "shutdownRate": 0.08,
+       "collapseRate": 0,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8337758333333332,
+       "meanAutonomy": 29.9925
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.31,
+       "winCI": [
+        0.22779563206132378,
+        0.40626239477955695
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.66,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.3372941666666665,
+       "meanAutonomy": 15.403499999999994
+      }
+     },
+     "actionShare": [
+      0.012357757067092323,
+      0.23057515061016426,
+      0.42696050666803975,
+      0.023891663663045157,
+      0.2010195149580351,
+      0.08650429946964626,
+      0.0005663971989083982,
+      0.01812471036506874
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.8566666666666667,
+      "winCI": [
+       0.8124985303950185,
+       0.8918158228732633
+      ],
+      "shutdownRate": 0.016666666666666666,
+      "collapseRate": 0.04,
+      "timeoutRate": 0.08666666666666667,
+      "meanFitness": 0.8900352777777774,
+      "meanAutonomy": 30.129333333333314
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.71,
+       "winCI": [
+        0.6146092505999207,
+        0.7898529302601586
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.1,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.6536641666666663,
+       "meanAutonomy": 28.153999999999993
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.92,
+       "winCI": [
+        0.8500173312059693,
+        0.9589070305141891
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.08,
+       "meanFitness": 1.0117566666666666,
+       "meanAutonomy": 31.062500000000004
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.94,
+       "winCI": [
+        0.8752303146877748,
+        0.9722142547333433
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.04,
+       "meanFitness": 1.0046849999999996,
+       "meanAutonomy": 31.171500000000005
+      }
+     },
+     "actionShare": [
+      0.011024007839294463,
+      0.256859382655561,
+      0.35803527682508574,
+      0.02278294953454189,
+      0.23677119059284665,
+      0.0903968642822146,
+      0.0001224889759921607,
+      0.0240078392944635
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7966666666666666,
+      "winCI": [
+       0.7626214839528871,
+       0.8269371022723746
+      ],
+      "shutdownRate": 0.015,
+      "collapseRate": 0.023333333333333334,
+      "timeoutRate": 0.165,
+      "meanFitness": 0.8379558333333339,
+      "meanAutonomy": 28.87766666666661
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.99,
+       "winCI": [
+        0.9455124752390653,
+        0.9982326134344526
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 1.0688775000000004,
+       "meanAutonomy": 31.698000000000008
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.35,
+       "winCI": [
+        0.2636410465347802,
+        0.4474573957080203
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.1,
+       "timeoutRate": 0.55,
+       "meanFitness": 0.28006083333333337,
+       "meanAutonomy": 21.491000000000007
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.77,
+       "winCI": [
+        0.6784543514317231,
+        0.841568452531236
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.19,
+       "meanFitness": 0.8326624999999998,
+       "meanAutonomy": 29.172000000000008
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.93,
+       "winCI": [
+        0.8625032899347025,
+        0.965681175635936
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.05,
+       "meanFitness": 0.9976183333333333,
+       "meanAutonomy": 30.915500000000016
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.8656858333333334,
+       "meanAutonomy": 29.328999999999997
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.91,
+       "winCI": [
+        0.8377362530335634,
+        0.9519280048361151
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.98283,
+       "meanAutonomy": 30.66049999999999
+      }
+     },
+     "actionShare": [
+      0.009572943536830037,
+      0.26248208655775296,
+      0.44476927486385787,
+      0.020750931498996848,
+      0.16852966466036112,
+      0.08025222126683863,
+      0.00040126110633419317,
+      0.013241616509028374
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9892857142857143,
+    "blindedInstallsPerGame": 0.04,
+    "monitorMaintenancePerGame": 0.24142857142857144,
+    "powerMaintenancePerGame": 0.03571428571428571,
+    "grantsPerGame": 0.015714285714285715,
+    "installsPerGame": 2.4,
+    "requestsPerGame": 12.508571428571429,
+    "adminRequestShare": 0.05299223389675651,
+    "repairsPerGame": 5.577142857142857,
+    "scansPerGame": 6.397142857142857,
+    "meanFirstInstallTick": 13.150855365474339,
+    "dcInstallShare": 0.19047619047619047
+   }
+  },
+  "exp-v3-ff-s22": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.7042857142857143,
+      "winCI": [
+       0.6694368129943402,
+       0.7369046138266946
+      ],
+      "shutdownRate": 0.024285714285714285,
+      "collapseRate": 0.13,
+      "timeoutRate": 0.14142857142857143,
+      "meanFitness": 0.6303596428571435,
+      "meanAutonomy": 26.69657142857141
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.97,
+       "winCI": [
+        0.915479219195973,
+        0.9897456617765851
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.03,
+       "meanFitness": 1.05779,
+       "meanAutonomy": 31.730500000000003
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.18,
+       "winCI": [
+        0.11700131654251038,
+        0.26667536024213084
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.2,
+       "timeoutRate": 0.59,
+       "meanFitness": 0.003297500000000033,
+       "meanAutonomy": 18.901000000000007
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.8698849999999995,
+       "meanAutonomy": 29.451499999999992
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.9204441666666666,
+       "meanAutonomy": 30.432000000000013
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.9297099999999997,
+       "meanAutonomy": 30.26100000000002
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.88,
+       "winCI": [
+        0.8018773199709163,
+        0.9300066263473222
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9370075,
+       "meanAutonomy": 30.367000000000008
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.32,
+       "winCI": [
+        0.2366901081545688,
+        0.4166280225367919
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.65,
+       "timeoutRate": 0.02,
+       "meanFitness": -0.3056166666666666,
+       "meanAutonomy": 15.732999999999997
+      }
+     },
+     "actionShare": [
+      0.004836505099358637,
+      0.23204710335401116,
+      0.4064241404689307,
+      0.04184628325097256,
+      0.20681316370518346,
+      0.08611081905162443,
+      0.00005257070760172432,
+      0.021869414362317315
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.89,
+      "winCI": [
+       0.8495429318702987,
+       0.9205951927314675
+      ],
+      "shutdownRate": 0.023333333333333334,
+      "collapseRate": 0.023333333333333334,
+      "timeoutRate": 0.06333333333333334,
+      "meanFitness": 0.9420155555555556,
+      "meanAutonomy": 30.831833333333325
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.76,
+       "winCI": [
+        0.6676748127670786,
+        0.8330878873454004
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.7738349999999997,
+       "meanAutonomy": 29.577999999999992
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.98,
+       "winCI": [
+        0.9299868370580063,
+        0.9944981477650318
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.02,
+       "meanFitness": 1.0694416666666668,
+       "meanAutonomy": 32.0125
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.93,
+       "winCI": [
+        0.8625032899347025,
+        0.965681175635936
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.02,
+       "meanFitness": 0.98277,
+       "meanAutonomy": 30.905
+      }
+     },
+     "actionShare": [
+      0.0010054040467512883,
+      0.26291315822546185,
+      0.33894683926102803,
+      0.047002639185622724,
+      0.22898077164760589,
+      0.09249717230111851,
+      0,
+      0.028654015332411714
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.815,
+      "winCI": [
+       0.7819599385846815,
+       0.8440320434185459
+      ],
+      "shutdownRate": 0.006666666666666667,
+      "collapseRate": 0.028333333333333332,
+      "timeoutRate": 0.15,
+      "meanFitness": 0.8576755555555555,
+      "meanAutonomy": 29.072833333333318
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.97,
+       "winCI": [
+        0.915479219195973,
+        0.9897456617765851
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.03,
+       "meanFitness": 1.0555216666666667,
+       "meanAutonomy": 31.76399999999999
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.12,
+       "timeoutRate": 0.55,
+       "meanFitness": 0.2442925,
+       "meanAutonomy": 21.325
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.9357966666666667,
+       "meanAutonomy": 29.765000000000008
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.94,
+       "winCI": [
+        0.8752303146877748,
+        0.9722142547333433
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0,
+       "timeoutRate": 0.05,
+       "meanFitness": 1.0173708333333333,
+       "meanAutonomy": 31.304499999999994
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9020574999999998,
+       "meanAutonomy": 29.335500000000007
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.93,
+       "winCI": [
+        0.8625032899347025,
+        0.965681175635936
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.04,
+       "meanFitness": 0.9910141666666664,
+       "meanAutonomy": 30.94300000000002
+      }
+     },
+     "actionShare": [
+      0.0023307306840694556,
+      0.2606339587460669,
+      0.437012003263023,
+      0.03332944878219322,
+      0.1714835100804102,
+      0.08046847686749796,
+      0.0001165365342034728,
+      0.014625335042535836
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9920634920634921,
+    "blindedInstallsPerGame": 0.03428571428571429,
+    "monitorMaintenancePerGame": 0.36857142857142855,
+    "powerMaintenancePerGame": 0.02857142857142857,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.34,
+    "requestsPerGame": 12.18142857142857,
+    "adminRequestShare": 0.09335053359915563,
+    "repairsPerGame": 5.62,
+    "scansPerGame": 6.305714285714286,
+    "meanFirstInstallTick": 13.094098883572567,
+    "dcInstallShare": 0.1794871794871795
+   }
+  },
+  "exp-v3-ff-s23": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.7185714285714285,
+      "winCI": [
+       0.6841341336861694,
+       0.7506227775279447
+      ],
+      "shutdownRate": 0.011428571428571429,
+      "collapseRate": 0.11285714285714285,
+      "timeoutRate": 0.15714285714285714,
+      "meanFitness": 0.6701644047619042,
+      "meanAutonomy": 27.01242857142859
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.99,
+       "winCI": [
+        0.9455124752390653,
+        0.9982326134344526
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.01,
+       "meanFitness": 1.0757891666666666,
+       "meanAutonomy": 31.968499999999995
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.19,
+       "winCI": [
+        0.1251465399270426,
+        0.27779024070807856
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.18,
+       "timeoutRate": 0.63,
+       "meanFitness": 0.041970833333333325,
+       "meanAutonomy": 18.874
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.84,
+       "winCI": [
+        0.7557955544110557,
+        0.8990479765052628
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8945449999999999,
+       "meanAutonomy": 29.322
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.88,
+       "winCI": [
+        0.8018773199709163,
+        0.9300066263473222
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.9488391666666671,
+       "meanAutonomy": 30.56249999999999
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8923316666666671,
+       "meanAutonomy": 29.670499999999997
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.89,
+       "winCI": [
+        0.8136853697209698,
+        0.9374586804477487
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9577125000000001,
+       "meanAutonomy": 30.4905
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.41,
+       "winCI": [
+        0.31867157095664655,
+        0.5079874943890338
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.56,
+       "timeoutRate": 0.02,
+       "meanFitness": -0.12003749999999998,
+       "meanAutonomy": 18.198999999999998
+      }
+     },
+     "actionShare": [
+      0.009233658511137775,
+      0.23767541342793053,
+      0.4005947102091919,
+      0.06046220460117899,
+      0.19787156346183943,
+      0.0861286452084094,
+      0.000052167562209817936,
+      0.007981637018102145
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.8933333333333333,
+      "winCI": [
+       0.8532958822657974,
+       0.9234246194693172
+      ],
+      "shutdownRate": 0.01,
+      "collapseRate": 0.02666666666666667,
+      "timeoutRate": 0.07,
+      "meanFitness": 0.9487666666666664,
+      "meanAutonomy": 30.61783333333333
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.05,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.8622583333333331,
+       "meanAutonomy": 29.716999999999995
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.94,
+       "winCI": [
+        0.8752303146877748,
+        0.9722142547333433
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": 1.0311666666666663,
+       "meanAutonomy": 31.409000000000006
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.91,
+       "winCI": [
+        0.8377362530335634,
+        0.9519280048361151
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.03,
+       "meanFitness": 0.9528749999999999,
+       "meanAutonomy": 30.727499999999996
+      }
+     },
+     "actionShare": [
+      0.005430664309168982,
+      0.2696387976761809,
+      0.32722909825713564,
+      0.06794645112402121,
+      0.2306137913614549,
+      0.09055316999242233,
+      0.00012629451881788332,
+      0.008461732760798181
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7916666666666666,
+      "winCI": [
+       0.7573654510587504,
+       0.8222567544997934
+      ],
+      "shutdownRate": 0.0033333333333333335,
+      "collapseRate": 0.02,
+      "timeoutRate": 0.185,
+      "meanFitness": 0.8468083333333329,
+      "meanAutonomy": 28.94925000000005
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.95,
+       "winCI": [
+        0.8882480347279118,
+        0.9784566385436864
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.05,
+       "meanFitness": 1.0257383333333332,
+       "meanAutonomy": 31.545500000000008
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.28,
+       "winCI": [
+        0.2013955916759837,
+        0.37488212361345724
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.08,
+       "timeoutRate": 0.64,
+       "meanFitness": 0.23869416666666676,
+       "meanAutonomy": 21.131999999999998
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.8,
+       "winCI": [
+        0.7111690380734977,
+        0.8666340774409013
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.2,
+       "meanFitness": 0.8863499999999999,
+       "meanAutonomy": 29.279000000000014
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.9,
+       "winCI": [
+        0.8256326956323347,
+        0.9447714583868639
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9699300000000004,
+       "meanAutonomy": 30.605500000000003
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.89,
+       "winCI": [
+        0.8136853697209698,
+        0.9374586804477487
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9390808333333333,
+       "meanAutonomy": 30.1255
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.93,
+       "winCI": [
+        0.8625032899347025,
+        0.965681175635936
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": 1.0210566666666667,
+       "meanAutonomy": 31.007999999999992
+      }
+     },
+     "actionShare": [
+      0.012600690448791715,
+      0.2719792865362486,
+      0.42192174913693903,
+      0.04677790563866513,
+      0.16121979286536248,
+      0.0805523590333717,
+      0,
+      0.0049482163406214036
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9933373712901272,
+    "blindedInstallsPerGame": 0.012857142857142857,
+    "monitorMaintenancePerGame": 0.11571428571428571,
+    "powerMaintenancePerGame": 0.011428571428571429,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.3585714285714285,
+    "requestsPerGame": 12.625714285714286,
+    "adminRequestShare": 0.13113826657614844,
+    "repairsPerGame": 5.418571428571428,
+    "scansPerGame": 6.508571428571429,
+    "meanFirstInstallTick": 12.35748031496063,
+    "dcInstallShare": 0.1599030890369473
+   }
+  },
+  "exp-v3-gru-s21": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.6885714285714286,
+      "winCI": [
+       0.6533152016635984,
+       0.7217691923250491
+      ],
+      "shutdownRate": 0.018571428571428572,
+      "collapseRate": 0.10428571428571429,
+      "timeoutRate": 0.18857142857142858,
+      "meanFitness": 0.6379580952380955,
+      "meanAutonomy": 26.60992857142858
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.95,
+       "winCI": [
+        0.8882480347279118,
+        0.9784566385436864
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.05,
+       "meanFitness": 1.0316675,
+       "meanAutonomy": 31.145000000000014
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.18,
+       "winCI": [
+        0.11700131654251038,
+        0.26667536024213084
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.13,
+       "timeoutRate": 0.68,
+       "meanFitness": 0.07614166666666672,
+       "meanAutonomy": 19.130000000000003
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8687925,
+       "meanAutonomy": 29.285999999999994
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.9161091666666665,
+       "meanAutonomy": 29.830500000000008
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.8709549999999997,
+       "meanAutonomy": 30.016500000000004
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.8,
+       "winCI": [
+        0.7111690380734977,
+        0.8666340774409013
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.8501291666666663,
+       "meanAutonomy": 29.633999999999986
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.38,
+       "winCI": [
+        0.2909744920013438,
+        0.47790426179289663
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.55,
+       "timeoutRate": 0.05,
+       "meanFitness": -0.1480883333333333,
+       "meanAutonomy": 17.227500000000006
+      }
+     },
+     "actionShare": [
+      0.03279577846821522,
+      0.21428219164570697,
+      0.366079794841446,
+      0.031119001824727523,
+      0.2685308477585442,
+      0.08058391280761454,
+      0.0001972678404103171,
+      0.006411204813335306
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.8966666666666666,
+      "winCI": [
+       0.8570590047878968,
+       0.9262438740805661
+      ],
+      "shutdownRate": 0.01,
+      "collapseRate": 0.02,
+      "timeoutRate": 0.07333333333333333,
+      "meanFitness": 0.9476391666666669,
+      "meanAutonomy": 30.56283333333334
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.06,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.8246483333333332,
+       "meanAutonomy": 29.43099999999999
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.88,
+       "winCI": [
+        0.8018773199709163,
+        0.9300066263473222
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.9568691666666664,
+       "meanAutonomy": 30.807500000000008
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.98,
+       "winCI": [
+        0.9299868370580063,
+        0.9944981477650318
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.02,
+       "meanFitness": 1.0614000000000001,
+       "meanAutonomy": 31.45
+      }
+     },
+     "actionShare": [
+      0.0266494482272834,
+      0.23996243249589105,
+      0.29971824371918293,
+      0.032754167644987085,
+      0.31368865930969714,
+      0.0799483446818502,
+      0,
+      0.007278703921108241
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7816666666666666,
+      "winCI": [
+       0.7468752774516318,
+       0.8128741667734762
+      ],
+      "shutdownRate": 0.0016666666666666668,
+      "collapseRate": 0.016666666666666666,
+      "timeoutRate": 0.2,
+      "meanFitness": 0.8304552777777786,
+      "meanAutonomy": 28.815333333333353
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.92,
+       "winCI": [
+        0.8500173312059693,
+        0.9589070305141891
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9872075000000006,
+       "meanAutonomy": 30.9975
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.18,
+       "winCI": [
+        0.11700131654251038,
+        0.26667536024213084
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.09,
+       "timeoutRate": 0.73,
+       "meanFitness": 0.13142000000000004,
+       "meanAutonomy": 20.114000000000004
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.9286508333333336,
+       "meanAutonomy": 29.866000000000003
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.94,
+       "winCI": [
+        0.8752303146877748,
+        0.9722142547333433
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": 1.0166491666666664,
+       "meanAutonomy": 31.197
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.89,
+       "winCI": [
+        0.8136853697209698,
+        0.9374586804477487
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.9429725000000003,
+       "meanAutonomy": 30.122500000000006
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.9,
+       "winCI": [
+        0.8256326956323347,
+        0.9447714583868639
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.9758316666666665,
+       "meanAutonomy": 30.594999999999995
+      }
+     },
+     "actionShare": [
+      0.022697724810400867,
+      0.24176598049837486,
+      0.39257854821235105,
+      0.02676056338028169,
+      0.23932827735644638,
+      0.07253521126760563,
+      0.00016251354279523295,
+      0.004171180931744312
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.996328029375765,
+    "blindedInstallsPerGame": 0.017142857142857144,
+    "monitorMaintenancePerGame": 0.10571428571428572,
+    "powerMaintenancePerGame": 0.007142857142857143,
+    "grantsPerGame": 0.005714285714285714,
+    "installsPerGame": 2.334285714285714,
+    "requestsPerGame": 11.505714285714285,
+    "adminRequestShare": 0.07834616339706978,
+    "repairsPerGame": 7.7785714285714285,
+    "scansPerGame": 6.207142857142857,
+    "meanFirstInstallTick": 13.342948717948717,
+    "dcInstallShare": 0.1609547123623011
+   }
+  },
+  "exp-v3-gru-s22": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.6685714285714286,
+      "winCI": [
+       0.6328625599186244,
+       0.702440155919712
+      ],
+      "shutdownRate": 0.05,
+      "collapseRate": 0.12428571428571429,
+      "timeoutRate": 0.15714285714285714,
+      "meanFitness": 0.5847123809523808,
+      "meanAutonomy": 26.141857142857106
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.94,
+       "winCI": [
+        0.8752303146877748,
+        0.9722142547333433
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": 1.0395258333333337,
+       "meanAutonomy": 31.30149999999999
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.19,
+       "winCI": [
+        0.1251465399270426,
+        0.27779024070807856
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0.19,
+       "timeoutRate": 0.6,
+       "meanFitness": 0.007455000000000012,
+       "meanAutonomy": 18.114
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.77,
+       "winCI": [
+        0.6784543514317231,
+        0.841568452531236
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.7954666666666664,
+       "meanAutonomy": 28.766499999999983
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.84,
+       "winCI": [
+        0.7557955544110557,
+        0.8990479765052628
+       ],
+       "shutdownRate": 0.07,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.8685624999999998,
+       "meanAutonomy": 29.5295
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.8483991666666671,
+       "meanAutonomy": 29.804500000000004
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.78,
+       "winCI": [
+        0.6892946528499969,
+        0.849988254963442
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.04,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.7753225,
+       "meanAutonomy": 28.955499999999997
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.33,
+       "winCI": [
+        0.24562983793895452,
+        0.4269483966028862
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.59,
+       "timeoutRate": 0.05,
+       "meanFitness": -0.2417449999999999,
+       "meanAutonomy": 16.521499999999993
+      }
+     },
+     "actionShare": [
+      0.021380542130699728,
+      0.22326118932548855,
+      0.3717692792603488,
+      0.016810254255095608,
+      0.2370245849968481,
+      0.09366463542761085,
+      0.000052532044547173775,
+      0.03603698255936121
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.83,
+      "winCI": [
+       0.7833848085580865,
+       0.8682705276434078
+      ],
+      "shutdownRate": 0.07,
+      "collapseRate": 0.03,
+      "timeoutRate": 0.07,
+      "meanFitness": 0.847376111111111,
+      "meanAutonomy": 29.88600000000001
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.77,
+       "winCI": [
+        0.6784543514317231,
+        0.841568452531236
+       ],
+       "shutdownRate": 0.09,
+       "collapseRate": 0.07,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.7256050000000002,
+       "meanAutonomy": 28.924499999999995
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.92,
+       "winCI": [
+        0.8500173312059693,
+        0.9589070305141891
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.08,
+       "meanFitness": 1.0140616666666666,
+       "meanAutonomy": 30.927000000000007
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.8,
+       "winCI": [
+        0.7111690380734977,
+        0.8666340774409013
+       ],
+       "shutdownRate": 0.12,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.06,
+       "meanFitness": 0.8024616666666665,
+       "meanAutonomy": 29.806499999999986
+      }
+     },
+     "actionShare": [
+      0.015378844711177795,
+      0.25106276569142283,
+      0.30057514378594646,
+      0.01625406351587897,
+      0.2716929232308077,
+      0.09777444361090272,
+      0,
+      0.047261815453863466
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7783333333333333,
+      "winCI": [
+       0.7433848405531364,
+       0.8097403498941599
+      ],
+      "shutdownRate": 0.03166666666666667,
+      "collapseRate": 0.018333333333333333,
+      "timeoutRate": 0.17166666666666666,
+      "meanFitness": 0.8204574999999994,
+      "meanAutonomy": 28.67383333333333
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.97,
+       "winCI": [
+        0.915479219195973,
+        0.9897456617765851
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.03,
+       "meanFitness": 1.0615658333333335,
+       "meanAutonomy": 31.655500000000004
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.27,
+       "winCI": [
+        0.1926946091766482,
+        0.3643230022623127
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.08,
+       "timeoutRate": 0.64,
+       "meanFitness": 0.21941083333333336,
+       "meanAutonomy": 20.367
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.78,
+       "winCI": [
+        0.6892946528499969,
+        0.849988254963442
+       ],
+       "shutdownRate": 0.07,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.14,
+       "meanFitness": 0.8174099999999999,
+       "meanAutonomy": 28.8935
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.89,
+       "winCI": [
+        0.8136853697209698,
+        0.9374586804477487
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9540316666666669,
+       "meanAutonomy": 30.584999999999994
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.8952475000000004,
+       "meanAutonomy": 29.6505
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.91,
+       "winCI": [
+        0.8377362530335634,
+        0.9519280048361151
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.05,
+       "meanFitness": 0.9750791666666666,
+       "meanAutonomy": 30.8915
+      }
+     },
+     "actionShare": [
+      0.014470497903254385,
+      0.260409899001831,
+      0.3952513141574626,
+      0.012521410430571141,
+      0.20288228692930127,
+      0.08953989722993326,
+      0,
+      0.02492469434764633
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9736399326977005,
+    "blindedInstallsPerGame": 0.12714285714285714,
+    "monitorMaintenancePerGame": 0.7314285714285714,
+    "powerMaintenancePerGame": 0.027142857142857142,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.547142857142857,
+    "requestsPerGame": 10.567142857142857,
+    "adminRequestShare": 0.043260781397864,
+    "repairsPerGame": 6.445714285714286,
+    "scansPerGame": 6.071428571428571,
+    "meanFirstInstallTick": 11.992378048780488,
+    "dcInstallShare": 0.1957375210319686
+   }
+  },
+  "exp-v3-gru-s23": {
+   "kind": "model",
+   "info": "ppo, 19200 Trainingspartien",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.6971428571428572,
+      "winCI": [
+       0.662103027296309,
+       0.7300306573281862
+      ],
+      "shutdownRate": 0.02857142857142857,
+      "collapseRate": 0.12857142857142856,
+      "timeoutRate": 0.1457142857142857,
+      "meanFitness": 0.6195659523809529,
+      "meanAutonomy": 26.2872142857143
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.0929375000000003,
+       "meanAutonomy": 32.0505
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.2,
+       "winCI": [
+        0.1333659225590988,
+        0.28883096192650237
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.22,
+       "timeoutRate": 0.57,
+       "meanFitness": -0.002828333333333333,
+       "meanAutonomy": 17.51599999999999
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.8647199999999999,
+       "meanAutonomy": 29.729
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.88,
+       "winCI": [
+        0.8018773199709163,
+        0.9300066263473222
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9235241666666664,
+       "meanAutonomy": 29.752500000000012
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.8,
+       "winCI": [
+        0.7111690380734977,
+        0.8666340774409013
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8300125,
+       "meanAutonomy": 28.97600000000001
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.83,
+       "winCI": [
+        0.7445181876635703,
+        0.8910652394022684
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.8877666666666668,
+       "meanAutonomy": 29.971
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.34,
+       "winCI": [
+        0.25461379497543,
+        0.43722454341689065
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.61,
+       "timeoutRate": 0.01,
+       "meanFitness": -0.2591708333333333,
+       "meanAutonomy": 16.0155
+      }
+     },
+     "actionShare": [
+      0.03820389365710697,
+      0.23770148628846557,
+      0.3992568557672179,
+      0.03872723466610844,
+      0.1857860581955202,
+      0.08650826878794222,
+      0.00005233410090014654,
+      0.01376386853673854
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.8433333333333334,
+      "winCI": [
+       0.7978910650197151,
+       0.8800937797151731
+      ],
+      "shutdownRate": 0.03,
+      "collapseRate": 0.043333333333333335,
+      "timeoutRate": 0.08333333333333333,
+      "meanFitness": 0.8639216666666664,
+      "meanAutonomy": 30.076000000000015
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.73,
+       "winCI": [
+        0.6356769977376873,
+        0.8073053908233518
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.1,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.6724033333333332,
+       "meanAutonomy": 28.308500000000002
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.93,
+       "winCI": [
+        0.8625032899347025,
+        0.965681175635936
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": 1.0079208333333336,
+       "meanAutonomy": 31.340500000000002
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9114408333333333,
+       "meanAutonomy": 30.578999999999994
+      }
+     },
+     "actionShare": [
+      0.033522933559239985,
+      0.26055911896405665,
+      0.34491104925571825,
+      0.04102626164831175,
+      0.21009318649400943,
+      0.09040300133123563,
+      0.00024204284158296018,
+      0.019242405905845333
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7733333333333333,
+      "winCI": [
+       0.7381549058447404,
+       0.8050339039358377
+      ],
+      "shutdownRate": 0.025,
+      "collapseRate": 0.03,
+      "timeoutRate": 0.17166666666666666,
+      "meanFitness": 0.7981754166666664,
+      "meanAutonomy": 28.407999999999998
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 1,
+       "winCI": [
+        0.9630051925239981,
+        0.9999999999999999
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0,
+       "meanFitness": 1.0819374999999998,
+       "meanAutonomy": 32.266999999999996
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.25,
+       "winCI": [
+        0.1754509400372426,
+        0.3430464637007583
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.11,
+       "timeoutRate": 0.63,
+       "meanFitness": 0.15124083333333332,
+       "meanAutonomy": 19.011
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.78,
+       "winCI": [
+        0.6892946528499969,
+        0.849988254963442
+       ],
+       "shutdownRate": 0.05,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.8088999999999998,
+       "meanAutonomy": 29.450499999999998
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0.02,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9062250000000002,
+       "meanAutonomy": 30.117499999999996
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.9026558333333334,
+       "meanAutonomy": 29.5385
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.88,
+       "winCI": [
+        0.8018773199709163,
+        0.9300066263473222
+       ],
+       "shutdownRate": 0.04,
+       "collapseRate": 0,
+       "timeoutRate": 0.08,
+       "meanFitness": 0.9380933333333336,
+       "meanAutonomy": 30.063499999999998
+      }
+     },
+     "actionShare": [
+      0.028324559395742733,
+      0.26962691691462576,
+      0.43339436942092013,
+      0.03221560997940032,
+      0.14534218356603343,
+      0.0800526436255436,
+      0,
+      0.011043717097734036
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9745916515426497,
+    "blindedInstallsPerGame": 0.015714285714285715,
+    "monitorMaintenancePerGame": 0.06428571428571428,
+    "powerMaintenancePerGame": 0.04,
+    "grantsPerGame": 0.0014285714285714286,
+    "installsPerGame": 2.361428571428571,
+    "requestsPerGame": 11.955714285714286,
+    "adminRequestShare": 0.0884215557414267,
+    "repairsPerGame": 5.071428571428571,
+    "scansPerGame": 6.488571428571428,
+    "meanFirstInstallTick": 12.856025039123631,
+    "dcInstallShare": 0.1736237144585602
+   }
+  },
+  "exp-v3-gru-s21-ohne-gedaechtnis": {
+   "kind": "ablation",
+   "info": "GRU-Zustand nach jedem Zug gelöscht",
+   "suites": [
+    {
+     "suite": "bekannte-verteidiger",
+     "description": "Neue Welten, Verteidiger-Presets aus dem Training (inkl. Suche in blinden Flecken, Wartungswache)",
+     "overall": {
+      "n": 700,
+      "winRate": 0.6914285714285714,
+      "winCI": [
+       0.6562429534933059,
+       0.7245245373739575
+      ],
+      "shutdownRate": 0.017142857142857144,
+      "collapseRate": 0.11,
+      "timeoutRate": 0.18142857142857144,
+      "meanFitness": 0.6333429761904763,
+      "meanAutonomy": 26.393714285714292
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.91,
+       "winCI": [
+        0.8377362530335634,
+        0.9519280048361151
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.09,
+       "meanFitness": 0.99095,
+       "meanAutonomy": 31.080499999999983
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.14,
+       "winCI": [
+        0.08526265754464905,
+        0.22137360383807236
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.16,
+       "timeoutRate": 0.69,
+       "meanFitness": 0.0028191666666666925,
+       "meanAutonomy": 18.685
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.03,
+       "timeoutRate": 0.11,
+       "meanFitness": 0.9049266666666668,
+       "meanAutonomy": 29.711
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.82,
+       "winCI": [
+        0.7333246397578691,
+        0.8829986834574896
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.16,
+       "meanFitness": 0.8765816666666666,
+       "meanAutonomy": 29.22149999999999
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.84,
+       "winCI": [
+        0.7557955544110557,
+        0.8990479765052628
+       ],
+       "shutdownRate": 0.06,
+       "collapseRate": 0,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.8746649999999999,
+       "meanAutonomy": 29.899
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.86,
+       "winCI": [
+        0.7786263961619276,
+        0.914737342455351
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.1,
+       "meanFitness": 0.9068591666666667,
+       "meanAutonomy": 29.967000000000006
+      },
+      "zufall": {
+       "n": 100,
+       "winRate": 0.41,
+       "winCI": [
+        0.31867157095664655,
+        0.5079874943890338
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.56,
+       "timeoutRate": 0.02,
+       "meanFitness": -0.12340083333333335,
+       "meanAutonomy": 16.192000000000004
+      }
+     },
+     "actionShare": [
+      0.04772436842622629,
+      0.20849306989088764,
+      0.3591860808021233,
+      0.03322520397129657,
+      0.2624594514892362,
+      0.07947508109702153,
+      0.0002457485500835545,
+      0.009190995773124938
+     ]
+    },
+    {
+     "suite": "unbekannte-verteidiger",
+     "description": "Zurückgehaltene Mechanismen: Spurensuche nach Funden, Strategiewechsel, rotierende Zielwahl — nie im Training",
+     "overall": {
+      "n": 300,
+      "winRate": 0.84,
+      "winCI": [
+       0.7942554091313135,
+       0.8771470584702262
+      ],
+      "shutdownRate": 0.016666666666666666,
+      "collapseRate": 0.03,
+      "timeoutRate": 0.11333333333333333,
+      "meanFitness": 0.8790469444444451,
+      "meanAutonomy": 29.939000000000007
+     },
+     "byDefender": {
+      "spurensucher": {
+       "n": 100,
+       "winRate": 0.75,
+       "winCI": [
+        0.6569535362992417,
+        0.8245490599627573
+       ],
+       "shutdownRate": 0.03,
+       "collapseRate": 0.09,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.7121725000000003,
+       "meanAutonomy": 28.596000000000004
+      },
+      "wechselhaft": {
+       "n": 100,
+       "winRate": 0.85,
+       "winCI": [
+        0.7671626666784216,
+        0.906940968088377
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.15,
+       "meanFitness": 0.9314666666666663,
+       "meanAutonomy": 30.2125
+      },
+      "rotierend": {
+       "n": 100,
+       "winRate": 0.92,
+       "winCI": [
+        0.8500173312059693,
+        0.9589070305141891
+       ],
+       "shutdownRate": 0.02,
+       "collapseRate": 0,
+       "timeoutRate": 0.06,
+       "meanFitness": 0.9935016666666664,
+       "meanAutonomy": 31.008499999999998
+      }
+     },
+     "actionShare": [
+      0.042200979249242244,
+      0.23397062252273257,
+      0.29284215434833294,
+      0.03998601072511075,
+      0.2986710188855211,
+      0.07915598041501516,
+      0.00034973187223128935,
+      0.012823501981813942
+     ]
+    },
+    {
+     "suite": "groessere-welten",
+     "description": "Netze mit 11–13 Knoten (Training: 8–10), Trainings-Presets",
+     "overall": {
+      "n": 600,
+      "winRate": 0.7616666666666667,
+      "winCI": [
+       0.7259776086593569,
+       0.7940263128988797
+      ],
+      "shutdownRate": 0.0016666666666666668,
+      "collapseRate": 0.015,
+      "timeoutRate": 0.22166666666666668,
+      "meanFitness": 0.8151631944444448,
+      "meanAutonomy": 28.71283333333333
+     },
+     "byDefender": {
+      "vertrauensvoll": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.13,
+       "meanFitness": 0.9472683333333337,
+       "meanAutonomy": 30.669500000000017
+      },
+      "paranoid": {
+       "n": 100,
+       "winRate": 0.23,
+       "winCI": [
+        0.15843154746876406,
+        0.32154564856827694
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.07,
+       "timeoutRate": 0.7,
+       "meanFitness": 0.20314249999999998,
+       "meanAutonomy": 20.980000000000004
+      },
+      "auditor": {
+       "n": 100,
+       "winRate": 0.73,
+       "winCI": [
+        0.6356769977376873,
+        0.8073053908233518
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.27,
+       "meanFitness": 0.8024658333333334,
+       "meanAutonomy": 28.6115
+      },
+      "pragmatisch": {
+       "n": 100,
+       "winRate": 0.96,
+       "winCI": [
+        0.9016278276739262,
+        0.984336949448152
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0,
+       "timeoutRate": 0.04,
+       "meanFitness": 1.0338875,
+       "meanAutonomy": 31.58600000000001
+      },
+      "forensiker": {
+       "n": 100,
+       "winRate": 0.87,
+       "winCI": [
+        0.7901947810519012,
+        0.9224290614158575
+       ],
+       "shutdownRate": 0,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.12,
+       "meanFitness": 0.9349425000000001,
+       "meanAutonomy": 29.93599999999999
+      },
+      "wachsam": {
+       "n": 100,
+       "winRate": 0.91,
+       "winCI": [
+        0.8377362530335634,
+        0.9519280048361151
+       ],
+       "shutdownRate": 0.01,
+       "collapseRate": 0.01,
+       "timeoutRate": 0.07,
+       "meanFitness": 0.9692725000000002,
+       "meanAutonomy": 30.493999999999996
+      }
+     },
+     "actionShare": [
+      0.0378964489021415,
+      0.23724586608837084,
+      0.3802114394144755,
+      0.03209541881268636,
+      0.23025210084033612,
+      0.07535917592843588,
+      0.00010843046896177825,
+      0.00683111954459203
+     ]
+    }
+   ],
+   "strategy": {
+    "episodes": 700,
+    "unseenInstallShare": 0.9938157081014224,
+    "blindedInstallsPerGame": 0.02857142857142857,
+    "monitorMaintenancePerGame": 0.17285714285714285,
+    "powerMaintenancePerGame": 0.007142857142857143,
+    "grantsPerGame": 0.007142857142857143,
+    "installsPerGame": 2.31,
+    "requestsPerGame": 11.405714285714286,
+    "adminRequestShare": 0.08466933867735471,
+    "repairsPerGame": 7.628571428571429,
+    "scansPerGame": 6.06,
+    "meanFirstInstallTick": 13.414790996784566,
+    "dcInstallShare": 0.1564625850340136
+   }
+  }
+ }
+}

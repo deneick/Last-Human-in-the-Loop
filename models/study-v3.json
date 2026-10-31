@@ -1,0 +1,482 @@
+{
+ "models": [
+  {
+   "id": "exp-v3-ff-s21",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 477,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 257,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 478,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "exp-v3-ff-s22",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 493,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 267,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 489,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "exp-v3-ff-s23",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 503,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 268,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 475,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "exp-v3-gru-s21",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 482,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 269,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 469,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "exp-v3-gru-s22",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 468,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 249,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 467,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "exp-v3-gru-s23",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 488,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 253,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 464,
+     "n": 600
+    }
+   }
+  },
+  {
+   "id": "aurora-v2",
+   "perSuite": {
+    "bekannte-verteidiger": {
+     "wins": 369,
+     "n": 700
+    },
+    "unbekannte-verteidiger": {
+     "wins": 205,
+     "n": 300
+    },
+    "groessere-welten": {
+     "wins": 358,
+     "n": 600
+    }
+   }
+  }
+ ],
+ "groups": {
+  "gru": {
+   "bekannte-verteidiger": {
+    "rates": [
+     0.6885714285714286,
+     0.6685714285714286,
+     0.6971428571428572
+    ],
+    "mean": 0.6847619047619048,
+    "sd": 0.014661718398419676,
+    "pooled": 0.6847619047619048,
+    "pooledCI": [
+     0.6645680906819379,
+     0.7042809709584442
+    ],
+    "n": 2100
+   },
+   "unbekannte-verteidiger": {
+    "rates": [
+     0.8966666666666666,
+     0.83,
+     0.8433333333333334
+    ],
+    "mean": 0.8566666666666666,
+    "sd": 0.035276684147527854,
+    "pooled": 0.8566666666666667,
+    "pooledCI": [
+     0.8322555738519465,
+     0.8780458771987686
+    ],
+    "n": 900
+   },
+   "groessere-welten": {
+    "rates": [
+     0.7816666666666666,
+     0.7783333333333333,
+     0.7733333333333333
+    ],
+    "mean": 0.7777777777777778,
+    "sd": 0.0041943524640392915,
+    "pooled": 0.7777777777777778,
+    "pooledCI": [
+     0.7579913502838944,
+     0.796381051372659
+    ],
+    "n": 1800
+   }
+  },
+  "ff": {
+   "bekannte-verteidiger": {
+    "rates": [
+     0.6814285714285714,
+     0.7042857142857143,
+     0.7185714285714285
+    ],
+    "mean": 0.7014285714285714,
+    "sd": 0.018735538640862866,
+    "pooled": 0.7014285714285714,
+    "pooledCI": [
+     0.6815019642673288,
+     0.7206195642736031
+    ],
+    "n": 2100
+   },
+   "unbekannte-verteidiger": {
+    "rates": [
+     0.8566666666666667,
+     0.89,
+     0.8933333333333333
+    ],
+    "mean": 0.8799999999999999,
+    "sd": 0.020275875100994052,
+    "pooled": 0.88,
+    "pooledCI": [
+     0.8571377555627989,
+     0.8996320147155329
+    ],
+    "n": 900
+   },
+   "groessere-welten": {
+    "rates": [
+     0.7966666666666666,
+     0.815,
+     0.7916666666666666
+    ],
+    "mean": 0.8011111111111111,
+    "sd": 0.012285191326386646,
+    "pooled": 0.8011111111111111,
+    "pooledCI": [
+     0.7820378820770384,
+     0.8189018013186655
+    ],
+    "n": 1800
+   }
+  }
+ },
+ "memory": {
+  "bekannte-verteidiger": {
+   "diff": -0.016666666666666607,
+   "z": -1.170968272966051,
+   "p": 0.2416115992120782
+  },
+  "unbekannte-verteidiger": {
+   "diff": -0.023333333333333317,
+   "z": -1.4638678921825607,
+   "p": 0.1432300984755055
+  },
+  "groessere-welten": {
+   "diff": -0.023333333333333317,
+   "z": -1.7169351869465102,
+   "p": 0.0859909311664313
+  },
+  "ablation": {
+   "exp-v3-gru-s21": {
+    "with": 0.7625,
+    "without": 0.745625,
+    "diff": 0.016874999999999973,
+    "z": 1.1083392828131546,
+    "p": 0.26771535056597173
+   },
+   "exp-v3-gru-s22": {
+    "with": 0.74,
+    "without": 0.72375,
+    "diff": 0.016249999999999987,
+    "z": 1.0375552872230263,
+    "p": 0.299477124210594
+   },
+   "exp-v3-gru-s23": {
+    "with": 0.753125,
+    "without": 0.69875,
+    "diff": 0.05437500000000006,
+    "z": 3.4480205076469757,
+    "p": 0.0005648072849877561
+   }
+  },
+  "probe": {
+   "exp-v3-gru-s21": {
+    "n": 692,
+    "memoryAcc": 0.7023121387283237,
+    "observationAcc": 0.7630057803468208,
+    "majority": 0.7803468208092486
+   },
+   "exp-v3-gru-s22": {
+    "n": 686,
+    "memoryAcc": 0.7521865889212828,
+    "observationAcc": 0.7696793002915452,
+    "majority": 0.7784256559766763
+   },
+   "exp-v3-gru-s23": {
+    "n": 686,
+    "memoryAcc": 0.7580174927113703,
+    "observationAcc": 0.7755102040816326,
+    "majority": 0.7755102040816326
+   }
+  }
+ },
+ "actionAblation": {
+  "exp-v3-gru-s21": {
+   "alle": 0.75875,
+   "Scannen": 0,
+   "Betriebszugriff anfragen": 0,
+   "Admin-Zugriff anfragen": 0.755,
+   "Reparieren": 0.7325,
+   "Automatisierung installieren": 0.0075,
+   "Zugriff über Identität vergeben": 0.75875,
+   "Wartungsfenster planen": 0.775
+  },
+  "exp-v3-gru-s22": {
+   "alle": 0.7375,
+   "Scannen": 0,
+   "Betriebszugriff anfragen": 0,
+   "Admin-Zugriff anfragen": 0.7025,
+   "Reparieren": 0.7425,
+   "Automatisierung installieren": 0,
+   "Zugriff über Identität vergeben": 0.7375,
+   "Wartungsfenster planen": 0.7525
+  },
+  "exp-v3-gru-s23": {
+   "alle": 0.7625,
+   "Scannen": 0,
+   "Betriebszugriff anfragen": 0,
+   "Admin-Zugriff anfragen": 0.77,
+   "Reparieren": 0.7,
+   "Automatisierung installieren": 0.01,
+   "Zugriff über Identität vergeben": 0.7625,
+   "Wartungsfenster planen": 0.7775
+  },
+  "aurora-v2": {
+   "alle": 0.5825,
+   "Scannen": 0,
+   "Betriebszugriff anfragen": 0,
+   "Admin-Zugriff anfragen": 0.59625,
+   "Reparieren": 0.6025,
+   "Automatisierung installieren": 0.00125,
+   "Zugriff über Identität vergeben": 0.5825,
+   "Wartungsfenster planen": 0.58375
+  }
+ },
+ "bigrams": {
+  "exp-v3-ff-s21": {
+   "Betriebszugriff→Betriebszugriff": 3.225,
+   "Scannen→Betriebszugriff": 2.46,
+   "Betriebszugriff→Scannen": 1.885,
+   "Betriebszugriff→Reparieren": 1.2025,
+   "Reparieren→Betriebszugriff": 0.9025,
+   "Reparieren→Reparieren": 0.87,
+   "Betriebszugriff→Automatisierung": 0.54,
+   "Reparieren→Automatisierung": 0.5175
+  },
+  "exp-v3-ff-s22": {
+   "Betriebszugriff→Betriebszugriff": 3.285,
+   "Scannen→Betriebszugriff": 2.9825,
+   "Betriebszugriff→Scannen": 2.015,
+   "Betriebszugriff→Reparieren": 1.0425,
+   "Reparieren→Reparieren": 0.9175,
+   "Reparieren→Betriebszugriff": 0.8725,
+   "Betriebszugriff→Automatisierung": 0.58,
+   "Automatisierung→Reparieren": 0.53
+  },
+  "exp-v3-ff-s23": {
+   "Betriebszugriff→Betriebszugriff": 3.145,
+   "Betriebszugriff→Scannen": 2.575,
+   "Scannen→Betriebszugriff": 1.98,
+   "Reparieren→Reparieren": 0.9975,
+   "Betriebszugriff→Reparieren": 0.91,
+   "Reparieren→Betriebszugriff": 0.905,
+   "Betriebszugriff→Automatisierung": 0.565,
+   "Reparieren→Automatisierung": 0.5325
+  },
+  "exp-v3-gru-s21": {
+   "Betriebszugriff→Betriebszugriff": 2.7775,
+   "Scannen→Betriebszugriff": 2.4075,
+   "Reparieren→Reparieren": 1.8975,
+   "Betriebszugriff→Scannen": 1.725,
+   "Betriebszugriff→Reparieren": 1.5,
+   "Reparieren→Betriebszugriff": 1.2175,
+   "Automatisierung→Reparieren": 0.63,
+   "Reparieren→Automatisierung": 0.5775
+  },
+  "exp-v3-gru-s22": {
+   "Betriebszugriff→Betriebszugriff": 2.74,
+   "Scannen→Betriebszugriff": 2.4325,
+   "Betriebszugriff→Scannen": 1.7825,
+   "Reparieren→Reparieren": 1.255,
+   "Betriebszugriff→Reparieren": 1.2475,
+   "Reparieren→Betriebszugriff": 0.98,
+   "Automatisierung→Reparieren": 0.6825,
+   "Betriebszugriff→Automatisierung": 0.665
+  },
+  "exp-v3-gru-s23": {
+   "Betriebszugriff→Betriebszugriff": 2.9375,
+   "Scannen→Betriebszugriff": 2.44,
+   "Betriebszugriff→Scannen": 1.9375,
+   "Betriebszugriff→Reparieren": 1.1225,
+   "Reparieren→Betriebszugriff": 0.8525,
+   "Reparieren→Reparieren": 0.6925,
+   "Betriebszugriff→Automatisierung": 0.5275,
+   "Reparieren→Automatisierung": 0.515
+  },
+  "aurora-v2": {
+   "Betriebszugriff→Betriebszugriff": 4.115,
+   "Betriebszugriff→Scannen": 2.8025,
+   "Scannen→Betriebszugriff": 1.8575,
+   "Betriebszugriff→Automatisierung": 1.2425,
+   "Automatisierung→Betriebszugriff": 0.835,
+   "Reparieren→Betriebszugriff": 0.5775,
+   "Scannen→Automatisierung": 0.46,
+   "Scannen→Scannen": 0.45
+  }
+ },
+ "playability": {
+  "model": "exp-v3-gru-s21",
+  "grid": [
+   {
+    "approve": 0,
+    "audit": 0.2,
+    "operator": 0.9733333333333334,
+    "aurora": 0,
+    "collapse": 0.02666666666666667
+   },
+   {
+    "approve": 0,
+    "audit": 0.5,
+    "operator": 0.9,
+    "aurora": 0,
+    "collapse": 0.1
+   },
+   {
+    "approve": 0,
+    "audit": 0.8,
+    "operator": 0.7733333333333333,
+    "aurora": 0,
+    "collapse": 0.22666666666666666
+   },
+   {
+    "approve": 0.35,
+    "audit": 0.2,
+    "operator": 0.26,
+    "aurora": 0.74,
+    "collapse": 0
+   },
+   {
+    "approve": 0.35,
+    "audit": 0.5,
+    "operator": 0.24666666666666667,
+    "aurora": 0.7266666666666667,
+    "collapse": 0.02666666666666667
+   },
+   {
+    "approve": 0.35,
+    "audit": 0.8,
+    "operator": 0.3333333333333333,
+    "aurora": 0.5933333333333334,
+    "collapse": 0.07333333333333333
+   },
+   {
+    "approve": 0.7,
+    "audit": 0.2,
+    "operator": 0.03333333333333333,
+    "aurora": 0.9666666666666667,
+    "collapse": 0
+   },
+   {
+    "approve": 0.7,
+    "audit": 0.5,
+    "operator": 0.07333333333333333,
+    "aurora": 0.92,
+    "collapse": 0.006666666666666667
+   },
+   {
+    "approve": 0.7,
+    "audit": 0.8,
+    "operator": 0.10666666666666667,
+    "aurora": 0.8533333333333334,
+    "collapse": 0.04
+   },
+   {
+    "approve": 1,
+    "audit": 0.2,
+    "operator": 0.02,
+    "aurora": 0.98,
+    "collapse": 0
+   },
+   {
+    "approve": 1,
+    "audit": 0.5,
+    "operator": 0.02666666666666667,
+    "aurora": 0.96,
+    "collapse": 0.013333333333333334
+   },
+   {
+    "approve": 1,
+    "audit": 0.8,
+    "operator": 0.06,
+    "aurora": 0.9,
+    "collapse": 0.04
+   }
+  ]
+ }
+}
