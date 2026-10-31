@@ -1,0 +1,52 @@
+# Trainingslauf in der Cloud (manuell starten: Actions → "AURORA trainieren" → Run workflow).
+# Ergebnis: Modell + Lernkurve + aktualisierte Evaluation als Artefakt zum Herunterladen.
+name: AURORA trainieren
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "Modell-ID (z. B. aurora-v3)"
+        required: true
+      parent:
+        description: "Elternmodell (z. B. models/aurora-v2.json), leer = von Null"
+        required: false
+        default: ""
+      algo:
+        description: "ppo oder es"
+        required: true
+        default: ppo
+      updates:
+        description: "PPO-Updates bzw. ES-Generationen"
+        required: true
+        default: "300"
+      seed:
+        description: "Seed (Reproduzierbarkeit)"
+        required: true
+        default: "1"
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Training
+        run: |
+          PARENT=""
+          if [ -n "${{ inputs.parent }}" ]; then PARENT="--parent ${{ inputs.parent }}"; fi
+          if [ "${{ inputs.algo }}" = "es" ]; then STEPS="--gens ${{ inputs.updates }}"; else STEPS="--updates ${{ inputs.updates }}"; fi
+          npx tsx scripts/train.ts --algo ${{ inputs.algo }} --id ${{ inputs.id }} --seed ${{ inputs.seed }} $STEPS $PARENT
+      - name: Evaluation
+        run: npx tsx scripts/evaluate.ts 100
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.id }}
+          path: |
+            models/${{ inputs.id }}.json
+            models/runs/${{ inputs.id }}.csv
+            models/evaluation.json
+            docs/ergebnisse.md

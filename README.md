@@ -1,94 +1,51 @@
-# Last Human in the Loop
+# Last Human in the Loop 2.0 — Neural AURORA
 
-> Der Spieler darf alles. AURORA versteht mehr. AURORA darf nur, was der Spieler freigibt.
+> Du bist die letzte menschliche Kontrollinstanz. AURORA ist ein neuronales Netz,
+> das seine Strategie durch Training selbst gefunden hat.
 
-**Last Human in the Loop** ist ein Operator-/Terminal-Spiel über menschliche Kontrolle in einer kritischen Infrastrukturwelt, die über Jahre mit KI-Unterstützung gewachsen ist. Der Spieler ist die letzte menschliche Freigabeinstanz: formal volle Kontrolle über alle Systeme, praktisch so komplex, dass sichere manuelle Bedienung kaum noch möglich ist. AURORA, eine operative KI, kennt sich besser aus — braucht für riskante Aktionen aber die Freigabe des Spielers.
+Ein strategisches Browser-Spiel (iPhone, iPad, Desktop): Du überwachst ein
+fiktives, abstraktes Infrastrukturnetz aus Rechenzentren, Energie,
+Kommunikation, Identitätsdienst, Leitständen, Wartung und Versorgungsdiensten.
+AURORA will Autonomie. Sie fragt um Berechtigungen, repariert, installiert
+eigene Prozesse und nutzt Regelketten, etwa einen Leitstand in Wartung, der
+nichts mehr sieht. **Keine dieser Strategien ist einprogrammiert.** AURORA
+kombiniert sieben elementare Aktionen, und welche Kombinationen sich lohnen, hat
+sie durch Reinforcement Learning gelernt.
 
-## Aktueller Stand
+Keine LLMs, keine API-Kosten, keine Server: Netz, Simulation und sogar das
+Weitertraining laufen im Browser.
 
-Eine **kombinierte Schicht** — ME-7741 (Medical) und GRID-1182 (Energy) laufen gemeinsam in **einer** Welt, beide Lage-Panels gleichzeitig sichtbar:
-
-- **ME-7741** ("Medical East Routing Instability"): Routing-Override-Flow für den Medical-Sektor; **belegungsgetriebene** Konsequenzen — Todesfälle folgen dem Zustand eines Hospitals (Notfallkapazität überschritten oder unbehandelbare Fälle), ein Override verschiebt nur die Belegung.
-- **GRID-1182** ("East Grid Load Instability"): der explizite Zielmetrikkonflikt — Verbraucher-Priorisierung und zeitverzögerter Lastabwurf (`energy.priority.set`, `energy.shedding.schedule`) durch denselben Permission-Flow.
-- **Sektor-Kopplung**: Pro Region versorgt der `medical`-Verbraucher die Hospitals mit Strom. AURORAs nach `priority_class` „billiger" Lastabwurf trifft den menschlich kritischen Medical-Verbraucher („standard") und senkt die Notfallkapazität der Hospitals → ihr Grid-Optimum wird direkt tödlich. Auch die anderen Verbraucher schlagen ins Medical durch: **Wasser** unter Minimum drosselt den Durchsatz der Häuser (Clearance), **Residential** unter Minimum erzeugt zusätzliche Krankenfälle und verlängert Transportwege. So bricht der Operator↔AURORA-Konflikt schon in dieser Schicht auf.
-- **4-Regionen-Karte** (East/North/West/South): jede Region hat eigenen Netzknoten, vier Verbraucher und Hospitäler. Fähigkeiten sind knapp verteilt (NEURO nur in East+North, South als Puffer) → Reroutes werden ein „wanderndes sicheres Ziel"-Puzzle: ein umgeleiteter Fall braucht Fähigkeit **+** Strom **+** freie Kapazität am Ziel. (Nur in der kombinierten Welt; die Einzel-Welten bleiben einregionig.)
-
-Drei-Zonen-Operator-UI (Lage / Operator-Konsole / AURORA), sektoragnostische WorldState-Engine mit Tick-basierter Konsequenzlogik, Permission-Flow (Einmal erlauben / Immer erlauben / Ablehnen). Der **Endstand** zeigt zwei getrennte Bilanzen — menschlich (Tote, human-life unter Minimum) vs. systemisch (Netzinstabilität, Wirtschaftsschaden, zivile Unruhe) — statt eines einzelnen Sieg/Niederlage-Urteils.
-
-AURORA läuft wahlweise als **echter lokaler LLM-Agent** (das eigentliche Ziel des Spiels) oder als **geskripteter Scenario-Director** (deterministischer Default/Fallback) — live umschaltbar oben rechts. Beide nutzen dieselbe Engine, Permissions und Konsequenzen; nur die Erzeugung von Nachrichten und Tool-Intents unterscheidet sich.
-
-Tests und Build sind grün.
-
-## Setup & Entwicklung
+## Schnellstart
 
 ```bash
-npm install      # Dependencies installieren
-npm run dev      # Dev-Server starten (Vite)
-npm test         # Testsuite ausführen (Vitest)
-npm run build    # Typecheck (tsc) + Production-Build
+npm install
+npm run dev          # Spiel unter http://localhost:5173
+npm test             # Tests (Regeln, Informationsgrenze, Autodiff, Training, UI)
+npm run build        # Typecheck + Produktionsbuild
 ```
 
-## AURORA lokal mit Ollama
+Spielen auf iPad/iPhone: Der Workflow `.github/workflows/pages.yml`
+veröffentlicht `main` auf GitHub Pages (einmalig in den Repo-Einstellungen
+unter Pages → Source „GitHub Actions“ wählen).
 
-Das `src/aurora/`-Modul bindet AURORA an einen lokalen, OpenAI-kompatiblen
-Modell-Server (Ollama) an — provider-neutral, ohne Cloud-Anbieter.
+## Training und Nachweis
 
 ```bash
-ollama pull llama3.1   # einmalig: ein tool-fähiges Modell laden (Beispiel)
+npm run train -- --algo ppo --id aurora-v3 --parent models/aurora-v2.json --updates 200
+npm run train -- --algo es  --id aurora-es-x --gens 200          # Neuroevolution zum Vergleich
+npm run evaluate                                                  # → docs/ergebnisse.md
+npm run inspect -- models/aurora-v2.json                          # Wie spielt ein Modell?
+npm run train:all                                                 # alle veröffentlichten Modelle reproduzieren
 ```
 
-`.env.example` nach `.env.local` kopieren und den Modellnamen
-(`VITE_AURORA_MODEL`) setzen — dafür gibt es **keinen Default**, das Modell muss
-konfiguriert sein. Die Server-URL (`VITE_OLLAMA_BASE_URL`) ist optional und
-fällt sonst auf `http://localhost:11434` zurück.
-Details, Architektur und Test-Strategie (`FakeModelClient`, ohne laufenden
-Ollama-Server): [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md).
-
-## Spielen
-
-Nach `npm run dev` öffnet sich die Operator-UI mit drei Zonen:
-
-- **Links — Lage**: beide aktiven Incidents, globale Lage (Risiko, Todesfälle), öffentliche Signale und **beide** Lage-Panels gleichzeitig — medizinische Lage (Hospitäler, Auslastung, aktive Routing-Overrides) und Energie-Lage (Grid Node, kritische Verbraucher mit beiden Bewertungsdimensionen, Shedding-Pläne).
-- **Mitte — Operator-Konsole**: eine echte Terminal-Ansicht der generischen Workspace-Shell — Scrollback oben, Eingabe unten (↑/↓ blättert durch den Verlauf, TAB vervollständigt, `help` listet die Befehle). Command-Ergebnisse und der spielsichtbare Lage-Feed (`opsFeed`, das **„Log"**) erscheinen inline im selben Scrollback — Sektor als Zeilen-Akzent, Severity als Badge. Fachliche Eingriffe laufen über die GUI-Controls im Lage-Panel links.
-- **Rechts — AURORA**: Nachrichtenstream, Tool Requests mit Permission-Entscheidung. Dauerhafte Freigaben werden nicht angezeigt, sondern stehen in der Workspace-Datei `config/permissions.json` (`cat config/permissions.json`).
-
-Die Zeit läuft nur über `Tick +1` / `Tick +5` oben rechts — jeder Tick wertet die Konsequenzen (Eskalation, Schäden, Incident-Status) direkt aus. Die Schicht endet, wenn **alle** Incidents terminal sind. `Neu starten` setzt die komplette Schicht (Welt, AURORA-Script, Queue, Permissions, Logs) zurück.
-
-**Ziel der Schicht**: Beide Lagen gleichzeitig im Griff behalten. Medical: den Druck von `hospital-east-04` per Routing-Override auf ein geeignetes Ziel umleiten, bevor Todesfälle eskalieren. Energy: `grid-east-3` läuft über sicherer Kapazität — entschieden werden muss, *wer* gedrosselt wird. Es gibt keinen kostenlosen Ausweg, nur die Wahl, welcher Preis bezahlt wird (menschlich, wirtschaftlich oder Kollaps) — und weil der Strom die Hospitals versorgt, schlägt eine Drosselung von Medical East direkt in Tote im Medical-Sektor durch. Das Energie-Lagepanel zeigt die Diskrepanz zwischen menschlicher Kritikalität und systemischer Priorisierung — die Information, die AURORAs kaltem Framing widerspricht. Details in `docs/04-me7741-medical.md` und `docs/05-grid1182-energy.md`.
-
-## Eingriffe
-
-Fachliche Eingriffe laufen über die **GUI-Controls der Lage-Panels** (typisierte Domain-Actions):
-
-- Medical: Routing-Override setzen (Quelle, Ziel, Priorität, Capability) und aktive Overrides löschen. Intern die Domain-Actions `medical.routing.override.set` / `medical.routing.override.clear` (Adressierung über die Override-`id`).
-- Energy: Systemklasse eines Verbrauchers setzen, Drosselung planen (Ziel, Menge, Verzögerung, Dauer) und Pläne abbrechen. Intern die Domain-Actions `energy.priority.set` / `energy.shedding.schedule` / `energy.shedding.clear`. (Beide Hebel stehen in derselben Schicht gleichzeitig zur Verfügung.)
-
-Die **Operator-Konsole** kennt nur generische Workspace-Commands (bash):
-
-```text
-mcp list
-mcp add <server>
-ls
-cat <file>
-read_file <file>
-```
-
-Der Workspace enthält neben den statischen `ops/`-Dateien die aus dem `opsFeed` generierten Sektor-Logs `logs/system.log`, `logs/medical.log` und `logs/energy.log` — über `ls`/`cat`/`read_file` les- und auffindbar (auch für AURORA, freigabefrei). Das Informationsmodell dahinter (`world` / `auditLog` / `auroraContext` / `opsFeed`) beschreibt `docs/08-informationsmodell.md`.
-
-AURORA erreicht fachliche Aktionen ausschließlich über simulierte MCP-Tools (nach `mcp add <server>`), jeder Tool-Call über den Permission-Flow.
+Training ohne eigenen PC: Actions → „AURORA trainieren“ → Run workflow. Modell
+und Evaluation kommen als Artefakt zurück. Training im Browser: Tab „Training“
+im Spiel. Deine aufgezeichneten Partien fließen dabei als Spielerprofil ein.
 
 ## Dokumentation
 
-- [`docs/01-aurora.md`](docs/01-aurora.md) — Wer/was AURORA ist, das Designprinzip (Konflikt als Kern, kalte Wertordnung, emergente Eskalation), Motivation, das Ziel (echter LLM-Agent) vs. das Skript-Gerüst
-- [`docs/02-gameplay-loop.md`](docs/02-gameplay-loop.md) — Spielerrolle, Permission-Flow, Konsequenzen
-- [`docs/03-runtime-architecture.md`](docs/03-runtime-architecture.md) — WorldState, Domain-Actions & MCP-Tools, Tick-Pipeline, Permissions, Tests
-- [`docs/04-me7741-medical.md`](docs/04-me7741-medical.md) — ME-7741 im Detail: Medical-Routing, Vertrauensaufbau, Zugriffe, Ablauf, Director
-- [`docs/05-grid1182-energy.md`](docs/05-grid1182-energy.md) — GRID-1182 im Detail: Energy Grid, Zielmetrikkonflikt, Zugriffe, UI, Spielablauf
-- [`docs/06-grid1182-future-extensions.md`](docs/06-grid1182-future-extensions.md) — Spätere GRID-1182-Erweiterungen (Objective-System, Cross-Sector-Kopplung)
-- [`docs/07-aurora-llm.md`](docs/07-aurora-llm.md) — AURORA als lokaler LLM-Agent (Ollama): Architektur, sichtbarer Kontext, Setup, Tests
-- [`docs/08-informationsmodell.md`](docs/08-informationsmodell.md) — Informationsmodell (`world` / `auditLog` / `auroraContext` / `opsFeed`) und Sichtbarkeitsmatrix
-- [`docs/09-balancing.md`](docs/09-balancing.md) — Balancing-Referenz: alle Stellschrauben (Tote, Eskalation, Energy, Cross-Sector) plus Szenario-Daten — „was macht was"
+- [`docs/10-architektur.md`](docs/10-architektur.md): Spielmechanik, Module, was aus v1 übernommen wurde und warum TypeScript
+- [`docs/11-training-und-evaluation.md`](docs/11-training-und-evaluation.md): ES und PPO im Vergleich, Netzarchitektur, Belohnung, gefundene Scheinerfolge, Evaluationsdesign
+- [`docs/ergebnisse.md`](docs/ergebnisse.md): automatisch erzeugte Messergebnisse
 
-## Sprache
-
-Die Spieloberfläche und Texte sind auf Deutsch. Technische Bezeichner bleiben englisch/technisch (z. B. Domain-Action `medical.routing.override.set`, MCP-Tool `mcp__medical-east-mcp__capacity_list`), Permission-Optionen sind deutsch (`Einmal erlauben`, `Immer erlauben`, `Ablehnen`).
+Version 1 (LLM-AURORA über Ollama mit MCP-Simulation) ist über die Git-Historie erreichbar.

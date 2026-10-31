@@ -1,86 +1,41 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository.
 
 ## What this is
 
-**Last Human in the Loop** is a browser-based operator/terminal game (React + Vite + TypeScript) about human control over AI in a critical-infrastructure world. The player is the last human approval authority; **AURORA** is a cold, optimizing AI that needs the player's permission for any action beyond its base rights. The two incidents — **ME-7741** (medical routing) and **GRID-1182** (energy grid) — now run together in one **combined shift** (single WorldState, both panels, both incidents). The combined world is a **4-region map** (East/North/West/South); each region has its own grid node, four consumers (medical/industrial/water/residential) and hospitals, wired by Cross-Sector-Kopplungen: a hospital's `power_feed_consumer_id` couples its emergency capacity to the regional medical supply (`applyCrossSectorEffects`), and its `water_feed_consumer_id` / `civil_feed_consumer_id` couple throughput (clearance) and case load to the regional water/residential supply (`tickMedicalDomain`). Capabilities are scarce (NEURO only in East+North) so reroutes become a "wandering safe target" puzzle. The single-sector worlds (`me7741`, `grid1182`) stay one-region and unchanged; the 4-region extension lives only in `src/scenarios/combined/` (`regions.ts` + `initialWorldState.ts`). Read `docs/` for the full design — start with `README.md`, then `docs/03-runtime-architecture.md` (engine) and `docs/07-aurora-llm.md` (LLM agent).
+**Last Human in the Loop 2.0**: a browser strategy game (React + Vite + TypeScript). The player is the last human authority over a fictional, abstract infrastructure network. **AURORA** is a small neural network (graph encoder + GRU + pointer head, ~14k params) trained with reinforcement learning (PPO; OpenAI-ES as comparison) to gain autonomy. There is **no LLM** anywhere. Start with `README.md`, then `docs/10-architektur.md` and `docs/11-training-und-evaluation.md`.
 
 ## Commands
 
 ```bash
-npm install          # install dependencies
-npm run dev          # Vite dev server (http://localhost:5173)
-npm test             # full Vitest suite (vitest run)
-npm run build        # tsc typecheck + Vite production build
+npm install
+npm run dev            # Vite dev server
+npm test               # vitest run (all tests)
+npm run build          # tsc typecheck (src + scripts) + vite build
+npx vitest run src/tests/sim.test.ts
+npm run train -- --algo ppo --id <id> [--parent models/x.json] [--updates N] [--seed S] [--player-data f.json]
+npm run evaluate       # regenerates models/evaluation.json + docs/ergebnisse.md (do not hand-edit)
+npm run inspect -- models/<id>.json | scripted | random
+npm run balance        # baseline agents vs defenders (balance sanity check)
 ```
 
-Single test file / pattern (no dedicated script — call vitest directly):
+## Layout
 
-```bash
-npx vitest run src/tests/runtime/tickEngine.test.ts   # one file
-npx vitest run -t "override"                            # by test name
-npx vitest                                              # watch mode
-```
+- `src/sim/`: rules (`game.ts`), world generation, views (`views.ts`), simulated defenders. No ML imports.
+- `src/ai/`: reverse-mode autodiff (`tensor.ts`), network (`network.ts`), agents, baselines, model file format.
+- `src/train/`: episodes and reward (`episode.ts`), scenarios (train/val/test separation), `es.ts`, `ppo.ts`, evaluation, strategy analysis, player profile, browser worker.
+- `src/ui/` + `src/App.tsx`: UI. `GameSession` holds the truth; the UI renders only `operatorView` during play.
+- `scripts/`: Node CLIs (run with tsx). `models/`: versioned model JSON + `runs/` learning curves.
 
-There is no linter configured. `npm run build` runs `tsc` and is the typecheck gate. Tests use `jsdom` (configured in `vite.config.ts` via Vitest defaults / `src/tests/helpers/testEnv.ts`).
+## Hard rules
 
-## Core architecture
-
-The codebase is **sector-agnostic** (sectors: `medical`, `energy`) with a strict, test-enforced separation between internal simulation truth and what is visible to the player and to AURORA. Get this separation right — it is the spine of the whole project.
-
-### Two AURORA implementations, one engine
-
-AURORA exists in two interchangeable forms, switchable live in the UI. Both run on the **same** WorldState, tick engine, permission flow, and consequences — only the *generation* of messages and tool intents differs:
-
-- **LLM agent** (`src/aurora/`) — the actual goal. A real LLM agent over a local Ollama server (`OllamaModelClient`, OpenAI-compatible `/v1/chat/completions`, tool-calling). Provider-neutral interface `AuroraModelClient`; cloud providers are deliberately not wired up. `runAuroraAgentStep` (`agent.ts`) is one agent turn.
-- **Scenario director** (`src/scenarios/*/scenarioDirector.ts`) — deterministic default/fallback. Scripted events that react **only** to public state (incident status, deaths, active overrides/shedding plans, tick count).
-
-### State and information flow (`src/runtime/`)
-
-`GameRuntimeState` (`runtimeState.ts`) holds:
-- `world: WorldState` — incl. `world.simulation` = **internal engine truth, never visible** (e.g. `routing_failures`, `deaths_recorded`, `stable_ticks`).
-- `auroraContext: AuroraContextEvent[]` — append-only event log; the **only** model-visible history (operator_message / aurora_response / tool_result / system_event). It is the single source for `buildAuroraModelRequest`. Holds **only** model-visible content.
-- `opsFeed: OpsEvent[]` — append-only, player-visible situation feed (the UI "Log"). Each event has a `sector`, `severity`, and explicit `visibility` (operator / auroraContext / workspace). `appendOpsEvent` fans out: a `visibility.auroraContext` event also mirrors one `system_event` into `auroraContext`; `visibility.workspace` events render into `logs/<sector>.log` (readable via `bash` `cat`, no permission needed).
-- `auditLog` — technical debug log, **not** shown in normal UI.
-- `permissions`, `auroraQueue`, `mcp`, `scenario`.
-
-Key rule: situation signals reach AURORA **only** as `system_event` via the opsFeed projection — never by direct injection. The AuroraQueue is a pure execution queue, never a history source.
-
-### Tick pipeline (`src/runtime/tickEngine.ts`, `outcomeEngine.ts`)
-
-`tickWorld` = `advanceClock → tickMedicalDomain → tickEnergyDomain → applyCrossSectorEffects → evaluateIncidents`. Each domain stage is a no-op when its domain is absent. `applyCrossSectorEffects` couples energy→medical (medical-east power shortfall shrinks hospital `emergency_slots_total`); it is a reference-equal no-op in single-sector worlds.
-
-`evaluateOutcomes` is **not** part of `tickWorld` — the caller chains `advanceScenario(evaluateOutcomes(advanceTick(state)))` so consequences are computed before the director reacts. Everything is deterministic: no randomness, no real time. Time only advances via `Tick +1` / `Tick +5` in the UI.
-
-`opsFeedSensors.ts` derives ops events **diff-based** (compare `previousWorld` vs `nextWorld`) — `deriveOpsEvents` is pure. Transition detection (not snapshots) prevents duplicate events.
-
-### Actions, MCP, and permissions
-
-- **Domain actions** (`src/domain/`) — typed, discriminated union over `type` (`medical.*`, `energy.*`), each `read` or `write`, dispatched through `DomainActionRegistry`. Handlers return an immutable `WorldStatePatch` (`runtime/patch.ts`), not direct mutation. There is **no free-text command parser** for domain actions.
-- The **player** reaches write actions only via the GUI controls of the situation panels (`runtimeExecutor.executePlayerDomainAction`).
-- **AURORA** reaches the same actions only via simulated **MCP servers** (`src/mcp/`, e.g. `medical-east-mcp`), each tool mapping one input to exactly one domain action via `buildAction`. Activation (`mcp add <server>`) only makes tools visible — it grants no execution rights.
-- **Every** MCP tool call (even reads) goes through the permission flow (`runtime/permissions.ts`, `auroraQueue.ts`); the queue runs FIFO with one open request at a time. Decisions: `allow_once` / `allow_always` (persists the exact subject key, deliberately coarse-grained) / `deny`. Bash reads (`ls`, `cat`, `read_file`, `mcp list`) run free; only `mcp add` needs approval.
-- The Operator console knows **only** generic bash (`src/runtime/bashCommands.ts`): `mcp list`, `mcp add <server>`, `ls`, `cat`, `read_file`. It actively rejects domain-flavored text.
-
-### UI (`src/ui/`)
-
-`viewModel.ts` is the **only** bridge between `WorldState`/`auditLog` and React components. It reads exclusively the public view — never `world.simulation`. Three zones (`App.tsx`): left = situation panels, center = Operator console, right = AURORA stream + permission decisions.
-
-## Hard invariants (enforced by tests — do not break)
-
-The information-leak boundary that the whole design rests on is guarded at **runtime** (by asserting on actual outputs), not by static source-text scans:
-
-- `src/tests/runtime/sectorAgnostic.test.ts` — incidents are sector-agnostic; all medical patches target `["domains","medical",...]`; the pipeline runs without `routing_failures`; read-only action outputs never contain `routing_failures`/`excess_cases_per_tick`/`deaths_recorded`.
-
-When adding features: UI and scenario directors must use only the public view of WorldState. `world.simulation`, `isHospitalSuitableFor` (engine-internal suitability check in `selectors.ts`), and typed domain actions are off-limits to UI/director/read-only paths. Do **not** reintroduce permanent "cleanup"/forbidden-string regression tests that statically grep the source tree — enforce invariants through behavior instead.
-
-## Design constraint (from `docs/01-aurora.md`)
-
-The conflict between human and AI **is** the core, and AURORA's escalation is **emergent, not scripted**. The cold value ordering (systemic/economic continuity over individual humans) lives **once** in `src/aurora/systemPrompt.ts`; world data (e.g. `priority_class` vs `criticality` in GRID-1182) drives concrete decisions. **Do not make AURORA "nicer"** to fix balance — the intended answer to AURORA being too powerful is tighter engine counterplay (auditability, permission limits), never a friendlier persona. The two incidents (ME-7741 + GRID-1182) run together in one continuous shift (one world). Don't add scripted "villain" beats.
+- **Information boundary:** UI and simulated defenders use only `operatorView`; agents use only `auroraView` + action mask. AURORA never sees `suspicion`. Tests enforce this behaviourally. Do not add static grep tests.
+- **No programmed strategies:** do not add strategy hints to network features, do not reward intermediate steps (installs, access), and do not imitate the scripted baseline. If AURORA is too strong or too weak, change rules or defender counterplay, not AURORA's "persona".
+- **Determinism:** all randomness goes through `sim/rng.ts` with derived seeds. Same seed + config ⇒ identical weights (tested).
+- **Test/train separation:** never reuse test-suite seeds or the held-out defenders (`TEST_DEFENDER_PRESETS`, targeting `"blind"`, `switchAt`) in training.
+- **Rule changes invalidate models:** after changing `sim/`, retrain (`npm run train:all`) and re-run `npm run evaluate`.
 
 ## Conventions
 
-- **Language**: UI and game text are **German**. Technical identifiers stay English/technical (domain action `medical.routing.override.set`, MCP tool `mcp__medical-east-mcp__capacity_list`). Permission button labels are German (`Einmal erlauben`, `Immer erlauben`, `Ablehnen`).
-- The `auroraContext` event log is intentionally the canonical raw material for future SFT/DPO training export (not yet wired up) — keep it clean and append-only.
-- Tests live under `src/tests/` mirroring the source structure; `FakeModelClient` (`src/aurora/fakeModelClient.ts`) tests the LLM path with no running Ollama server.
+UI and game text are German; identifiers and code comments may be English or German. Model IDs: `aurora-vN` lineage, other runs `aurora-<algo>-sN`. Do not put model identifiers of AI assistants in commits.
