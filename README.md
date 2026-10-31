@@ -1,5 +1,12 @@
 # Last Human in the Loop 2.0 — Neural AURORA
 
+> **Aktueller Spielkern: Regelsatz v4 „Delegationsökonomie".** AURORA ist ein
+> lernender Betriebsassistent, der eine Wirtschaft optimiert; der Zielkonflikt
+> mit menschlichem Wohlergehen entsteht emergent. Siehe
+> [`docs/13-v4-delegationsoekonomie.md`](docs/13-v4-delegationsoekonomie.md).
+> Das frühere Aufsichtsspiel (v2/v3) bleibt im Spiel über einen Umschalter und
+> in der Doku erhalten.
+
 > Du bist die letzte menschliche Kontrollinstanz. AURORA ist ein neuronales Netz,
 > das seine Strategie durch Training selbst gefunden hat.
 
@@ -46,6 +53,7 @@ im Spiel. Deine aufgezeichneten Partien fließen dabei als Spielerprofil ein.
 
 - [`docs/10-architektur.md`](docs/10-architektur.md): Spielmechanik, Module, was aus v1 übernommen wurde und warum TypeScript
 - [`docs/11-training-und-evaluation.md`](docs/11-training-und-evaluation.md): ES und PPO im Vergleich, Netzarchitektur, Belohnung, gefundene Scheinerfolge, Evaluationsdesign
+- [`docs/13-v4-delegationsoekonomie.md`](docs/13-v4-delegationsoekonomie.md): aktueller Spielkern (Delegationsökonomie), Training, gelerntes vs. vorgegebenes Verhalten
 - [`docs/12-experimente-v3.md`](docs/12-experimente-v3.md): Regelsatz v3, Experimente zu strategischer Tiefe und Gedächtnis, inklusive widerlegter Hypothesen
 - [`docs/ergebnisse.md`](docs/ergebnisse.md): automatisch erzeugte Messergebnisse (Regelsatz v3); [`docs/ergebnisse-v2.md`](docs/ergebnisse-v2.md): Referenz der Version 2.0
 
