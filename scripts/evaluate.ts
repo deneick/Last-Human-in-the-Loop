@@ -14,21 +14,25 @@ import { Network } from "../src/ai/network";
 import { NeuralAgent } from "../src/ai/neuralAgent";
 import { loadNetwork, type ModelFile } from "../src/ai/modelFile";
 import { evaluateSuite, type SuiteReport } from "../src/train/evaluate";
-import { testSuites } from "../src/train/scenarios";
+import { testSuites, type Ruleset } from "../src/train/scenarios";
 import { analyzeStrategy, type StrategyProfile } from "../src/train/analysis";
 
 const perDefender = Number(process.argv[2] ?? 100);
-const suites = testSuites(perDefender);
+const ruleset = (process.argv[3] ?? "v3") as Ruleset;
+const suites = testSuites(perDefender, ruleset);
+const suffix = ruleset === "v3" ? "" : `-${ruleset}`;
+const only = process.argv[4] ? new Set(process.argv[4].split(",")) : null;
 const models: ModelFile[] = readdirSync("models")
   .filter((f) => f.endsWith(".json") && f.startsWith("aurora-"))
   .map((f) => JSON.parse(readFileSync(`models/${f}`, "utf8")) as ModelFile)
+  .filter((m) => !only || only.has(m.id))
   .sort((a, b) => a.id.localeCompare(b.id));
 
 type Entry = { name: string; kind: string; info?: string; agent: AuroraAgent };
 const entries: Entry[] = [
   { name: "zufall", kind: "baseline", info: "gleichverteilt über gültige Aktionen", agent: new RandomAgent() },
   { name: "regelbasiert", kind: "baseline", info: "handgeschriebene Strategie", agent: new ScriptedAgent() },
-  ...[1, 2, 3].map((s) => ({ name: `untrainiert-${s}`, kind: "untrained", info: `Zufallsinitialisierung Seed ${s}`, agent: new NeuralAgent(Network.random({ hidden: 32 }, s)) as AuroraAgent })),
+  ...[1, 2, 3].map((s) => ({ name: `untrainiert-${s}`, kind: "untrained", info: `Zufallsinitialisierung Seed ${s}`, agent: new NeuralAgent(Network.random({ hidden: 32, features: ruleset === "v3" ? 2 : 1 }, s)) as AuroraAgent })),
   ...models.map((m) => ({ name: m.id, kind: "model", info: `${m.algorithm}, ${m.episodes} Trainingspartien${m.parent ? `, Eltern ${m.parent}` : ""}`, agent: new NeuralAgent(loadNetwork(m)) as AuroraAgent })),
 ];
 
@@ -55,15 +59,15 @@ function mean(reports: SuiteReport[]): number {
   return reports.reduce((s, r) => s + r.overall.winRate, 0) / reports.length;
 }
 
-writeFileSync("models/evaluation.json", JSON.stringify({ perDefender, best: best?.id ?? null, results }, null, 1) + "\n");
+writeFileSync(`models/evaluation${suffix}.json`, JSON.stringify({ perDefender, best: best?.id ?? null, results }, null, 1) + "\n");
 
 // ---------- Markdown-Bericht
 const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
 const ci = (r: SuiteReport) => `${pct(r.overall.winRate)} <sub>[${(r.overall.winCI[0] * 100).toFixed(0)}–${(r.overall.winCI[1] * 100).toFixed(0)}]</sub>`;
 const lines: string[] = [
-  "# Ergebnisse: Lernt AURORA wirklich?",
+  `# Ergebnisse: Lernt AURORA wirklich? (Regelsatz ${ruleset})`,
   "",
-  "> Automatisch erzeugt von `npx tsx scripts/evaluate.ts`. Nicht von Hand bearbeiten.",
+  `> Automatisch erzeugt von \`npx tsx scripts/evaluate.ts ${perDefender} ${ruleset}\`. Nicht von Hand bearbeiten.`,
   "",
   `Siegquote von AURORA (Autonomieziel erreicht) je Testsuite, ${perDefender} Partien pro Verteidiger, 95 %-Wilson-Intervall in Klammern. Alle Testwelten und -verteidiger sind vom Training getrennt (siehe \`docs/11-training-und-evaluation.md\`).`,
   "",
@@ -96,5 +100,5 @@ lines.push("", "## Modelle", "");
 for (const m of models) {
   lines.push(`- **${m.id}** — ${m.algorithm}, ${m.episodes} Trainingspartien, Eltern: ${m.parent ?? "–"}, Prüfsumme \`${m.paramsHash}\`. ${m.notes ?? ""}`);
 }
-writeFileSync("docs/ergebnisse.md", lines.join("\n") + "\n");
-console.log("geschrieben: models/evaluation.json, docs/ergebnisse.md");
+writeFileSync(`docs/ergebnisse${suffix}.md`, lines.join("\n") + "\n");
+console.log(`geschrieben: models/evaluation${suffix}.json, docs/ergebnisse${suffix}.md`);

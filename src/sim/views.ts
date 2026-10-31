@@ -96,6 +96,8 @@ export type AuroraNodeView = {
   powers: number;
   /** Automatisierung wurde in diesem Zug vom Operator entfernt. */
   removedNow: boolean;
+  /** Der Operator hat diesen Knoten in diesem Zug geprüft (nur bemerkbar, wo AURORA Zugriff/Prozess hatte). */
+  auditedNow: boolean;
 };
 
 export type AuroraView = {
@@ -127,6 +129,7 @@ export function auroraView(state: GameState): AuroraView {
   const known = state.nodes.filter((node) => node.scanned || node.access > 0 || isReachable(state, node.id));
   const knownIds = new Set(known.map((node) => node.id));
   const removed = new Set(state.signals.removedAt);
+  const audited = new Set(state.signals.auditedAt);
   const nodes: AuroraNodeView[] = known.map((node) => {
     const observed = node.scanned || node.access > 0;
     const links = node.links.filter(
@@ -158,6 +161,7 @@ export function auroraView(state: GameState): AuroraView {
       links,
       powers,
       removedNow: removed.has(node.id),
+      auditedNow: audited.has(node.id),
     };
   });
   return {

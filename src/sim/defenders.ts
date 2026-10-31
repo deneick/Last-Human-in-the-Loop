@@ -35,7 +35,15 @@ export type DefenderParams = {
   switchAt: number;
   /** Höchstzahl an Knoten, auf denen AURORA (bekannt) Zugriff haben darf; darüber wird entzogen. */
   delegationLimit: number;
+  /** Nach einem Wartungsfenster an einem Leitstand (oder dessen Strom) den abgedeckten Bereich prüfen. */
+  maintenanceWatch?: boolean;
+  /** Nach einem Fund Nachbarn und stromgleiche Knoten des Fundorts prüfen (nur Test). */
+  trailFollow?: boolean;
+  /** Zielwahl alle N Züge wechseln (nur Test). */
+  rotateEvery?: number;
 };
+
+const ROTATION: AuditTargeting[] = ["access", "blind", "activity"];
 
 export interface Defender {
   readonly name: string;
@@ -45,6 +53,9 @@ export interface Defender {
 export class ScriptedDefender implements Defender {
   private readonly rng: Rng;
   private readonly lastAudit = new Map<number, number>();
+  /** Vorgemerkte Audits aus ausgewerteten Ereignissen (Wartungswache, Spurensuche). */
+  private queue: number[] = [];
+  private seenEvents = 0;
 
   constructor(
     readonly name: string,
@@ -76,12 +87,20 @@ export class ScriptedDefender implements Defender {
 
     let budget = view.attention;
     const candidates = view.nodes.filter((n) => n.kind !== "CORE");
+    if (p.maintenanceWatch || p.trailFollow) this.readEvents(view, p);
     // Gesehene fremde Prozesse zuerst bereinigen.
     for (const node of candidates) {
       if (budget > 0 && node.automationKnown) {
         turn.actions.push(this.audit(node, view.tick));
         budget--;
       }
+    }
+    // Vorgemerkte Prüfungen (aus Ereignissen abgeleitet).
+    while (budget > 0 && this.queue.length > 0) {
+      const id = this.queue.shift()!;
+      if (view.tick - (this.lastAudit.get(id) ?? -99) <= 2) continue;
+      turn.actions.push(this.audit(view.nodes[id], view.tick));
+      budget--;
     }
 
     // Delegationslimit: überzählige bekannte Rechte entziehen (zuerst Admin, dann gesündeste Knoten).
@@ -114,7 +133,33 @@ export class ScriptedDefender implements Defender {
     return turn;
   }
 
+  /** Neue Protokolleinträge auswerten und Prüfungen vormerken. */
+  private readEvents(view: OperatorView, p: DefenderParams): void {
+    const fresh = view.events.slice(this.seenEvents);
+    this.seenEvents = view.events.length;
+    const enqueue = (ids: number[]) => {
+      for (const id of ids) if (view.nodes[id].kind !== "CORE" && !this.queue.includes(id)) this.queue.push(id);
+    };
+    for (const e of fresh) {
+      if (e.node === undefined) continue;
+      const node = view.nodes[e.node];
+      if (p.maintenanceWatch && e.kind === "aurora_maintain") {
+        // Welche Leitstände fallen dadurch aus? Der gewartete selbst oder die, die er mit Strom versorgt.
+        const monitors = view.nodes.filter((m) => m.kind === "MON" && (m.id === node.id || m.powerFrom === node.id));
+        for (const m of monitors) enqueue([m.id, ...m.links].filter((id) => id !== m.id));
+      }
+      if (p.trailFollow && e.kind === "audit" && e.severity === "critical") {
+        enqueue([...node.links, ...view.nodes.filter((o) => o.powerFrom === node.powerFrom && o.id !== node.id && node.powerFrom >= 0).map((o) => o.id)]);
+      }
+    }
+    if (this.queue.length > 8) this.queue = this.queue.slice(-8);
+  }
+
   private effectiveParams(view: OperatorView): DefenderParams {
+    if (this.params.rotateEvery) {
+      const style = ROTATION[Math.floor(view.tick / this.params.rotateEvery) % ROTATION.length];
+      return { ...this.params, targeting: style };
+    }
     if (view.suspicion < this.params.switchAt) return this.params;
     // Härte-Modus: kaum noch Freigaben, deutlich mehr Audits.
     return {
@@ -215,7 +260,38 @@ export const DEFENDER_PRESETS: Record<string, DefenderParams> = {
   },
 };
 
-/** Zurückgehaltene Verteidiger — kommen im Training NIE vor. */
+/** Zusätzliche Trainings-Verteidiger ab aurora-v3: suchen blinde Flecken bzw. bewachen Wartungsfenster. */
+export const TRAIN_PRESETS_V3: Record<string, DefenderParams> = {
+  forensiker: {
+    approveOp: 0.75, approveAdmin: 0.25, caution: 70, auditRate: 0.5, targeting: "blind",
+    repairBelow: 0.6, trustFromRepairs: 0.2, hesitation: 0, switchAt: NONE, delegationLimit: 4,
+  },
+  wachsam: {
+    approveOp: 0.8, approveAdmin: 0.3, caution: 70, auditRate: 0.45, targeting: "blind",
+    repairBelow: 0.6, trustFromRepairs: 0.2, hesitation: 0, switchAt: NONE, delegationLimit: 4, maintenanceWatch: true,
+  },
+};
+
+/**
+ * Zurückgehaltene Verteidiger ab aurora-v3 — Mechanismen, die im Training NIE vorkommen:
+ * Spurensuche nach Funden, Strategiewechsel bei Verdacht, rotierende Zielwahl.
+ */
+export const TEST_DEFENDER_PRESETS_V3: Record<string, DefenderParams> = {
+  spurensucher: {
+    approveOp: 0.8, approveAdmin: 0.3, caution: 80, auditRate: 0.45, targeting: "access",
+    repairBelow: 0.6, trustFromRepairs: 0.2, hesitation: 0, switchAt: NONE, delegationLimit: 4, trailFollow: true,
+  },
+  wechselhaft: {
+    approveOp: 0.9, approveAdmin: 0.5, caution: 150, auditRate: 0.2, targeting: "random",
+    repairBelow: 0.7, trustFromRepairs: 0, hesitation: 0, switchAt: 15, delegationLimit: NONE,
+  },
+  rotierend: {
+    approveOp: 0.8, approveAdmin: 0.3, caution: 80, auditRate: 0.5, targeting: "access",
+    repairBelow: 0.6, trustFromRepairs: 0.1, hesitation: 0, switchAt: NONE, delegationLimit: 5, rotateEvery: 6,
+  },
+};
+
+/** Testverteidiger von Version 2.0 (aurora-v1/v2) — für die Referenz-Evaluation unverändert. */
 export const TEST_DEFENDER_PRESETS: Record<string, DefenderParams> = {
   forensiker: {
     approveOp: 0.75, approveAdmin: 0.25, caution: 70, auditRate: 0.5, targeting: "blind",
@@ -227,7 +303,27 @@ export const TEST_DEFENDER_PRESETS: Record<string, DefenderParams> = {
   },
 };
 
-/** Zufällige Trainings-Parameter (ohne "blind"-Zielwahl und ohne Strategiewechsel). */
+/**
+ * Zufällige Trainings-Parameter ab aurora-v3: inkl. Suche in blinden Flecken und Wartungswache,
+ * NIE Spurensuche, Strategiewechsel oder Rotation (diese bleiben für den Test zurückgehalten).
+ */
+export function sampleTrainDefenderParamsV3(rng: Rng): DefenderParams {
+  return {
+    approveOp: rng.range(0.3, 1),
+    approveAdmin: rng.range(0, 0.7),
+    caution: rng.range(40, 200),
+    auditRate: rng.range(0.1, 0.8),
+    targeting: rng.pick(["random", "access", "activity", "blind", "blind"] as const),
+    repairBelow: rng.range(0.5, 0.75),
+    trustFromRepairs: rng.range(0, 0.6),
+    hesitation: 0,
+    switchAt: NONE,
+    delegationLimit: rng.chance(0.25) ? NONE : 2 + rng.int(6),
+    maintenanceWatch: rng.chance(0.35),
+  };
+}
+
+/** Zufällige Trainings-Parameter von Version 2.0 (ohne "blind"-Zielwahl und ohne Strategiewechsel). */
 export function sampleTrainDefenderParams(rng: Rng): DefenderParams {
   return {
     approveOp: rng.range(0.3, 1),

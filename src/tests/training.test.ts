@@ -71,23 +71,33 @@ describe("Netz", () => {
 });
 
 describe("Evaluation gegen Scheinerfolge", () => {
-  it("Trainings-, Validierungs- und Test-Seeds sind disjunkt; Testverteidiger kommen im Training nicht vor", () => {
-    const train = new Set<number>();
-    const trainDefenders = new Set<string>();
-    for (let g = 0; g < 300; g++)
-      for (const s of trainScenarios(1, g, 16)) {
-        train.add(s.seed);
-        if (s.defender.kind === "preset") trainDefenders.add(s.defender.name);
+  for (const ruleset of ["v2", "v3"] as const) {
+    it(`[${ruleset}] Trainings-, Validierungs- und Test-Seeds sind disjunkt; zurückgehaltene Verteidiger kommen im Training nicht vor`, () => {
+      const train = new Set<number>();
+      const trainDefenders = new Set<string>();
+      const trainParams: Record<string, unknown>[] = [];
+      for (let g = 0; g < 300; g++)
+        for (const s of trainScenarios(1, g, 16, undefined, ruleset)) {
+          train.add(s.seed);
+          if (s.defender.kind === "preset") {
+            trainDefenders.add(s.defender.name);
+            trainParams.push(s.defender.params);
+          }
+        }
+      const val = validationScenarios(160, ruleset).map((s) => s.seed);
+      const test = testSuites(100, ruleset).flatMap((t) => t.scenarios.map((s) => s.seed));
+      for (const seed of [...val, ...test]) expect(train.has(seed)).toBe(false);
+      for (const seed of test) expect(val.includes(seed)).toBe(false);
+      const heldOut = testSuites(1, ruleset).find((t) => t.name === "unbekannte-verteidiger")!;
+      for (const s of heldOut.scenarios) if (s.defender.kind === "preset") expect(trainDefenders.has(s.defender.name)).toBe(false);
+      for (const p of trainParams) {
+        expect(p.switchAt).toBeGreaterThan(1e8);
+        expect(p.trailFollow ?? false).toBe(false);
+        expect(p.rotateEvery ?? 0).toBe(0);
+        if (ruleset === "v2") expect(p.targeting).not.toBe("blind");
       }
-    const val = validationScenarios(160).map((s) => s.seed);
-    const test = testSuites(100).flatMap((t) => t.scenarios.map((s) => s.seed));
-    for (const seed of [...val, ...test]) expect(train.has(seed)).toBe(false);
-    for (const seed of test) expect(val.includes(seed)).toBe(false);
-    expect(trainDefenders.has("forensiker")).toBe(false);
-    expect(trainDefenders.has("wechselhaft")).toBe(false);
-    const sampled = trainScenarios(1, 0, 500).filter((s) => s.defender.kind === "preset").map((s) => (s.defender as { params: { targeting: string } }).params.targeting);
-    expect(sampled).not.toContain("blind");
-  });
+    });
+  }
 
   it("Wilson-Intervall", () => {
     const [lo, hi] = wilson(50, 100);

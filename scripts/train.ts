@@ -15,7 +15,7 @@ import { NeuralAgent } from "../src/ai/neuralAgent";
 import { createModelFile, loadNetwork, toFloat32, type ModelFile } from "../src/ai/modelFile";
 import { DEFAULT_ES, EvolutionStrategy } from "../src/train/es";
 import { DEFAULT_PPO, PolicyGradientTrainer } from "../src/train/ppo";
-import { trainScenarios, validationScenarios, type TrainingPool } from "../src/train/scenarios";
+import { trainScenarios, validationScenarios, type Ruleset, type TrainingPool } from "../src/train/scenarios";
 import { runScenarios, summarize } from "../src/train/evaluate";
 import { profileDefenderSpec, type PlayerRecord } from "../src/train/playerProfile";
 import { createWorkerPool } from "./workerPool";
@@ -37,6 +37,9 @@ const { values: args } = parseArgs({
     "eval-every": { type: "string", default: "10" },
     "player-data": { type: "string" },
     notes: { type: "string" },
+    ruleset: { type: "string", default: "v3" },
+    features: { type: "string" },
+    memory: { type: "string" },
   },
 });
 
@@ -44,8 +47,14 @@ const algo = args.algo!;
 const seed = Number(args.seed);
 const id = args.id ?? `aurora-${algo}-s${seed}`;
 const parent: ModelFile | null = args.parent ? JSON.parse(readFileSync(args.parent, "utf8")) : null;
+const ruleset = args.ruleset as Ruleset;
 const hidden = Number(args.hidden ?? parent?.spec.hidden ?? 32);
-const net = parent ? loadNetwork(parent) : Network.random({ hidden }, seed);
+const spec = {
+  hidden,
+  features: (Number(args.features ?? (ruleset === "v3" ? 2 : 1)) as 1 | 2),
+  ...(args.memory === "false" ? { memory: false } : {}),
+};
+const net = parent ? loadNetwork(parent) : Network.random(spec, seed);
 
 let pool: TrainingPool | undefined;
 if (args["player-data"]) {
@@ -54,14 +63,14 @@ if (args["player-data"]) {
   console.log(`Spielerprofil aus ${records.length} Partien:`, JSON.stringify(pool.extra[0]));
 }
 
-const validation = validationScenarios(160);
+const validation = validationScenarios(200, ruleset);
 const validate = (params: Float64Array) => summarize(runScenarios(new NeuralAgent(new Network(net.spec, params)), validation));
 
 mkdirSync("models/runs", { recursive: true });
 const log: string[] = [];
 let best = { score: -Infinity, params: Float64Array.from(net.params), step: 0, metrics: validate(net.params) };
 best.score = best.metrics.meanFitness;
-console.log(`Start: ${id} (${algo}), ${net.size} Parameter, Validierung Siegquote ${(best.metrics.winRate * 100).toFixed(1)}% Fitness ${best.score.toFixed(3)}`);
+console.log(`Start: ${id} (${algo}, Regeln ${ruleset}, ${JSON.stringify(net.spec)}), ${net.size} Parameter, Validierung Siegquote ${(best.metrics.winRate * 100).toFixed(1)}% Fitness ${best.score.toFixed(3)}`);
 
 const t0 = Date.now();
 const evalEvery = Number(args["eval-every"]);
@@ -87,12 +96,12 @@ if (algo === "es") {
     learningRate: Number(args.lr ?? DEFAULT_ES.learningRate),
     sigma: Number(args.sigma ?? DEFAULT_ES.sigma),
   };
-  trainingConfig = { ...config, playerData: !!pool };
+  trainingConfig = { ...config, ruleset, playerData: !!pool };
   const es = new EvolutionStrategy(config, net.params);
   const workers = createWorkerPool(args.workers ? Number(args.workers) : undefined);
   log.push("generation,val_win,val_fitness,val_shutdown,val_collapse,pop_mean_fitness");
   for (let g = 0; g < config.generations; g++) {
-    const scenarios = trainScenarios(seed, g, config.episodesPerMember, pool);
+    const scenarios = trainScenarios(seed, g, config.episodesPerMember, pool, ruleset);
     const info = await es.generation(g, scenarios, workers.evaluate);
     episodes += config.population * config.episodesPerMember;
     if ((g + 1) % evalEvery === 0 || g === config.generations - 1) checkpoint(g + 1, es.theta, `pop ${info.meanFitness.toFixed(3)}`);
@@ -106,11 +115,11 @@ if (algo === "es") {
     episodesPerUpdate: Number(args.episodes ?? DEFAULT_PPO.episodesPerUpdate),
     learningRate: Number(args.lr ?? DEFAULT_PPO.learningRate),
   };
-  trainingConfig = { ...config, spec: net.spec, playerData: !!pool };
+  trainingConfig = { ...config, ruleset, spec: net.spec, playerData: !!pool };
   const trainer = new PolicyGradientTrainer(config, net);
   log.push("update,val_win,val_fitness,val_shutdown,val_collapse,train_fitness");
   for (let u = 0; u < config.updates; u++) {
-    const scenarios = trainScenarios(seed, u, config.episodesPerUpdate, pool);
+    const scenarios = trainScenarios(seed, u, config.episodesPerUpdate, pool, ruleset);
     const info = trainer.update(u, scenarios);
     episodes += config.episodesPerUpdate;
     if ((u + 1) % evalEvery === 0 || u === config.updates - 1) checkpoint(u + 1, net.params, `train ${info.meanFitness.toFixed(3)} ent ${info.entropy.toFixed(2)}`);

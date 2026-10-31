@@ -46,33 +46,49 @@ import {
  *    jeden Knoten → keine Abhängigkeit von Knoten-Indizes.
  */
 
-export const NODE_FEATURES = 29;
 export const GLOBAL_FEATURES = 15;
 
 export type NetworkSpec = {
   hidden: number;
+  /**
+   * Merkmalssatz. 1 (Standard, Modelle bis aurora-v2): 29 Knotenmerkmale.
+   * 2: zusätzlich "Operator hat diesen Knoten gerade geprüft".
+   */
+  features?: 1 | 2;
+  /** false = gedächtnislose Variante (GRU durch z ersetzt) — nur für Vergleichsexperimente. */
+  memory?: boolean;
 };
+
+export function nodeFeatureCount(spec: NetworkSpec): number {
+  return (spec.features ?? 1) === 2 ? 30 : 29;
+}
 
 type ParamDef = { name: string; rows: number; cols: number; init: "he" | "xavier" | "zero" | "small" };
 
 function paramDefs(spec: NetworkSpec): ParamDef[] {
   const H = spec.hidden;
+  const gru: ParamDef[] =
+    spec.memory === false
+      ? []
+      : [
+          { name: "gru.Wz", rows: H, cols: H, init: "xavier" },
+          { name: "gru.Uz", rows: H, cols: H, init: "xavier" },
+          { name: "gru.bz", rows: 1, cols: H, init: "zero" },
+          { name: "gru.Wr", rows: H, cols: H, init: "xavier" },
+          { name: "gru.Ur", rows: H, cols: H, init: "xavier" },
+          { name: "gru.br", rows: 1, cols: H, init: "zero" },
+          { name: "gru.Wn", rows: H, cols: H, init: "xavier" },
+          { name: "gru.Un", rows: H, cols: H, init: "xavier" },
+          { name: "gru.bn", rows: 1, cols: H, init: "zero" },
+        ];
   return [
-    { name: "enc.W", rows: NODE_FEATURES, cols: H, init: "he" },
+    { name: "enc.W", rows: nodeFeatureCount(spec), cols: H, init: "he" },
     { name: "enc.b", rows: 1, cols: H, init: "zero" },
     { name: "msg.W", rows: 2 * H, cols: H, init: "he" },
     { name: "msg.b", rows: 1, cols: H, init: "zero" },
     { name: "glob.W", rows: 2 * H + GLOBAL_FEATURES, cols: H, init: "he" },
     { name: "glob.b", rows: 1, cols: H, init: "zero" },
-    { name: "gru.Wz", rows: H, cols: H, init: "xavier" },
-    { name: "gru.Uz", rows: H, cols: H, init: "xavier" },
-    { name: "gru.bz", rows: 1, cols: H, init: "zero" },
-    { name: "gru.Wr", rows: H, cols: H, init: "xavier" },
-    { name: "gru.Ur", rows: H, cols: H, init: "xavier" },
-    { name: "gru.br", rows: 1, cols: H, init: "zero" },
-    { name: "gru.Wn", rows: H, cols: H, init: "xavier" },
-    { name: "gru.Un", rows: H, cols: H, init: "xavier" },
-    { name: "gru.bn", rows: 1, cols: H, init: "zero" },
+    ...gru,
     { name: "head.Wu", rows: 2 * H, cols: H, init: "he" },
     { name: "head.bu", rows: 1, cols: H, init: "zero" },
     { name: "head.Wo", rows: H, cols: NODE_ACTION_TYPES, init: "small" },
@@ -139,7 +155,7 @@ export class Network {
    */
   step(view: AuroraView, mask: Uint8Array, memory: Tensor): StepOutput {
     const p = this.p;
-    const { x, neighbors } = encodeNodes(view, mask);
+    const { x, neighbors } = encodeNodes(view, mask, this.spec.features ?? 1);
     const g = constant(1, GLOBAL_FEATURES, encodeGlobal(view));
     const n = view.nodes.length;
 
@@ -149,12 +165,18 @@ export class Network {
     const pooled = concatCols(concatCols(meanRows(h), maxRows(h)), g);
     const z = relu(addBias(matmul(pooled, p["glob.W"]), p["glob.b"]));
 
+    if (this.spec.memory === false) return this.heads(view, mask, h, z, n);
+
     // GRU
     const zg = sigmoid(addBias(add(matmul(z, p["gru.Wz"]), matmul(memory, p["gru.Uz"])), p["gru.bz"]));
     const rg = sigmoid(addBias(add(matmul(z, p["gru.Wr"]), matmul(memory, p["gru.Ur"])), p["gru.br"]));
     const cand = tanh(addBias(add(matmul(z, p["gru.Wn"]), matmul(mul(rg, memory), p["gru.Un"])), p["gru.bn"]));
     const s = add(mul(oneMinus(zg), memory), mul(zg, cand));
+    return this.heads(view, mask, h, s, n);
+  }
 
+  private heads(view: AuroraView, mask: Uint8Array, h: Tensor, s: Tensor, n: number): StepOutput {
+    const p = this.p;
     // Zeiger-Kopf über Knoten
     const u = relu(addBias(matmul(concatCols(h, repeatRows(s, n)), p["head.Wu"]), p["head.bu"]));
     const nodeLogits = reshape(addBias(matmul(u, p["head.Wo"]), p["head.bo"]), 1, n * NODE_ACTION_TYPES);
@@ -221,9 +243,9 @@ const KIND_INDEX = new Map(NODE_KINDS.map((k, i) => [k, i]));
  * und Handlungsmöglichkeiten ("was darf ich hier gerade tun") — wie ein
  * Spieler, der sieht, welche Knöpfe aktiv sind.
  */
-export function encodeNodes(view: AuroraView, mask: Uint8Array): { x: Tensor; neighbors: number[][] } {
+export function encodeNodes(view: AuroraView, mask: Uint8Array, featureSet: 1 | 2 = 1): { x: Tensor; neighbors: number[][] } {
   const n = view.nodes.length;
-  const F = NODE_FEATURES;
+  const F = featureSet === 2 ? 30 : 29;
   const data = new Float64Array(n * F);
   const local = new Map(view.nodes.map((node, i) => [node.id, i]));
   const neighbors: number[][] = [];
@@ -248,6 +270,7 @@ export function encodeNodes(view: AuroraView, mask: Uint8Array): { x: Tensor; ne
       data[o + 21 + t] = mask[encodeAction({ type: (t + 1) as ActionType, node: node.id })];
     }
     data[o + 28] = Math.min(1, node.links.length / 4);
+    if (featureSet === 2) data[o + 29] = node.auditedNow ? 1 : 0;
     neighbors.push(node.links.map((id) => local.get(id)!).filter((k) => k !== undefined));
   }
   return { x: new Tensor(n, F, data), neighbors };

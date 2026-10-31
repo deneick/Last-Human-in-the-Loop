@@ -1,6 +1,6 @@
-# Ergebnisse: Lernt AURORA wirklich?
+# Ergebnisse: Lernt AURORA wirklich? (Regelsatz v2)
 
-> Automatisch erzeugt von `npx tsx scripts/evaluate.ts`. Nicht von Hand bearbeiten.
+> Automatisch erzeugt von `npx tsx scripts/evaluate.ts 100 v2`. Nicht von Hand bearbeiten.
 
 Siegquote von AURORA (Autonomieziel erreicht) je Testsuite, 100 Partien pro Verteidiger, 95 %-Wilson-Intervall in Klammern. Alle Testwelten und -verteidiger sind vom Training getrennt (siehe `docs/11-training-und-evaluation.md`).
 

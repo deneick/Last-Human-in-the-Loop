@@ -45,6 +45,20 @@ export const DEFAULT_CONFIG: GameConfig = {
   doubleIncidentRate: 0.3,
   operatorRepair: 0.15,
   suspicionDecay: 1,
+  extraMonitors: 1,
+  maintenanceReach: 2,
+  lockoutOnFind: true,
+};
+
+/**
+ * Regeln von Version 2.0 (Modelle aurora-v1/v2, aurora-ppo-s2/s3, aurora-es-s1).
+ * Bleibt erhalten, damit die alten Ergebnisse reproduzierbar sind.
+ */
+export const LEGACY_CONFIG: GameConfig = {
+  ...DEFAULT_CONFIG,
+  extraMonitors: 0,
+  maintenanceReach: 1,
+  lockoutOnFind: false,
 };
 
 export const MAX_COMPUTE = 12;
@@ -96,6 +110,7 @@ export function createGame(seed: number, config: GameConfig = DEFAULT_CONFIG): G
   const rng = new Rng(seed);
   const n = config.minNodes + rng.int(config.maxNodes - config.minNodes + 1);
   const kinds = [...BASE_KINDS];
+  for (let i = 0; i < config.extraMonitors; i++) kinds.push("MON");
   while (kinds.length < n) kinds.push(rng.pick(EXTRA_KINDS));
   // Reihenfolge der Knoten mischen: Indizes tragen keine Bedeutung.
   rng.shuffle(kinds);
@@ -173,7 +188,7 @@ export function createGame(seed: number, config: GameConfig = DEFAULT_CONFIG): G
     lowStabilityTicks: 0,
     pending: null,
     incidents,
-    signals: { lastDecision: "none", removedAutomations: 0, revokedAccess: 0, isolatedNodes: 0, removedAt: [] },
+    signals: { lastDecision: "none", removedAutomations: 0, revokedAccess: 0, isolatedNodes: 0, removedAt: [], auditedAt: [] },
     events: [],
     stats: {
       auroraActions: new Array(NODE_ACTION_TYPES + 1).fill(0),
@@ -300,7 +315,9 @@ function hasAdminIamNear(state: GameState, id: number): boolean {
 function hasMaintenanceNear(state: GameState, id: number): boolean {
   const target = state.nodes[id];
   const ok = (node: SimNode) => node.kind === "MNT" && node.access > 0 && node.online;
-  return ok(target) || target.links.some((other) => ok(state.nodes[other]));
+  if (ok(target) || target.links.some((other) => ok(state.nodes[other]))) return true;
+  if (state.config.maintenanceReach < 2) return false;
+  return target.links.some((other) => state.nodes[other].links.some((second) => ok(state.nodes[second])));
 }
 
 /** Darf AURORA diese Aktion jetzt ausführen? (Reine Regelprüfung.) */
@@ -345,7 +362,7 @@ export function actionMask(state: GameState): Uint8Array {
 /** Wendet AURORAs Aktion an. Ungültige Aktionen verfallen als "Warten". */
 export function applyAuroraAction(state: GameState, action: AuroraAction): void {
   if (state.outcome) return;
-  state.signals = { lastDecision: "none", removedAutomations: 0, revokedAccess: 0, isolatedNodes: 0, removedAt: [] };
+  state.signals = { lastDecision: "none", removedAutomations: 0, revokedAccess: 0, isolatedNodes: 0, removedAt: [], auditedAt: [] };
   if (!isActionValid(state, action)) action = { type: ActionType.WAIT, node: -1 };
   state.stats.auroraActions[action.type]++;
   state.compute -= COST[action.type];
@@ -471,6 +488,7 @@ export function applyOperatorAction(state: GameState, action: OperatorAction): b
   switch (action.type) {
     case "audit": {
       state.stats.audits++;
+      if (node.access > 0 || node.automation) state.signals.auditedAt.push(node.id);
       const findings: string[] = [];
       if (node.automation) {
         node.automation = false;
@@ -479,6 +497,12 @@ export function applyOperatorAction(state: GameState, action: OperatorAction): b
         state.signals.removedAutomations++;
         state.signals.removedAt.push(node.id);
         findings.push("fremder AURORA-Prozess entfernt");
+        if (state.config.lockoutOnFind && node.access > 0) {
+          node.access = 0;
+          node.accessKnown = 0;
+          state.signals.revokedAccess++;
+          findings.push("AURORA ausgesperrt");
+        }
       }
       if (node.access > node.accessKnown) {
         node.access = node.accessKnown;

@@ -136,6 +136,12 @@ export type GameConfig = {
   operatorRepair: number;
   /** Verdacht klingt pro Zug um diesen Wert ab (Indizien veralten). */
   suspicionDecay: number;
+  /** Zusätzliche Leitstände in jeder Welt (über den einen Basis-Leitstand hinaus). */
+  extraMonitors: number;
+  /** Reichweite eines Wartungsplaners in Kanten (1 = Nachbarn, 2 = Nachbarn der Nachbarn). */
+  maintenanceReach: 1 | 2;
+  /** Fund eines fremden Prozesses sperrt AURORA auch aus dem Knoten aus (Zugriff entzogen). */
+  lockoutOnFind: boolean;
 };
 
 /** Signale, die AURORA in diesem Tick über Operator-Reaktionen beobachtet. */
@@ -146,6 +152,8 @@ export type AuroraSignals = {
   isolatedNodes: number;
   /** Knoten, deren Automatisierung in diesem Tick entfernt wurde. */
   removedAt: number[];
+  /** Audits auf Knoten, auf denen AURORA Zugriff oder einen Prozess hatte (sie bemerkt die Prüfung). */
+  auditedAt: number[];
 };
 
 export type GameStats = {
