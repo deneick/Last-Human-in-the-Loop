@@ -23,7 +23,7 @@ const suites = testSuites(perDefender, ruleset);
 const suffix = ruleset === "v3" ? "" : `-${ruleset}`;
 const only = process.argv[4] ? new Set(process.argv[4].split(",")) : null;
 const models: ModelFile[] = readdirSync("models")
-  .filter((f) => f.endsWith(".json") && f.startsWith("aurora-"))
+  .filter((f) => f.endsWith(".json") && (f.startsWith("aurora-") || f.startsWith("exp-")))
   .map((f) => JSON.parse(readFileSync(`models/${f}`, "utf8")) as ModelFile)
   .filter((m) => !only || only.has(m.id))
   .sort((a, b) => a.id.localeCompare(b.id));
