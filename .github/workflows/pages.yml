@@ -27,6 +27,10 @@ jobs:
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
+        with:
+          # Aktiviert GitHub Pages (Quelle: GitHub Actions) automatisch, falls
+          # noch nicht geschehen. Benötigt die unten gesetzte pages:write-Rechte.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
