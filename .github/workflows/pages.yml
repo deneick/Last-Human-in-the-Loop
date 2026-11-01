@@ -1,8 +1,9 @@
 # Veröffentlicht das Spiel auf GitHub Pages (Repo-Einstellungen → Pages → Source: GitHub Actions).
+# Deployt vom Arbeitsbranch v2-neural-aurora (kein Merge nach main nötig).
 name: Pages
 on:
   push:
-    branches: [main]
+    branches: [v2-neural-aurora, main]
   workflow_dispatch:
 permissions:
   contents: read
