@@ -26,11 +26,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Voraussetzung (einmalig von Hand): Repo-Einstellungen → Pages →
+      # Build and deployment → Source: "GitHub Actions". Der GITHUB_TOKEN darf
+      # Pages nicht selbst erstmalig aktivieren.
       - uses: actions/configure-pages@v5
-        with:
-          # Aktiviert GitHub Pages (Quelle: GitHub Actions) automatisch, falls
-          # noch nicht geschehen. Benötigt die unten gesetzte pages:write-Rechte.
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
